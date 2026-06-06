@@ -44,15 +44,24 @@ function getMarketPrice(basePrice, itemName) {
 let handler = async (m, { conn, args, usedPrefix, command }) => {
     let user = global.db.data.users[m.sender];
     
-    // Inisialisasi Database
+    // Inisialisasi Database Utama
     if (!user.tanah) user.tanah = 0;
     if (!user.money) user.money = 0;
+    if (!user.tiketcoin) user.tiketcoin = 0;
+    
+    // Inisialisasi item hasil panen dan bibit secara dinamis
     for (let item in marketItems) {
-        if (!user[item]) user[item] = 0;
+        if (item !== 'tanah') {
+            if (!user[item]) user[item] = 0;
+            if (!user['bibit' + item]) user['bibit' + item] = 0;
+        }
     }
 
     let cmd = command.toLowerCase();
     let action = args[0] ? args[0].toLowerCase() : '';
+
+    // Ambil daftar semua tanaman (kecuali properti tanah)
+    let plantables = Object.keys(marketItems).filter(i => i !== 'tanah');
 
     // ==========================================
     // MENU GUDANG (CEK PERSEDIAAN BIBIT & PANEN)
@@ -64,15 +73,13 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         text += `💵 Uang: Rp ${user.money.toLocaleString('id-ID')}\n\n`;
         
         text += `*🌱 PERSEDIAAN BIBIT:*\n`;
-        text += `🍎 Apel: ${user.bibitapel || 0}\n`;
-        text += `🍇 Anggur: ${user.bibitanggur || 0}\n`;
-        text += `🥭 Mangga: ${user.bibitmangga || 0}\n`;
-        text += `🍌 Pisang: ${user.bibitpisang || 0}\n`;
-        text += `🍊 Jeruk: ${user.bibitjeruk || 0}\n\n`;
+        for (let item of plantables) {
+            text += `${marketItems[item].icon} ${marketItems[item].name}: ${user['bibit' + item] || 0}\n`;
+        }
+        text += `\n`;
 
         text += `*🧺 HASIL PANEN SIAP JUAL:*\n`;
-        for (let item in marketItems) {
-            if (item === 'tanah') continue;
+        for (let item of plantables) {
             let amount = user[item] || 0;
             text += `${marketItems[item].icon} ${marketItems[item].name}: ${amount}\n`;
         }
@@ -88,8 +95,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         let text = `📈 *PASAR PERTANIAN GLOBAL* 📉\n_Harga berfluktuasi setiap jam!_\n\n*🏢 PROPERTI:*\n`;
         text += `🗺️ Tanah: Rp ${getMarketPrice(marketItems.tanah.base, 'tanah').toLocaleString('id-ID')} / Hektar\n\n*🧺 HARGA PANEN SAAT INI:*\n`;
         
-        for (let item in marketItems) {
-            if (item === 'tanah') continue;
+        for (let item of plantables) {
             let currentPrice = getMarketPrice(marketItems[item].base, item);
             let trend = currentPrice > marketItems[item].base ? '📈' : '📉';
             text += `${marketItems[item].icon} ${marketItems[item].name}: Rp ${currentPrice.toLocaleString('id-ID')} ${trend}\n`;
@@ -158,18 +164,20 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             return m.reply(`⏳ *Lahan sedang dipulihkan!*\nMohon tunggu ${msToTime(time - new Date())} lagi untuk menanam kembali.`);
         }
 
-        // Kalkulasi Kebutuhan Bibit
-        let totalBibitPerJenis = Math.floor((user.tanah * 77) / 5);
+        // Kalkulasi Kebutuhan Bibit Dinamis Sesuai Jumlah Jenis Tanaman
+        let totalBibitPerJenis = Math.floor((user.tanah * 77) / plantables.length);
         let totalKapasitas = user.tanah * 77;
 
-        let apelu = user.bibitapel || 0;
-        let angguru = user.bibitanggur || 0;
-        let manggau = user.bibitmangga || 0;
-        let pisangu = user.bibitpisang || 0;
-        let jeruku = user.bibitjeruk || 0;
+        // Cek kekurangan seluruh tipe bibit
+        let kurangBibit = [];
+        for (let item of plantables) {
+            if ((user['bibit' + item] || 0) < totalBibitPerJenis) {
+                kurangBibit.push(marketItems[item].name);
+            }
+        }
 
-        if (apelu < totalBibitPerJenis || angguru < totalBibitPerJenis || manggau < totalBibitPerJenis || pisangu < totalBibitPerJenis || jeruku < totalBibitPerJenis) {
-            return m.reply(`❌ *Bibit Tidak Cukup!*\nKamu membutuhkan masing-masing *${totalBibitPerJenis} bibit* untuk mengisi penuh ${user.tanah} Hektar lahanmu.\n\nKetik *${usedPrefix}gudang* untuk melihat sisa bibitmu.`);
+        if (kurangBibit.length > 0) {
+            return m.reply(`❌ *Bibit Tidak Cukup!*\nKamu membutuhkan masing-masing *${totalBibitPerJenis} bibit* dari setiap jenis untuk mengisi penuh ${user.tanah} Hektar lahanmu.\n\n*Bibit yang kurang:* ${kurangBibit.join(', ')}\n\nKetik *${usedPrefix}gudang* untuk melihat sisa bibitmu.`);
         }
 
         // --- MULAI ANIMASI MENANAM ---
@@ -187,11 +195,11 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
         // --- PROSES POTONG BIBIT & MULAI WAKTU PANEN ---
         setTimeout(async () => {
-            user.bibitpisang -= totalBibitPerJenis;
-            user.bibitanggur -= totalBibitPerJenis;
-            user.bibitmangga -= totalBibitPerJenis;
-            user.bibitjeruk -= totalBibitPerJenis;
-            user.bibitapel -= totalBibitPerJenis;
+            // Potong bibit secara otomatis untuk semua tanaman
+            for (let item of plantables) {
+                user['bibit' + item] -= totalBibitPerJenis;
+            }
+            
             user.lastberkebon = new Date() * 1;
             
             let waktuPanen = Math.floor(Math.random() * (waktuPanenMax - waktuPanenMin + 1)) + waktuPanenMin;
@@ -202,27 +210,19 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             // --- PROSES PANEN OTOMATIS SAAT WAKTU HABIS ---
             setTimeout(() => {
                 let pengaliPanen = user.tanah;
+                let harvestMsg = `🌾 *WAKTUNYA PANEN!* 🌾\n\nSelamat, dari lahan seluas ${user.tanah} Hektar kamu mendapatkan:\n`;
                 
-                let pisangpoin = (Math.floor(Math.random() * 30) + 10) * pengaliPanen;
-                let anggurpoin = (Math.floor(Math.random() * 30) + 10) * pengaliPanen;
-                let manggapoin = (Math.floor(Math.random() * 30) + 10) * pengaliPanen;
-                let jerukpoin = (Math.floor(Math.random() * 30) + 10) * pengaliPanen;
-                let apelpoin = (Math.floor(Math.random() * 30) + 10) * pengaliPanen;
+                // Menambah hasil panen otomatis untuk semua jenis tanaman
+                for (let item of plantables) {
+                    let poin = (Math.floor(Math.random() * 30) + 10) * pengaliPanen;
+                    user[item] += poin;
+                    harvestMsg += `${marketItems[item].icon} +${poin} ${marketItems[item].name}\n`;
+                }
                 
-                // Bonus Item
-                let padipoin = Math.floor(Math.random() * 10) * pengaliPanen;
-                let wortelpoin = Math.floor(Math.random() * 15) * pengaliPanen;
-
-                user.pisang += pisangpoin;
-                user.anggur += anggurpoin;
-                user.mangga += manggapoin;
-                user.jeruk += jerukpoin;
-                user.apel += apelpoin;
-                user.padi += padipoin;
-                user.wortel += wortelpoin;
                 user.tiketcoin += (1 * pengaliPanen);
+                harvestMsg += `🎟️ +${(1 * pengaliPanen)} Tiketcoin\n\nKetik *${usedPrefix}gudang* untuk melihat total panenmu!`;
 
-                conn.reply(m.chat, `🌾 *WAKTUNYA PANEN!* 🌾\n\nSelamat, dari lahan seluas ${user.tanah} Hektar kamu mendapatkan:\n🍌 +${pisangpoin} Pisang\n🥭 +${manggapoin} Mangga\n🍇 +${anggurpoin} Anggur\n🍊 +${jerukpoin} Jeruk\n🍎 +${apelpoin} Apel\n🌾 +${padipoin} Padi\n🥕 +${wortelpoin} Wortel\n🎟️ +${(1 * pengaliPanen)} Tiketcoin\n\nKetik *${usedPrefix}gudang* untuk melihat total panenmu!`, m);
+                conn.reply(m.chat, harvestMsg, m);
             }, waktuPanen);
 
         }, 7500);
