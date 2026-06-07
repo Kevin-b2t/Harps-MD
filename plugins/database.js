@@ -8,7 +8,7 @@ const fs = require('fs')
 const path = require('path')
 
 // PASTIKAN TOKEN GITHUB DIISI AGAR TIDAK ERROR
-const GITHUB_TOKEN  = process.env.GITHUB_TOKEN  || '' 
+const GITHUB_TOKEN  = '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'
 const GITHUB_OWNER  = process.env.GITHUB_OWNER  || 'Kevin-b2t'
 const GITHUB_REPO   = process.env.GITHUB_REPO   || 'DATABASE'
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'
