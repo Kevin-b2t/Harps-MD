@@ -8,10 +8,10 @@ const fs = require('fs')
 const path = require('path')
 
 // PASTIKAN TOKEN GITHUB DIISI AGAR TIDAK ERROR
-const GITHUB_TOKEN  = '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'
-const GITHUB_OWNER  = process.env.GITHUB_OWNER  || 'Kevin-b2t'
-const GITHUB_REPO   = process.env.GITHUB_REPO   || 'DATABASE'
-const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'
+const GITHUB_TOKEN  = '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' 
+const GITHUB_OWNER  = 'Kevin-b2t' // Hapus tulisan process.env
+const GITHUB_REPO   = 'DATABASE'  // Hapus tulisan process.env
+const GITHUB_BRANCH = 'main'      // Hapus tulisan process.env
 const DB_FILES      = ['./database.json']
 const BASE_URL      = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents`
 
