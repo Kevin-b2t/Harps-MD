@@ -420,6 +420,38 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             m.reply(`💳 Rp ${tJumlah.toLocaleString()} ditarik dari *${tPt.name}*.`);
             break;
         }
+        
+                case 'setharga': {
+            if (user.perusahaan.length === 0) return m.reply('⚠️ Kamu belum memiliki perusahaan!');
+            let hargaBaru = parseInt(args[1]);
+            let ptIdx = parseInt(args[2]) - 1;
+            
+            if (!hargaBaru || isNaN(ptIdx)) return m.reply(`⚠️ Format: *${usedPrefix + command} setharga <harga> <id_pt>*\nContoh: *${usedPrefix + command} setharga 19000 1*`);
+            
+            let targetPt = user.perusahaan[ptIdx];
+            if (!targetPt) return m.reply(`❌ ID Perusahaan tidak valid!`);
+            if (targetPt.type !== 'listrik' || targetPt.sumberListrik !== 'swasta') {
+                return m.reply(`❌ Hanya untuk Perusahaan Listrik Swasta!`);
+            }
+            if (hargaBaru > 20700) return m.reply(`❌ Harga maksimal listrik swasta adalah *Rp 20,700 / Watt*.`);
+            if (hargaBaru < 1000) return m.reply(`❌ Harga minimal Rp 1,000 / Watt agar tidak merugi.`);
+
+            targetPt.hargaJual = hargaBaru;
+            m.reply(`✅ Harga listrik perusahaan *${targetPt.name}* menjadi *Rp ${hargaBaru.toLocaleString()} / Watt*.`);
+            break;
+        }
+
+        case 'pajak': {
+            if (user.perusahaan.length === 0) return m.reply('⚠️ Kamu belum memiliki perusahaan!');
+            let teksPajak = `🏛️ *LAPORAN PAJAK PERUSAHAAN (0.1%)* 🏛️\n\n`;
+            user.perusahaan.forEach((pt, index) => {
+                let pajakPT = Math.floor(pt.saldo * 0.001);
+                teksPajak += `🏢 *${index + 1}. ${pt.name}*\n ├ Saldo Kas: Rp ${pt.saldo.toLocaleString()}\n ├ 💸 Estimasi Pajak Harian: Rp ${pajakPT.toLocaleString()}\n`;
+                teksPajak += ` └ 📊 Status: ${pt.isLocked ? `🔒 *DIKUNCI (Nunggak ${pt.hariNunggak} hari)*` : '✅ Aktif Beroperasi'}\n\n`;
+            });
+            m.reply(teksPajak);
+            break;
+        }
 
         case 'investasi':
         case 'invest': {
@@ -799,6 +831,11 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
             if (optIdPt !== null && !isNaN(optIdPt)) {
                 let ptJual = initCorporateData(user.perusahaan[optIdPt], m.sender);
+                
+            if (ptProd.isLocked) {
+                return m.reply(`🔒 *PERUSAHAAN DIKUNCI!*\nPerusahaan *${ptProd.name}* sedang dibekukan oleh negara karena menunggak pajak selama 3 hari berturut-turut. Segera isi saldo kas PT lewat *.perusahaan setordana* agar sistem bisa memotong pajak kembali!`);
+            }
+
                 if (!ptJual) return m.reply(`❌ ID Perusahaan tidak valid!`);
                 if ((ptJual.gudang[jualItem] || 0) < jualJml) return m.reply(`❌ Stok di Gudang Pabrik *${ptJual.name}* tidak cukup!`);
 
