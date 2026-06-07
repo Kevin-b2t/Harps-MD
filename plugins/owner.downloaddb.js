@@ -2,17 +2,25 @@ const fetch = require('node-fetch')
 const fs    = require('fs')
 const path  = require('path')
 
+const GITHUB_TOKEN  = process.env.GITHUB_TOKEN  || ''
 const GITHUB_OWNER  = process.env.GITHUB_OWNER  || 'Kevin-b2t'
 const GITHUB_REPO   = process.env.GITHUB_REPO   || 'DATABASE'
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'
 const DB_FILE       = './database.json'
-const RAW_URL       = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}`
+const BASE_URL      = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents`
 
 async function downloadDB() {
   try {
-    const res = await fetch(`${RAW_URL}/${path.basename(DB_FILE)}`)
+    const repoPath = path.basename(DB_FILE)
+    const res = await fetch(`${BASE_URL}/${repoPath}?ref=${GITHUB_BRANCH}`, {
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+        Accept: 'application/vnd.github.v3+json'
+      }
+    })
     if (!res.ok) return { success: false, reason: `Gagal ambil dari GitHub (${res.status})` }
-    const text = await res.text()
+    const data = await res.json()
+    const text = Buffer.from(data.content, 'base64').toString('utf8')
     JSON.parse(text)
     fs.writeFileSync(DB_FILE, text)
     return { success: true }
@@ -35,7 +43,7 @@ let handler = async (m, { conn }) => {
     const result = await downloadDB()
     const waktu  = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
     if (result.success) {
-      edit(`✅ *DOWNLOAD BERHASIL!*\n\n[🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩] *100%*\n\n📦 *File:* database.json\n🔗 *Sumber:* github.com/${GITHUB_OWNER}/${GITHUB_REPO}\n🕐 *Waktu:* ${waktu}\n\n⚠️ *Penting:* Restart bot agar database terbaru terbaca sempurna.`)
+      edit(`✅ *DOWNLOAD BERHASIL!*\n\n[🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩] *100%*\n\n📦 *File:* database.json\n🕐 *Waktu:* ${waktu}\n\n⚠️ *Penting:* Restart bot agar database terbaru terbaca sempurna.`)
     } else {
       edit(`❌ *DOWNLOAD GAGAL!*\n\n[🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥]\n\n*Error:*\n\`\`\`${result.reason}\`\`\``)
     }
