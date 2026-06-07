@@ -14,14 +14,21 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
     // ==========================================
     // PENGATURAN HARGA & DATA PRODUK
     // ==========================================
-    const biayaBuat = 85000000000000; // 85 Triliun
+    const biayaBuat = 85000000000000;       // 85 Triliun (minuman & tambang)
+    const biayaBuatListrik = 165000000000000; // 165 Triliun (listrik)
     const hargaRekrut = 1500000;      // 1.5 Juta per Karyawan
     const limitPerKaryawan = 5000000; // 1 Karyawan kelola budget 5 Juta
     const maxLevelGudang = 2000;
     const baseKapasitasGudang = 65;
     const hargaUpgradeGudang = 1000000000;
 
-    const tipePerusahaan = ['minuman'];
+    // === SISTEM LISTRIK ===
+    const kapasitasListrikNegara = 15;    // 15 kW kapasitas negara
+    const hargaListrikNegara = 14400;     // per Watt dari negara
+    const hargaListrikSwasta = 18600;     // per Watt dari player/swasta
+    const kapasitasListrikPerPT = 15000;  // 15 kW per perusahaan listrik (dalam Watt)
+
+    const tipePerusahaan = ['minuman', 'tambang', 'listrik'];
 
     // Daftar barang pabrik (Bahan 'air' dihapus karena pabrik sudah otomatis bayar tagihan air PDAM)
     const produkList = {
@@ -35,6 +42,148 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         'jusmangga':  { type: 'minuman', name: 'Jus Mangga', db: 'jusmangga', prodCost: 10000, baseHargaToko: 22000, bahan: { botol: 1, mangga: 2 } },
         'juspisang':  { type: 'minuman', name: 'Jus Pisang', db: 'juspisang', prodCost: 10000, baseHargaToko: 22000, bahan: { botol: 1, pisang: 2 } }
     };
+
+    // Daftar produk tambang (harga buku fluktuatif berdasarkan pasar)
+    const produkTambang = {
+        'pasir':   { type: 'tambang', name: 'Pasir', db: 'pasir', prodCost: 3000, baseHargaToko: 220000, bahan: {}, satuanProd: 'kg' },
+        'batu':    { type: 'tambang', name: 'Batu', db: 'batu', prodCost: 5000, baseHargaToko: 76080, bahan: {}, satuanProd: 'kg' },
+        'bijih':   { type: 'tambang', name: 'Bijih Besi', db: 'bijih', prodCost: 8000, baseHargaToko: 41000, bahan: {}, satuanProd: 'kg' },
+        'emas':    { type: 'tambang', name: 'Emas', db: 'emas', prodCost: 500000, baseHargaToko: 2675000, bahan: {}, satuanProd: 'g' },
+        'uranium': { type: 'tambang', name: 'Uranium', db: 'uranium', prodCost: 300000, baseHargaToko: 15660, bahan: {}, satuanProd: 'g' }
+    };
+
+    // Gabungkan semua produk untuk referensi
+    const semuaProduk = { ...produkList, ...produkTambang };
+
+    // ==========================================
+    // SISTEM HARGA PASAR FLUKTUATIF
+    // ==========================================
+    function initHargaPasar() {
+        if (!global.db.data.hargaPasar) global.db.data.hargaPasar = {};
+        let semua = { ...produkList, ...produkTambang };
+        for (let key in semua) {
+            if (!global.db.data.hargaPasar[key]) {
+                global.db.data.hargaPasar[key] = {
+                    harga: semua[key].baseHargaToko,
+                    tren: 0,       // -1 turun, 0 stabil, 1 naik
+                    lastUpdate: Date.now()
+                };
+            }
+        }
+    }
+
+    function fluktuasiHargaPasar() {
+        initHargaPasar();
+        let semua = { ...produkList, ...produkTambang };
+        let now = Date.now();
+        for (let key in semua) {
+            let p = global.db.data.hargaPasar[key];
+            // Fluktuasi tiap minimal 1 jam
+            if (now - (p.lastUpdate || 0) < 3600000) continue;
+            let baseH = semua[key].baseHargaToko;
+            // Naik/turun acak antara -15% sampai +15%
+            let persen = (Math.random() * 0.30) - 0.15;
+            let hargaBaru = Math.floor(baseH * (1 + persen));
+            // Batas min 60% dan max 200% dari harga dasar
+            hargaBaru = Math.max(Math.floor(baseH * 0.6), Math.min(Math.floor(baseH * 2), hargaBaru));
+            p.tren = hargaBaru > p.harga ? 1 : (hargaBaru < p.harga ? -1 : 0);
+            p.harga = hargaBaru;
+            p.lastUpdate = now;
+        }
+    }
+
+    function getHargaPasar(key) {
+        fluktuasiHargaPasar();
+        if (global.db.data.hargaPasar && global.db.data.hargaPasar[key]) {
+            return global.db.data.hargaPasar[key].harga;
+        }
+        let semua = { ...produkList, ...produkTambang };
+        return semua[key] ? semua[key].baseHargaToko : 0;
+    }
+
+    function getTrenIcon(key) {
+        if (!global.db.data.hargaPasar || !global.db.data.hargaPasar[key]) return '➡️';
+        let t = global.db.data.hargaPasar[key].tren;
+        return t === 1 ? '📈' : (t === -1 ? '📉' : '➡️');
+    }
+
+    // ==========================================
+    // SISTEM LISTRIK GLOBAL
+    // ==========================================
+    function initGridListrik() {
+        if (!global.db.data.gridListrik) {
+            global.db.data.gridListrik = {
+                kapasitasTerpakai: 0, // dalam kW
+                kapasitasMaks: kapasitasListrikNegara // kW
+            };
+        }
+    }
+
+    // Cari semua perusahaan listrik milik player (swasta)
+    function getDaftarListrikSwasta() {
+        let list = [];
+        for (let jid in global.db.data.users) {
+            let u = global.db.data.users[jid];
+            if (!Array.isArray(u.perusahaan)) continue;
+            for (let pt of u.perusahaan) {
+                if (pt && pt.type === 'listrik' && (pt.kapasitasTersedia || 0) > 0) {
+                    list.push({ owner: jid, pt });
+                }
+            }
+        }
+        return list;
+    }
+
+    // Bayar tagihan listrik: otomatis pilih negara dulu, fallback ke swasta
+    function bayarTagihanListrik(ptKonsumen, kebutuhanWatt, sumberPilihan) {
+        initGridListrik();
+        let grid = global.db.data.gridListrik;
+        let totalBiaya = 0;
+        let log = '';
+        let sisaWatt = kebutuhanWatt;
+
+        // Jika sumber pilihan adalah 'negara' atau tidak ditentukan
+        if (!sumberPilihan || sumberPilihan === 'negara') {
+            let tersediaNegara = (grid.kapasitasMaks - grid.kapasitasTerpakai) * 1000; // ubah kW ke W
+            if (tersediaNegara > 0) {
+                let ambilDariNegara = Math.min(sisaWatt, tersediaNegara);
+                let biayaNegara = ambilDariNegara * hargaListrikNegara;
+                totalBiaya += biayaNegara;
+                grid.kapasitasTerpakai += ambilDariNegara / 1000;
+                sisaWatt -= ambilDariNegara;
+                log += `⚡ Listrik Negara: ${ambilDariNegara}W × Rp${hargaListrikNegara.toLocaleString()} = Rp${biayaNegara.toLocaleString()}\n`;
+            } else {
+                log += `⚠️ *Kapasitas listrik negara penuh!* Dialihkan ke swasta.\n`;
+            }
+        }
+
+        // Jika masih ada sisa kebutuhan (negara penuh) atau pilihan swasta
+        if (sisaWatt > 0 || sumberPilihan === 'swasta') {
+            if (sumberPilihan === 'swasta') sisaWatt = kebutuhanWatt; // reset jika pilihan swasta
+            let listSwasta = getDaftarListrikSwasta();
+            if (listSwasta.length === 0 && sisaWatt > 0) {
+                return { ok: false, log: log + `❌ Tidak ada perusahaan listrik swasta tersedia!`, biaya: 0 };
+            }
+            for (let ls of listSwasta) {
+                if (sisaWatt <= 0) break;
+                let ambil = Math.min(sisaWatt, ls.pt.kapasitasTersedia);
+                let biayaSwasta = ambil * hargaListrikSwasta;
+                totalBiaya += biayaSwasta;
+                ls.pt.kapasitasTersedia -= ambil;
+                // Transfer ke owner perusahaan listrik swasta
+                if (global.db.data.users[ls.owner]) {
+                    ls.pt.saldo = (ls.pt.saldo || 0) + biayaSwasta;
+                }
+                sisaWatt -= ambil;
+                log += `⚡ Listrik Swasta (${ls.pt.name}): ${ambil}W × Rp${hargaListrikSwasta.toLocaleString()} = Rp${biayaSwasta.toLocaleString()}\n`;
+            }
+            if (sisaWatt > 0) {
+                return { ok: false, log: log + `❌ Kapasitas listrik tidak mencukupi! Kurang: ${sisaWatt}W`, biaya: 0 };
+            }
+        }
+
+        return { ok: true, log, biaya: totalBiaya };
+    }
 
     function getGudangUsage(gudangObj) {
         let total = 0;
@@ -76,12 +225,52 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         case 'create': {
             if (user.perusahaan.length >= 2) return m.reply('❌ Kamu sudah mencapai batas maksimal! Hanya boleh memiliki 2 Perusahaan.');
             let ptType = args[1] ? args[1].toLowerCase() : '';
-            let namaPT = args.slice(2).join(' ');
+            // Untuk listrik: .perusahaan buat listrik [sumber] [Nama PT]
+            // Untuk lain: .perusahaan buat [tipe] [Nama PT]
+            let namaPT, sumberListrikBuat, hargaListrikBuat;
             
-            if (!tipePerusahaan.includes(ptType) || !namaPT) return m.reply(`⚠️ Format salah!\nKetik: *${usedPrefix + command} buat [tipe] [Nama Perusahaan]*\nTipe tersedia: *${tipePerusahaan.join(', ')}*`);
-            if (user.money < biayaBuat) return m.reply(`❌ Uang Pribadimu tidak cukup!\nButuh Modal: *Rp 85.000.000.000.000 (85T)*\nUangmu: *Rp ${user.money.toLocaleString()}*`);
+            if (!tipePerusahaan.includes(ptType) || !args[2]) return m.reply(`⚠️ Format salah!\nKetik: *${usedPrefix + command} buat [tipe] [Nama Perusahaan]*\n\nTipe tersedia:\n- *minuman* (Modal: 85T)\n- *tambang* (Modal: 85T)\n- *listrik* (Modal: 165T)`);
 
-            user.money -= biayaBuat;
+            if (ptType === 'listrik') {
+                // Format: buat listrik [negara/swasta] [Nama]
+                let sumberArg = args[2] ? args[2].toLowerCase() : '';
+                if (sumberArg === 'negara' || sumberArg === 'swasta') {
+                    sumberListrikBuat = sumberArg;
+                    namaPT = args.slice(3).join(' ');
+                } else {
+                    namaPT = args.slice(2).join(' ');
+                    sumberListrikBuat = 'swasta'; // default swasta jika tidak disebutkan
+                }
+                hargaListrikBuat = biayaBuatListrik;
+                if (!namaPT) return m.reply(`⚠️ Format: *${usedPrefix + command} buat listrik [negara/swasta] [Nama PT]*\n\nPilih sumber:\n- *negara* → Tarif Rp${hargaListrikNegara.toLocaleString()}/W (Kapasitas Grid Negara ${kapasitasListrikNegara}kW)\n- *swasta* → Tarif Rp${hargaListrikSwasta.toLocaleString()}/W (Player bayar ke kamu)\n\nModal: Rp 165.000.000.000.000 (165T)`);
+            } else {
+                namaPT = args.slice(2).join(' ');
+                hargaListrikBuat = biayaBuat;
+                if (!namaPT) return m.reply(`⚠️ Format: *${usedPrefix + command} buat [tipe] [Nama Perusahaan]*\nTipe: *${tipePerusahaan.join(', ')}*`);
+            }
+
+            if (user.money < hargaListrikBuat) return m.reply(`❌ Uang Pribadimu tidak cukup!\nButuh Modal: *Rp ${hargaListrikBuat.toLocaleString()}*\nUangmu: *Rp ${user.money.toLocaleString()}*`);
+
+            // Cek kebutuhan listrik saat pembangunan (semua tipe selain listrik itu sendiri butuh listrik)
+            let biayaListrikBangunan = 0, logListrikBangunan = '';
+            if (ptType !== 'listrik') {
+                // Pembangunan butuh 500W listrik
+                let kebutuhanWattBangunan = 500;
+                initGridListrik();
+                let grid = global.db.data.gridListrik;
+                let tersediaNegara = (grid.kapasitasMaks - grid.kapasitasTerpakai) * 1000;
+
+                let sumberBangunanPilih = args.find(a => a === 'negara' || a === 'swasta') || (tersediaNegara >= kebutuhanWattBangunan ? 'negara' : 'swasta');
+                let hasilListrik = bayarTagihanListrik(null, kebutuhanWattBangunan, sumberBangunanPilih);
+                if (!hasilListrik.ok) return m.reply(`❌ *Pembangunan Gagal!*\nListrik tidak cukup untuk membangun!\n${hasilListrik.log}`);
+                biayaListrikBangunan = hasilListrik.biaya;
+                logListrikBangunan = hasilListrik.log;
+
+                if (user.money < hargaListrikBuat + biayaListrikBangunan) return m.reply(`❌ Uang kurang untuk modal + listrik pembangunan!\nModal: Rp${hargaListrikBuat.toLocaleString()}\nListrik Bangunan: Rp${biayaListrikBangunan.toLocaleString()}\nTotal: Rp${(hargaListrikBuat + biayaListrikBangunan).toLocaleString()}\nUangmu: Rp${user.money.toLocaleString()}`);
+            }
+
+            user.money -= (hargaListrikBuat + biayaListrikBangunan);
+
             let newPT = {
                 id: user.perusahaan.length + 1,
                 name: namaPT,
@@ -95,18 +284,39 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 momentumSaham: 1.0,
                 pemegangSaham: {}
             };
+
+            // Data khusus perusahaan listrik
+            if (ptType === 'listrik') {
+                newPT.kapasitasMaks = kapasitasListrikPerPT; // dalam Watt
+                newPT.kapasitasTersedia = kapasitasListrikPerPT;
+                newPT.sumberListrik = sumberListrikBuat || 'swasta';
+                newPT.hargaJual = hargaListrikSwasta;
+            }
+
             newPT.pemegangSaham[m.sender] = 100; 
             user.perusahaan.push(newPT);
 
-            m.reply(`🎉 *SELAMAT!* 🎉\nPerusahaan *${namaPT}* resmi didirikan!`);
+            let pesanBuat = `🎉 *SELAMAT!* 🎉\nPerusahaan *${namaPT}* resmi didirikan!\n`;
+            pesanBuat += `🏭 Tipe: *${ptType.toUpperCase()}*\n`;
+            if (biayaListrikBangunan > 0) pesanBuat += `\n⚡ *Listrik Pembangunan:*\n${logListrikBangunan}Biaya Listrik: -Rp${biayaListrikBangunan.toLocaleString()}\n`;
+            if (ptType === 'listrik') pesanBuat += `\n⚡ Kapasitas: *${kapasitasListrikPerPT.toLocaleString()} W (${kapasitasListrikPerPT/1000} kW)*\nHarga Jual: *Rp${hargaListrikSwasta.toLocaleString()}/W*`;
+            m.reply(pesanBuat);
             break;
         }
 
         case 'info':
         case 'status': {
-            if (user.perusahaan.length === 0) return m.reply(`⚠️ Kamu belum memiliki perusahaan.\nKetik *${usedPrefix + command} buat [tipe] [Nama]* seharga 85 Triliun.`);
+            if (user.perusahaan.length === 0) return m.reply(`⚠️ Kamu belum memiliki perusahaan.\nKetik *${usedPrefix + command} buat [tipe] [Nama]* seharga 85T (minuman/tambang) atau 165T (listrik).`);
+            
+            // Tampilkan info grid listrik negara
+            initGridListrik();
+            let grid = global.db.data.gridListrik;
+            let gridPersen = ((grid.kapasitasTerpakai / grid.kapasitasMaks) * 100).toFixed(1);
             
             let textInfo = `🏢 *ASET KORPORASI MILIKMU* 🏢\n\n`;
+            textInfo += `🌐 *Grid Listrik Negara:* ${grid.kapasitasTerpakai.toFixed(2)}/${grid.kapasitasMaks} kW (${gridPersen}% terpakai)\n`;
+            textInfo += `💡 Tarif Negara: Rp${hargaListrikNegara.toLocaleString()}/W | Swasta: Rp${hargaListrikSwasta.toLocaleString()}/W\n\n`;
+            
             let mentionsInfo = [];
             user.perusahaan.forEach((pt, index) => {
                 pt = initCorporateData(pt, m.sender);
@@ -132,6 +342,13 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 textInfo += `🏭 Tipe Pabrik: *${tipe}*\n`;
                 textInfo += `👥 Karyawan: ${karyawan.toLocaleString()} Orang\n`;
                 textInfo += `📦 Gudang (Lv.${pt.gudangLevel}): ${isiGudang.toLocaleString()} Slot\n`;
+
+                // Info khusus perusahaan listrik
+                if (pt.type === 'listrik') {
+                    textInfo += `⚡ Kapasitas Listrik: ${(pt.kapasitasTersedia || 0).toLocaleString()}/${(pt.kapasitasMaks || kapasitasListrikPerPT).toLocaleString()} W\n`;
+                    textInfo += `💡 Harga Jual: Rp${(pt.hargaJual || hargaListrikSwasta).toLocaleString()}/W\n`;
+                }
+
                 textInfo += `\n*📊 LAPORAN KEUANGAN & SAHAM:*\n`;
                 textInfo += `> 💎 Valuasi PT: Rp ${valuasi.toLocaleString()}\n`;
                 textInfo += `> 📊 Tren Pasar: ${trenStr}\n`;
@@ -146,11 +363,29 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         case 'resep':
         case 'produk':
         case 'list': {
+            fluktuasiHargaPasar();
             let daftarProd = Object.keys(produkList).map(v => {
                 let resep = Object.entries(produkList[v].bahan).map(([b, n]) => `${n} ${b}`).join(', ');
-                return `📦 *${produkList[v].name}* (ID: ${v})\n ⚙️ Biaya Prod: Rp ${produkList[v].prodCost.toLocaleString()}\n 🧪 Bahan: ${resep}`;
+                let hp = getHargaPasar(v);
+                let trenI = getTrenIcon(v);
+                return `📦 *${produkList[v].name}* (ID: ${v})\n ⚙️ Biaya Prod: Rp ${produkList[v].prodCost.toLocaleString()}\n 💰 Harga Jual: ${trenI} Rp ${hp.toLocaleString()}\n 🧪 Bahan: ${resep || 'Tidak ada'}`;
             }).join('\n\n');
-            m.reply(`📋 *BUKU RESEP PABRIK MINUMAN* 📋\n\nBerikut adalah daftar produk yang bisa diproduksi:\n_Note: Kebutuhan Air disuplai otomatis dan ditagih saat produksi_\n\n${daftarProd}`);
+
+            let daftarTambang = Object.keys(produkTambang).map(v => {
+                let hp = getHargaPasar(v);
+                let trenI = getTrenIcon(v);
+                return `⛏️ *${produkTambang[v].name}* (ID: ${v})\n ⚙️ Biaya Tambang: Rp ${produkTambang[v].prodCost.toLocaleString()}\n 💰 Harga Pasar: ${trenI} Rp ${hp.toLocaleString()}/${produkTambang[v].satuanProd}`;
+            }).join('\n\n');
+
+            initGridListrik();
+            let grid = global.db.data.gridListrik;
+            let infoListrik = `\n\n⚡ *INFO LISTRIK*\n`;
+            infoListrik += `> Grid Negara: ${grid.kapasitasTerpakai.toFixed(2)}/${grid.kapasitasMaks} kW\n`;
+            infoListrik += `> Tarif Negara: Rp${hargaListrikNegara.toLocaleString()}/W\n`;
+            infoListrik += `> Tarif Swasta: Rp${hargaListrikSwasta.toLocaleString()}/W\n`;
+            infoListrik += `> Kapasitas PT Listrik: ${kapasitasListrikPerPT.toLocaleString()} W per perusahaan`;
+
+            m.reply(`📋 *BUKU HARGA PASAR* 📋\n_Note: Harga berubah setiap jam mengikuti kondisi pasar!_\n\n🥤 *PRODUK MINUMAN:*\n${daftarProd}\n\n⛏️ *PRODUK TAMBANG:*\n${daftarTambang}${infoListrik}`);
             break;
         }
 
@@ -436,56 +671,108 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             let jmlProd = parseInt(args[1]); 
             let namaItem = args[2] ? args[2].toLowerCase() : '';
             let ptIndex = parseInt(args[3]) - 1;
+            // Pilihan sumber listrik: args[4] = 'negara' atau 'swasta' (opsional)
+            let sumberListrikProd = args[4] ? args[4].toLowerCase() : null;
 
-            if (!jmlProd || !namaItem || isNaN(ptIndex)) return m.reply(`⚠️ Format salah!\nContoh: *${usedPrefix + command} produksi 100 airmineral 1*`);
+            if (!jmlProd || !namaItem || isNaN(ptIndex)) return m.reply(`⚠️ Format salah!\nContoh: *${usedPrefix + command} produksi 100 airmineral 1 [negara/swasta]*`);
 
             let ptProd = initCorporateData(user.perusahaan[ptIndex], m.sender);
             if (!ptProd) return m.reply(`❌ ID Perusahaan tidak valid!`);
             
-            let dataProduk = produkList[namaItem];
-            if (!dataProduk) return m.reply(`❌ Item tidak valid.`);
-            if (dataProduk.type !== (ptProd.type || 'minuman')) return m.reply(`❌ Pabrikmu tidak bisa memproduksi tipe ini!`);
+            // Perusahaan listrik tidak bisa produksi item, tapi isi kapasitas
+            if (ptProd.type === 'listrik') {
+                // Produksi = isi ulang kapasitas listrik
+                let kapMaks = ptProd.kapasitasMaks || kapasitasListrikPerPT;
+                let kapSaatIni = ptProd.kapasitasTersedia || 0;
+                let sisaKap = kapMaks - kapSaatIni;
+                if (sisaKap <= 0) return m.reply(`❌ Kapasitas listrik sudah penuh! (${kapMaks.toLocaleString()} W)`);
+                let isiWatt = Math.min(jmlProd, sisaKap);
+                let biayaIsi = isiWatt * 1000; // Rp 1000/W untuk maintenance
+                if (ptProd.saldo < biayaIsi) return m.reply(`❌ Saldo PT kurang!\nBiaya isi ${isiWatt}W: Rp${biayaIsi.toLocaleString()}`);
+                ptProd.saldo -= biayaIsi;
+                ptProd.kapasitasTersedia = kapSaatIni + isiWatt;
+                return m.reply(`⚡ *KAPASITAS LISTRIK DIISI*\n+${isiWatt.toLocaleString()} W\nKapasitas: ${ptProd.kapasitasTersedia.toLocaleString()}/${kapMaks.toLocaleString()} W\nBiaya Maintenance: -Rp${biayaIsi.toLocaleString()}`);
+            }
+
+            let dataProduk = semuaProduk[namaItem];
+            if (!dataProduk) return m.reply(`❌ Item tidak valid. Cek *${usedPrefix + command} resep*`);
+            if (dataProduk.type !== (ptProd.type || 'minuman')) return m.reply(`❌ Pabrikmu (${ptProd.type}) tidak bisa memproduksi item tipe ${dataProduk.type}!`);
 
             let maxBudgetPT = ptProd.karyawan * limitPerKaryawan;
             let totalBiayaPabrik = jmlProd * dataProduk.prodCost;
             if (totalBiayaPabrik > maxBudgetPT) return m.reply(`❌ Karyawan tidak sanggup mengelola produksi sebesar ini!`);
             
-            let tagihanListrik = jmlProd * 5000; 
-            let tagihanAir = jmlProd * 11000;     
+            // Tagihan listrik berdasarkan sumber (produksi tambang lebih boros listrik)
+            let kebutuhanWattProd = ptProd.type === 'tambang' ? jmlProd * 8 : jmlProd * 5;
+            initGridListrik();
+            let grid = global.db.data.gridListrik;
+            let tersediaNegara = (grid.kapasitasMaks - grid.kapasitasTerpakai) * 1000;
+            
+            // Auto pilih: negara dulu, kalau penuh → swasta
+            if (!sumberListrikProd) {
+                sumberListrikProd = tersediaNegara >= kebutuhanWattProd ? 'negara' : 'swasta';
+            }
 
-            // Total produksi tanpa biaya ekspedisi logistik
+            let hasilListrik = bayarTagihanListrik(ptProd, kebutuhanWattProd, sumberListrikProd);
+            if (!hasilListrik.ok) return m.reply(`❌ *Produksi Gagal!*\n${hasilListrik.log}`);
+
+            let tagihanListrik = hasilListrik.biaya;
+            let tagihanAir = ptProd.type === 'tambang' ? 0 : jmlProd * 11000; // Tambang tidak butuh PDAM
+
             let totalKeseluruhan = totalBiayaPabrik + tagihanListrik + tagihanAir;
             if (ptProd.saldo < totalKeseluruhan) return m.reply(`❌ Saldo PT Kurang! Butuh: Rp ${totalKeseluruhan.toLocaleString()}`);
 
-            let kurangBahan = [];
-            let totalBahanTerpakai = 0;
-            for (let b in dataProduk.bahan) {
-                let butuh = dataProduk.bahan[b] * jmlProd;
-                let stokG = ptProd.gudang[b] || 0;
-                totalBahanTerpakai += butuh;
-                if (stokG < butuh) kurangBahan.push(`- ${b}: Butuh ${butuh}, Punya ${stokG}`);
-            }
-            if (kurangBahan.length > 0) return m.reply(`❌ *BAHAN BAKU DI GUDANG KURANG!*\n${kurangBahan.join('\n')}`);
+            // Cek bahan baku (tambang tidak butuh bahan)
+            if (dataProduk.bahan && Object.keys(dataProduk.bahan).length > 0) {
+                let kurangBahan = [];
+                let totalBahanTerpakai = 0;
+                for (let b in dataProduk.bahan) {
+                    let butuh = dataProduk.bahan[b] * jmlProd;
+                    let stokG = ptProd.gudang[b] || 0;
+                    totalBahanTerpakai += butuh;
+                    if (stokG < butuh) kurangBahan.push(`- ${b}: Butuh ${butuh}, Punya ${stokG}`);
+                }
+                if (kurangBahan.length > 0) return m.reply(`❌ *BAHAN BAKU DI GUDANG KURANG!*\n${kurangBahan.join('\n')}`);
 
-            let proyeksiIsi = getGudangUsage(ptProd.gudang) - totalBahanTerpakai + jmlProd;
-            if (proyeksiIsi > (ptProd.gudangLevel * baseKapasitasGudang)) return m.reply(`❌ *GUDANG KEPENUHAN!*`);
+                let proyeksiIsi = getGudangUsage(ptProd.gudang) - Object.keys(dataProduk.bahan).reduce((a, b) => a + dataProduk.bahan[b] * jmlProd, 0) + jmlProd;
+                if (proyeksiIsi > (ptProd.gudangLevel * baseKapasitasGudang)) return m.reply(`❌ *GUDANG KEPENUHAN!*`);
+            } else {
+                // Cek kapasitas gudang untuk tambang
+                let proyeksiIsi = getGudangUsage(ptProd.gudang) + jmlProd;
+                if (proyeksiIsi > (ptProd.gudangLevel * baseKapasitasGudang)) return m.reply(`❌ *GUDANG KEPENUHAN!*`);
+            }
 
             ptProd.saldo -= totalKeseluruhan;
             let logBahanTeks = '';
-            for (let b in dataProduk.bahan) {
-                let potong = dataProduk.bahan[b] * jmlProd;
-                ptProd.gudang[b] -= potong;
-                logBahanTeks += `> ${b}: -${potong.toLocaleString()} (Gudang)\n`;
+            if (dataProduk.bahan) {
+                for (let b in dataProduk.bahan) {
+                    let potong = dataProduk.bahan[b] * jmlProd;
+                    ptProd.gudang[b] -= potong;
+                    logBahanTeks += `> ${b}: -${potong.toLocaleString()} (Gudang)\n`;
+                }
             }
 
             ptProd.gudang[dataProduk.db] = (ptProd.gudang[dataProduk.db] || 0) + jmlProd;
             ptProd.totalProduksi += jmlProd;
 
-            let strukProduksi = `🏭 *PRODUKSI PABRIK SELESAI* 🏭\n\nItem: *${dataProduk.name}*\nHasil: *+${jmlProd.toLocaleString()} Pcs*\n\n*🧾 KAS PABRIK KELUAR:*\n`;
-            strukProduksi += `> ⚙️ Biaya Pabrik: -Rp ${totalBiayaPabrik.toLocaleString()}\n`;
-            strukProduksi += `> ⚡ Listrik & Air: -Rp ${(tagihanListrik + tagihanAir).toLocaleString()}\n`;
-            strukProduksi += `*Total Kas Terpotong: -Rp ${totalKeseluruhan.toLocaleString()}*\n\n`;
-            strukProduksi += `*📦 PEMAKAIAN BAHAN BAKU:*\n${logBahanTeks}`;
+            // Update fluktuasi harga pasar (produksi besar turunkan harga)
+            if (global.db.data.hargaPasar && global.db.data.hargaPasar[namaItem]) {
+                let hp = global.db.data.hargaPasar[namaItem];
+                let basH = dataProduk.baseHargaToko;
+                if (jmlProd > 500) {
+                    hp.harga = Math.max(Math.floor(basH * 0.6), Math.floor(hp.harga * 0.97)); // over-produksi turunkan harga
+                    hp.tren = -1;
+                }
+            }
+
+            let ikonTipe = ptProd.type === 'tambang' ? '⛏️' : '🏭';
+            let strukProduksi = `${ikonTipe} *PRODUKSI SELESAI* ${ikonTipe}\n\nItem: *${dataProduk.name}*\nHasil: *+${jmlProd.toLocaleString()} ${dataProduk.satuanProd || 'Pcs'}*\n\n*🧾 KAS PABRIK KELUAR:*\n`;
+            strukProduksi += `> ⚙️ Biaya Produksi: -Rp ${totalBiayaPabrik.toLocaleString()}\n`;
+            strukProduksi += `> ⚡ Listrik (${sumberListrikProd}): -Rp ${tagihanListrik.toLocaleString()}\n`;
+            if (tagihanAir > 0) strukProduksi += `> 💧 Air PDAM: -Rp ${tagihanAir.toLocaleString()}\n`;
+            strukProduksi += `*Total Kas Terpotong: -Rp ${totalKeseluruhan.toLocaleString()}*\n`;
+            if (logBahanTeks) strukProduksi += `\n*📦 PEMAKAIAN BAHAN BAKU:*\n${logBahanTeks}`;
+            strukProduksi += `\n💡 *Detail Listrik:*\n${hasilListrik.log}`;
             m.reply(strukProduksi);
             break;
         }
@@ -499,10 +786,13 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
             if (!jualJml || !jualItem) return m.reply(`⚠️ Format: *${usedPrefix + command} jual <jumlah> <jenis-item> [id_pt]*`);
 
-            let prodData = produkList[jualItem];
+            let prodData = semuaProduk[jualItem];
             if (!prodData) return m.reply(`❌ Item bukan produk perusahaan.`);
             
-            let hargaPerPcs = Math.floor(prodData.baseHargaToko * 0.85);
+            // Harga jual mengikuti harga pasar fluktuatif
+            let hargaPasarSaatIni = getHargaPasar(jualItem);
+            let hargaPerPcs = Math.floor(hargaPasarSaatIni * 0.85);
+            let trenIcon = getTrenIcon(jualItem);
             let grossProfit = hargaPerPcs * jualJml;
             let sumberBarang = '';
             let teksFinansial = '';
@@ -531,11 +821,24 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 // SISTEM FLUKTUASI MOMENTUM SAHAM
                 let batasProfitIdeal = ptJual.karyawan * 15000; 
                 if (totalMasuk >= batasProfitIdeal) {
-                    ptJual.momentumSaham += 0.02; // Tren Naik
+                    ptJual.momentumSaham += 0.02;
                     teksFinansial += `\n📈 *Tren Saham:* NAIK (+2%) karena profit memenuhi target!`;
                 } else {
-                    ptJual.momentumSaham -= 0.01; // Tren Turun
+                    ptJual.momentumSaham -= 0.01;
                     teksFinansial += `\n📉 *Tren Saham:* TURUN (-1%) karena profit lesu.`;
+                }
+
+                // Fluktuasi harga pasar: penjualan besar bisa turunkan harga
+                if (global.db.data.hargaPasar && global.db.data.hargaPasar[jualItem]) {
+                    let hp = global.db.data.hargaPasar[jualItem];
+                    if (jualJml > 200) {
+                        hp.harga = Math.max(Math.floor(prodData.baseHargaToko * 0.6), Math.floor(hp.harga * 0.98));
+                        hp.tren = -1;
+                        teksFinansial += `\n📉 *Harga Pasar ${prodData.name}* turun karena supply besar!`;
+                    } else if (jualJml < 50) {
+                        hp.harga = Math.min(Math.floor(prodData.baseHargaToko * 2), Math.floor(hp.harga * 1.01));
+                        hp.tren = 1;
+                    }
                 }
                 
                 if (ptJual.momentumSaham > 5.0) ptJual.momentumSaham = 5.0; 
@@ -553,7 +856,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         totalDividenKeluar += bagianPublik;
                         teksDividenLog += `> 🏛️ Pajak/Publik Sistem (${persenSaham}%): -Rp ${bagianPublik.toLocaleString()}\n`;
                     } else {
-                        // Investor dapat 80% dari persentase, 20% sisanya fee management ke PT
                         let profitAktifPersen = persenSaham * 0.8; 
                         let bagianDividen = Math.floor(totalMasuk * (profitAktifPersen / 100));
                         if (global.db.data.users[shareholder]) {
@@ -569,11 +871,11 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 let bagianOwnerPT = totalMasuk - totalDividenKeluar;
                 ptJual.saldo += bagianOwnerPT;
                 
-                let persenOwnerAsli = ptJual.pemegangSaham[m.sender] || 0;
                 teksDividenLog = `> 🏢 Kas Dompet PT (Saham Owner + Fee): +Rp ${bagianOwnerPT.toLocaleString()}\n` + teksDividenLog;
 
                 teksFinansial += `\n\n*📊 LAPORAN FINANSIAL PABRIK:*\n`;
                 teksFinansial += `> 🚚 Biaya Ekspor Logistik: -Rp ${tagihanLogistik.toLocaleString()}\n`;
+                teksFinansial += `> ${trenIcon} Harga Pasar: Rp ${hargaPasarSaatIni.toLocaleString()} → Grosir: Rp ${hargaPerPcs.toLocaleString()}\n`;
                 teksFinansial += `> Gross Profit Penjualan: Rp ${grossProfit.toLocaleString()}\n`;
                 if (yieldInvestasi > 0) teksFinansial += `> 📈 Yield Reksadana: +Rp ${yieldInvestasi.toLocaleString()}\n`;
                 teksFinansial += `\n*🧾 BAGI HASIL DIVIDEN:*\n${teksDividenLog}`;
@@ -584,7 +886,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if ((user[prodData.db] || 0) < jualJml) return m.reply(`❌ Stok tidak cukup!`);
                 user[prodData.db] -= jualJml;
                 user.money += grossProfit;
-                m.reply(`🚚 *DISTRIBUSI PASAR SUKSES* 🚚\n\nMuatan: *Inventory Pribadi*\nBarang: *${jualJml.toLocaleString()} ${prodData.name}*\n*Total Profit: +Rp ${grossProfit.toLocaleString()}*`);
+                m.reply(`🚚 *DISTRIBUSI PASAR SUKSES* 🚚\n\nMuatan: *Inventory Pribadi*\nBarang: *${jualJml.toLocaleString()} ${prodData.name}*\n${trenIcon} Harga Pasar: Rp${hargaPasarSaatIni.toLocaleString()}\n*Total Profit: +Rp ${grossProfit.toLocaleString()}*`);
             }
 
             if (!global.db.data.market[prodData.db]) global.db.data.market[prodData.db] = { stock: 100000 };
@@ -594,19 +896,26 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
         default:
             let help = `🏢 *SISTEM MEGA KORPORAT & BURSA SAHAM* 🏢\n\n`
-            help += `*${usedPrefix + command} buat <tipe> <nama>* - Bangun PT (Modal 85T)\n`
+            help += `*TIPE PERUSAHAAN:*\n`
+            help += `> minuman - Modal 85T\n`
+            help += `> tambang - Modal 85T (pasir, batu, bijih, emas, uranium)\n`
+            help += `> listrik  - Modal 165T (jual listrik ke player lain)\n\n`
+            help += `*PERINTAH UTAMA:*\n`
+            help += `*${usedPrefix + command} buat <tipe> [negara/swasta] <nama>* - Bangun PT\n`
             help += `*${usedPrefix + command} info* - Cek Aset, Saham & Saldo PT\n`
-            help += `*${usedPrefix + command} resep* - Cek menu barang pabrik\n`
-            help += `*${usedPrefix + command} rekrut <jumlah> <id>* - Hire HRD\n`
+            help += `*${usedPrefix + command} resep* - Cek harga pasar (fluktuatif!)\n`
+            help += `*${usedPrefix + command} rekrut <jumlah> <id>* - Hire Karyawan\n`
             help += `*${usedPrefix + command} setordana / tarikdana <jumlah> <id>*\n`
             help += `*${usedPrefix + command} invest / tarikinvest <jumlah> <id>*\n`
             help += `*${usedPrefix + command} bursa* - Lihat emiten pasar saham\n`
             help += `*${usedPrefix + command} jualsaham <%> <id_pt>*\n`
             help += `*${usedPrefix + command} belisaham <id_bursa>*\n`
             help += `*${usedPrefix + command} buyback <%> <id_pt> [tag/publik]*\n`
-            help += `*${usedPrefix + command} setor / tarik <jumlah> <item> <id>* - Bongkar muat Gudang\n`
-            help += `*${usedPrefix + command} produksi <jumlah> <item> <id>* - Mulai pabrik\n`
-            help += `*${usedPrefix + command} jual <jumlah> <item> [id_pt]* - Jual & sebar dividen\n`
+            help += `*${usedPrefix + command} setor / tarik <jumlah> <item> <id>*\n`
+            help += `*${usedPrefix + command} produksi <jumlah> <item> <id> [negara/swasta]*\n`
+            help += `*${usedPrefix + command} jual <jumlah> <item> [id_pt]* - Jual & sebar dividen\n\n`
+            help += `⚡ *LISTRIK:* Negara Rp${hargaListrikNegara.toLocaleString()}/W (${kapasitasListrikNegara}kW) | Swasta Rp${hargaListrikSwasta.toLocaleString()}/W\n`
+            help += `📊 *Harga pasar naik/turun tiap jam otomatis!*`
             m.reply(help);
     }
 }
@@ -616,3 +925,4 @@ handler.tags = ['rpg']
 handler.command = /^(perusahaan|company|pt)$/i
 
 module.exports = handler;
+
