@@ -1,10 +1,3 @@
-// ============================================================
-//  Plugin: Backup Database ke GitHub
-//  Bot: Harps BotMD
-//  Command: .uploaddb | .downloaddb
-//  Upload pakai Token, Download dari repo publik
-// ============================================================
-
 const fetch = require('node-fetch')
 const fs    = require('fs')
 const path  = require('path')
@@ -15,9 +8,7 @@ const GITHUB_REPO   = process.env.GITHUB_REPO   || 'DATABASE'
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'
 const DB_FILE       = './database.json'
 const BASE_URL      = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents`
-
-// Download langsung dari raw GitHub (tidak perlu token karena repo publik)
-const RAW_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}`
+const RAW_URL       = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}`
 
 async function getFileSHA(repoPath) {
   try {
@@ -56,11 +47,9 @@ async function uploadDB() {
 
 async function downloadDB() {
   try {
-    // Download langsung dari raw GitHub tanpa token (repo publik)
     const res = await fetch(`${RAW_URL}/${path.basename(DB_FILE)}`)
     if (!res.ok) return { success: false, reason: `Gagal ambil dari GitHub (${res.status})` }
     const text = await res.text()
-    // Validasi JSON sebelum disimpan
     JSON.parse(text)
     fs.writeFileSync(DB_FILE, text)
     return { success: true }
@@ -69,17 +58,17 @@ async function downloadDB() {
   }
 }
 
-// ── Auto upload setiap 1 jam ──
+// Auto upload setiap 1 jam
 setInterval(async () => {
   console.log('🔄 [DB-Backup] Auto-upload database...')
   const res = await uploadDB()
   console.log(res.success ? '✅ [DB-Backup] Berhasil!' : `❌ [DB-Backup] Gagal: ${res.reason}`)
 }, 60 * 60 * 1000)
 
-// ════════════════════════════════════════════════════════════
-//  .uploaddb — Upload ke GitHub pakai Token
-// ════════════════════════════════════════════════════════════
-let handler = async (m, { conn }) => {
+// .uploaddb
+let handler = async (m, { conn, isOwner, isROwner }) => {
+  if (!isOwner && !isROwner) return m.reply('❌ Hanya owner!')
+
   let { key } = await conn.sendMessage(m.chat, {
     text: '📡 *[🟩⬜⬜⬜⬜⬜⬜⬜⬜⬜] 10%*\n• _Menghubungkan ke GitHub..._'
   }, { quoted: m })
@@ -100,20 +89,17 @@ let handler = async (m, { conn }) => {
         `🕐 *Waktu:* ${waktu}`
       )
     } else {
-      await edit(
-        `❌ *UPLOAD GAGAL!*\n\n[🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥]\n\n` +
-        `*Detail Error:*\n\`\`\`${result.reason}\`\`\``
-      )
+      await edit(`❌ *UPLOAD GAGAL!*\n\n[🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥]\n\n*Error:*\n\`\`\`${result.reason}\`\`\``)
     }
   }, 3500)
 }
 handler.command = /^uploaddb$/i
-handler.rowner  = true
+handler.owner   = true
 
-// ════════════════════════════════════════════════════════════
-//  .downloaddb — Download dari repo publik (tanpa token)
-// ════════════════════════════════════════════════════════════
-let handler2 = async (m, { conn }) => {
+// .downloaddb
+let handler2 = async (m, { conn, isOwner, isROwner }) => {
+  if (!isOwner && !isROwner) return m.reply('❌ Hanya owner!')
+
   let { key } = await conn.sendMessage(m.chat, {
     text: '📡 *[🟩⬜⬜⬜⬜⬜⬜⬜⬜⬜] 10%*\n• _Menghubungkan ke GitHub..._'
   }, { quoted: m })
@@ -135,14 +121,11 @@ let handler2 = async (m, { conn }) => {
         `⚠️ *Penting:* Restart bot agar database terbaru terbaca sempurna.`
       )
     } else {
-      await edit(
-        `❌ *DOWNLOAD GAGAL!*\n\n[🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥]\n\n` +
-        `*Detail Error:*\n\`\`\`${result.reason}\`\`\``
-      )
+      await edit(`❌ *DOWNLOAD GAGAL!*\n\n[🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥]\n\n*Error:*\n\`\`\`${result.reason}\`\`\``)
     }
   }, 3500)
 }
 handler2.command = /^downloaddb$/i
-handler2.rowner  = true
+handler2.owner   = true
 
 module.exports = [handler, handler2]
