@@ -1,6 +1,5 @@
-let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
+let handler = async (m, { conn, command, args, usedPrefix, owner }) => {
     
-    // Inisialisasi Market Server (Database Global)
     if (!global.db.data.market) global.db.data.market = {};
 
     let d = new Date();
@@ -13,7 +12,42 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     }
 
     // ==========================================
-    // FUNGSI HARGA PERHIASAN & CRATE (UNLIMITED STOK)
+    // FUNGSI HARGA DINAMIS (SEMUA ITEM NAIK TURUN OTOMATIS)
+    // ==========================================
+    function getDynamicPrice(itemKey, baseBeli, baseJual, baseStock) {
+        if (!global.db.data.market[itemKey]) {
+            global.db.data.market[itemKey] = { stock: baseStock };
+        }
+        let currentStock = global.db.data.market[itemKey].stock;
+        let ratio = baseStock / Math.max(1, currentStock);
+        ratio = Math.max(0.2, Math.min(3.0, ratio));
+
+        let stockBeli = Math.floor(baseBeli * ratio);
+        let stockJual = Math.floor(baseJual * ratio);
+
+        // Fluktuasi waktu ±20% setiap jam
+        let fluctuationSeed = jamCounter + itemKey.length;
+        let rng = seededRandom(fluctuationSeed);
+        let fluctuation = (rng - 0.5) * 0.4;
+
+        let finalBeli = Math.max(1, Math.floor(stockBeli * (1 + fluctuation)));
+        let finalJual = Math.max(1, Math.floor(stockJual * (1 + fluctuation)));
+
+        let status = '➖ Stabil';
+        if (fluctuation > 0.1) status = '📈 Naik';
+        else if (fluctuation < -0.1) status = '📉 Turun';
+
+        return { 
+            beli: finalBeli, 
+            jual: finalJual, 
+            stock: currentStock, 
+            status: status,
+            stockStatus: currentStock.toLocaleString() 
+        };
+    }
+
+    // ==========================================
+    // FUNGSI PERHIASAN & CRATE (TETAP)
     // ==========================================
     function getStatusPasarItem(seedOffset) { 
         let rng = seededRandom(jamCounter + seedOffset); 
@@ -38,99 +72,90 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     }
 
     // ==========================================
-    // FUNGSI EKONOMI GLOBAL (REAL SUPPLY & DEMAND UNTUK ITEM DENGAN STOK)
+    // DEKLARASI SEMUA DATA
     // ==========================================
-    function getMarketPrice(itemKey, baseBeli, baseJual, baseStock) {
-        if (!global.db.data.market[itemKey]) {
-            global.db.data.market[itemKey] = { stock: baseStock };
-        }
-        let currentStock = global.db.data.market[itemKey].stock;
-        let ratio = baseStock / Math.max(1, currentStock);
-        
-        if (ratio > 3.0) ratio = 3.0; 
-        if (ratio < 0.2) ratio = 0.2;
+    let dataLimit = getDynamicPrice('limit', 15, 10, 50000); let Blimit = dataLimit.beli; let Slimit = dataLimit.jual; let statusLimit = dataLimit.status;
+    let dataPet = getDynamicPrice('pet', 11, 5, 25000); let Bpet = dataPet.beli; let Spet = dataPet.jual; let statusPet = dataPet.status;
+    let dataGarden = getDynamicPrice('gardenboxs', 40000, 15000, 10000); let Bgardenboxs = dataGarden.beli; let Sgardenboxs = dataGarden.jual; let statusGarden = dataGarden.status;
+    let dataBensin = getDynamicPrice('bensin', 6000, 2000, 100000); let BBensin = dataBensin.beli; let SBensin = dataBensin.jual; let statusBensin = dataBensin.status;
+    let dataWeap = getDynamicPrice('weapon', 120000, 35000, 5000); let BWeap = dataWeap.beli; let SWeap = dataWeap.jual; let statusWeap = dataWeap.status;
+    let dataObat = getDynamicPrice('obat', 10000, 2500, 50000); let BObat = dataObat.beli; let SObat = dataObat.jual; let statusObat = dataObat.status;
+    let dataTiketCoin = getDynamicPrice('tiketcoin', 5, 1, 150000); let Btiketcoin = dataTiketCoin.beli; let Stiketcoin = dataTiketCoin.jual; let statusTiketCoin = dataTiketCoin.status;
+    let dataHealtMonster = getDynamicPrice('healtmonster', 25000, 6000, 20000); let Bhealtmonster = dataHealtMonster.beli; let Shealtmonster = dataHealtMonster.jual; let statusHealtMonster = dataHealtMonster.status;
+    let dataPancingan = getDynamicPrice('pancingan', 35000, 8000, 15000); let Bpancingan = dataPancingan.beli; let Spancingan = dataPancingan.jual; let statusPancingan = dataPancingan.status;
 
-        let beli = Math.max(1, Math.floor(baseBeli * ratio));
-        let jual = Math.max(1, Math.floor(baseJual * ratio));
-        
-        let status = '➖ Stabil';
-        if (ratio > 1.3) status = '📈 Langka (Mahal)';
-        else if (ratio < 0.8) status = '📉 Melimpah (Murah)';
+    // Bibit
+    let dataBibitPisang = getDynamicPrice('bibitpisang', 550, 50, 100000); let Bbibitpisang = dataBibitPisang.beli; let Sbibitpisang = dataBibitPisang.jual; let statusBibitPisang = dataBibitPisang.status;
+    let dataBibitAnggur = getDynamicPrice('bibitanggur', 550, 50, 100000); let Bbibitanggur = dataBibitAnggur.beli; let Sbibitanggur = dataBibitAnggur.jual; let statusBibitAnggur = dataBibitAnggur.status;
+    let dataBibitMangga = getDynamicPrice('bibitmangga', 550, 50, 100000); let Bbibitmangga = dataBibitMangga.beli; let Sbibitmangga = dataBibitMangga.jual; let statusBibitMangga = dataBibitMangga.status;
+    let dataBibitJeruk = getDynamicPrice('bibitjeruk', 550, 50, 100000); let Bbibitjeruk = dataBibitJeruk.beli; let Sbibitjeruk = dataBibitJeruk.jual; let statusBibitJeruk = dataBibitJeruk.status;
+    let dataBibitApel = getDynamicPrice('bibitapel', 550, 50, 100000); let Bbibitapel = dataBibitApel.beli; let Sbibitapel = dataBibitApel.jual; let statusBibitApel = dataBibitApel.status;
+    let dataPadi = getDynamicPrice('bibitpadi', 400, 80, 100000); let Bpadi = dataPadi.beli; let Spadi = dataPadi.jual; let statusPadi = dataPadi.status;
+    let dataGandum = getDynamicPrice('bibitgandum', 450, 100, 100000); let Bgandum = dataGandum.beli; let Sgandum = dataGandum.jual; let statusGandum = dataGandum.status;
+    let dataWortel = getDynamicPrice('bibitwortel', 500, 120, 100000); let Bwortel = dataWortel.beli; let Swortel = dataWortel.jual; let statusWortel = dataWortel.status;
+    let dataKentang = getDynamicPrice('bibitkentang', 600, 140, 100000); let Bkentang = dataKentang.beli; let Skentang = dataKentang.jual; let statusKentang = dataKentang.status;
+    let dataSingkong = getDynamicPrice('bibitsingkong', 350, 70, 100000); let Bsingkong = dataSingkong.beli; let Ssingkong = dataSingkong.jual; let statusSingkong = dataSingkong.status;
+    let dataUbiJalar = getDynamicPrice('bibitubijalar', 375, 75, 100000); let Bubijalar = dataUbiJalar.beli; let Subijalar = dataUbiJalar.jual; let statusUbiJalar = dataUbiJalar.status;
+    let dataTebu = getDynamicPrice('bibittebu', 550, 130, 100000); let Btebu = dataTebu.beli; let Stebu = dataTebu.jual; let statusTebu = dataTebu.status;
 
-        return { beli, jual, stock: currentStock, status, stockStatus: currentStock.toLocaleString() };
-    }
+    // Barang & Alam
+    let dataPotion = getDynamicPrice('potion', 20000, 100, 50000); let potion = dataPotion.beli; let Spotion = dataPotion.jual; let statusPotion = dataPotion.status;
+    let dataSampah = getDynamicPrice('sampah', 120, 5, 500000); let Bsampah = dataSampah.beli; let Ssampah = dataSampah.jual; let statusSampah = dataSampah.status;
+    let dataString = getDynamicPrice('string', 50000, 5000, 20000); let Bstring = dataString.beli; let Sstring = dataString.jual; let statusString = dataString.status;
+    let dataBotol = getDynamicPrice('botol', 300, 50, 150000); let Bbotol = dataBotol.beli; let Sbotol = dataBotol.jual; let statusBotol = dataBotol.status;
+    let dataKaleng = getDynamicPrice('kaleng', 400, 100, 150000); let Bkaleng = dataKaleng.beli; let Skaleng = dataKaleng.jual; let statusKaleng = dataKaleng.status;
+    let dataKardus = getDynamicPrice('kardus', 400, 50, 150000); let Bkardus = dataKardus.beli; let Skardus = dataKardus.jual; let statusKardus = dataKardus.status;
+    let dataSword = getDynamicPrice('sword', 150000, 15000, 5000); let Bsword = dataSword.beli; let Ssword = dataSword.jual; let statusSword = dataSword.status;
 
-    // ==========================================
-    // DEKLARASI DATA & STOK DARI DATABASE GLOBAL
-    // ==========================================
-    let dataLimit = getMarketPrice('limit', 15, 10, 50000); let Blimit = dataLimit.beli; let Slimit = dataLimit.jual; let statusLimit = dataLimit.status;
-    let dataPet = getMarketPrice('pet', 11, 5, 25000); let Bpet = dataPet.beli; let Spet = dataPet.jual; let statusPet = dataPet.status;
-    let dataGarden = getMarketPrice('gardenboxs', 40000, 15000, 10000); let Bgardenboxs = dataGarden.beli; let Sgardenboxs = dataGarden.jual; let statusGarden = dataGarden.status;
-    let dataBensin = getMarketPrice('bensin', 6000, 2000, 100000); let BBensin = dataBensin.beli; let SBensin = dataBensin.jual; let statusBensin = dataBensin.status;
-    let dataWeap = getMarketPrice('weapon', 120000, 35000, 5000); let BWeap = dataWeap.beli; let SWeap = dataWeap.jual; let statusWeap = dataWeap.status;
-    let dataObat = getMarketPrice('obat', 10000, 2500, 50000); let BObat = dataObat.beli; let SObat = dataObat.jual; let statusObat = dataObat.status;
-    let dataTiketCoin = getMarketPrice('tiketcoin', 5, 1, 150000); let Btiketcoin = dataTiketCoin.beli; let Stiketcoin = dataTiketCoin.jual; let statusTiketCoin = dataTiketCoin.status;
-    let dataHealtMonster = getMarketPrice('healtmonster', 25000, 6000, 20000); let Bhealtmonster = dataHealtMonster.beli; let Shealtmonster = dataHealtMonster.jual; let statusHealtMonster = dataHealtMonster.status;
-    let dataPancingan = getMarketPrice('pancingan', 35000, 8000, 15000); let Bpancingan = dataPancingan.beli; let Spancingan = dataPancingan.jual; let statusPancingan = dataPancingan.status;
+    let dataKayu = getDynamicPrice('kayu', 1000, 400, 300000); let Bkayu = dataKayu.beli; let Skayu = dataKayu.jual; let statusKayu = dataKayu.status;
+    let dataBatu = getDynamicPrice('batu', 500, 100, 300000); let Bbatu = dataBatu.beli; let Sbatu = dataBatu.jual; let statusBatu = dataBatu.status;
+    let dataCoal = getDynamicPrice('coal', 1500, 1000, 150000); let Bcoal = dataCoal.beli; let Scoal = dataCoal.jual; let statusCoal = dataCoal.status;
+    let dataIron = getDynamicPrice('iron', 20000, 5000, 50000); let Biron = dataIron.beli; let Siron = dataIron.jual; let statusIron = dataIron.status;
+    let dataBerlian = getDynamicPrice('berlian', 150000, 10000, 10000); let Bberlian = dataBerlian.beli; let Sberlian = dataBerlian.jual; let statusBerlian = dataBerlian.status;
+    let dataEmasBatang = getDynamicPrice('emasbatang', 250000, 10000, 5000); let Bemasbatang = dataEmasBatang.beli; let Semasbatang = dataEmasBatang.jual; let statusEmasBatang = dataEmasBatang.status;
 
-    let dataBibitPisang = getMarketPrice('bibitpisang', 550, 50, 100000); let Bbibitpisang = dataBibitPisang.beli; let Sbibitpisang = dataBibitPisang.jual; let statusBibitPisang = dataBibitPisang.status;
-    let dataBibitAnggur = getMarketPrice('bibitanggur', 550, 50, 100000); let Bbibitanggur = dataBibitAnggur.beli; let Sbibitanggur = dataBibitAnggur.jual; let statusBibitAnggur = dataBibitAnggur.status;
-    let dataBibitMangga = getMarketPrice('bibitmangga', 550, 50, 100000); let Bbibitmangga = dataBibitMangga.beli; let Sbibitmangga = dataBibitMangga.jual; let statusBibitMangga = dataBibitMangga.status;
-    let dataBibitJeruk = getMarketPrice('bibitjeruk', 550, 50, 100000); let Bbibitjeruk = dataBibitJeruk.beli; let Sbibitjeruk = dataBibitJeruk.jual; let statusBibitJeruk = dataBibitJeruk.status;
-    let dataBibitApel = getMarketPrice('bibitapel', 550, 50, 100000); let Bbibitapel = dataBibitApel.beli; let Sbibitapel = dataBibitApel.jual; let statusBibitApel = dataBibitApel.status;
-    let dataPadi = getMarketPrice('bibitpadi', 400, 80, 100000); let Bpadi = dataPadi.beli; let Spadi = dataPadi.jual; let statusPadi = dataPadi.status;
-    let dataGandum = getMarketPrice('bibitgandum', 450, 100, 100000); let Bgandum = dataGandum.beli; let Sgandum = dataGandum.jual; let statusGandum = dataGandum.status;
-    let dataWortel = getMarketPrice('bibitwortel', 500, 120, 100000); let Bwortel = dataWortel.beli; let Swortel = dataWortel.jual; let statusWortel = dataWortel.status;
-    let dataKentang = getMarketPrice('bibitkentang', 600, 140, 100000); let Bkentang = dataKentang.beli; let Skentang = dataKentang.jual; let statusKentang = dataKentang.status;
-    let dataSingkong = getMarketPrice('bibitsingkong', 350, 70, 100000); let Bsingkong = dataSingkong.beli; let Ssingkong = dataSingkong.jual; let statusSingkong = dataSingkong.status;
-    let dataUbiJalar = getMarketPrice('bibitubijalar', 375, 75, 100000); let Bubijalar = dataUbiJalar.beli; let Subijalar = dataUbiJalar.jual; let statusUbiJalar = dataUbiJalar.status;
-    let dataTebu = getMarketPrice('bibittebu', 550, 130, 100000); let Btebu = dataTebu.beli; let Stebu = dataTebu.jual; let statusTebu = dataTebu.status;
+    // Makanan
+    let dataPisang = getDynamicPrice('pisang', 5500, 100, 80000); let Bpisang = dataPisang.beli; let Spisang = dataPisang.jual; let statusPisang = dataPisang.status;
+    let dataAnggur = getDynamicPrice('anggur', 5500, 150, 80000); let Banggur = dataAnggur.beli; let Sanggur = dataAnggur.jual; let statusAnggur = dataAnggur.status;
+    let dataMangga = getDynamicPrice('mangga', 4600, 150, 80000); let Bmangga = dataMangga.beli; let Smangga = dataMangga.jual; let statusMangga = dataMangga.status;
+    let dataJeruk = getDynamicPrice('jeruk', 6000, 300, 80000); let Bjeruk = dataJeruk.beli; let Sjeruk = dataJeruk.jual; let statusJeruk = dataJeruk.status;
+    let dataApel = getDynamicPrice('apel', 5500, 400, 80000); let Bapel = dataApel.beli; let Sapel = dataApel.jual; let statusApel = dataApel.status;
+    let dataMakananPet = getDynamicPrice('makananpet', 50000, 500, 20000); let Bmakananpet = dataMakananPet.beli; let Smakananpet = dataMakananPet.jual; let statusMakananPet = dataMakananPet.status;
+    let dataMakananNaga = getDynamicPrice('makanannaga', 150000, 10000, 5000); let Bmakanannaga = dataMakananNaga.beli; let Smakanannaga = dataMakananNaga.jual; let statusMakananNaga = dataMakananNaga.status;
+    let dataMakananKyubi = getDynamicPrice('makanankyubi', 150000, 10000, 5000); let Bmakanankyubi = dataMakananKyubi.beli; let Smakanankyubi = dataMakananKyubi.jual; let statusMakananKyubi = dataMakananKyubi.status;
+    let dataMakananGriffin = getDynamicPrice('makanangriffin', 80000, 5000, 10000); let Bmakanangriffin = dataMakananGriffin.beli; let Smakanangriffin = dataMakananGriffin.jual; let statusMakananGriffin = dataMakananGriffin.status;
+    let dataMakananPhonix = getDynamicPrice('makananphonix', 80000, 5000, 10000); let Bmakananphonix = dataMakananPhonix.beli; let Smakananphonix = dataMakananPhonix.jual; let statusMakananPhonix = dataMakananPhonix.status;
+    let dataMakananCentaur = getDynamicPrice('makanancentaur', 150000, 10000, 5000); let Bmakanancentaur = dataMakananCentaur.beli; let Smakanancentaur = dataMakananCentaur.jual; let statusMakananCentaur = dataMakananCentaur.status;
 
-    let dataPotion = getMarketPrice('potion', 20000, 100, 50000); let potion = dataPotion.beli; let Spotion = dataPotion.jual; let statusPotion = dataPotion.status;
-    let dataSampah = getMarketPrice('sampah', 120, 5, 500000); let Bsampah = dataSampah.beli; let Ssampah = dataSampah.jual; let statusSampah = dataSampah.status;
-    let dataString = getMarketPrice('string', 50000, 5000, 20000); let Bstring = dataString.beli; let Sstring = dataString.jual; let statusString = dataString.status;
-    let dataBotol = getMarketPrice('botol', 300, 50, 150000); let Bbotol = dataBotol.beli; let Sbotol = dataBotol.jual; let statusBotol = dataBotol.status;
-    let dataKaleng = getMarketPrice('kaleng', 400, 100, 150000); let Bkaleng = dataKaleng.beli; let Skaleng = dataKaleng.jual; let statusKaleng = dataKaleng.status;
-    let dataKardus = getMarketPrice('kardus', 400, 50, 150000); let Bkardus = dataKardus.beli; let Skardus = dataKardus.jual; let statusKardus = dataKardus.status;
-    let dataSword = getMarketPrice('sword', 150000, 15000, 5000); let Bsword = dataSword.beli; let Ssword = dataSword.jual; let statusSword = dataSword.status;
+    // Minuman
+    let dataAqua = getDynamicPrice('aqua', 5000, 1000, 100000); let Baqua = dataAqua.beli; let Saqua = dataAqua.jual; let statusAqua = dataAqua.status;
+    let dataSusu = getDynamicPrice('susu', 6000, 1200, 80000); let Bsusu = dataSusu.beli; let Ssusu = dataSusu.jual; let statusSusu = dataSusu.status;
+    let dataMadu = getDynamicPrice('madu', 12000, 2500, 50000); let Bmadu = dataMadu.beli; let Smadu = dataMadu.jual; let statusMadu = dataMadu.status;
+    let dataUmpan = getDynamicPrice('umpan', 1500, 100, 100000); let Bumpan = dataUmpan.beli; let Sumpan = dataUmpan.jual; let statusUmpan = dataUmpan.status;
 
-    // ALAM (Update Harga & Stock Randomizer 15654 - 18096)
-    let dataKayu = getMarketPrice('kayu', 16000, 8000, 16842); let Bkayu = dataKayu.beli; let Skayu = dataKayu.jual; let statusKayu = dataKayu.status;
-    let dataBatu = getMarketPrice('batu', 500, 100, 17111); let Bbatu = dataBatu.beli; let Sbatu = dataBatu.jual; let statusBatu = dataBatu.status;
-    let dataPasir = getMarketPrice('pasir', 250000, 125000, 15999); let Bpasir = dataPasir.beli; let Spasir = dataPasir.jual; let statusPasir = dataPasir.status;
-    let dataCoal = getMarketPrice('coal', 100000, 50000, 17543); let Bcoal = dataCoal.beli; let Scoal = dataCoal.jual; let statusCoal = dataCoal.status;
-    let dataIron = getMarketPrice('iron', 76000, 38000, 16210); let Biron = dataIron.beli; let Siron = dataIron.jual; let statusIron = dataIron.status;
-    let dataBerlian = getMarketPrice('berlian', 2875000, 1437500, 17888); let Bberlian = dataBerlian.beli; let Sberlian = dataBerlian.jual; let statusBerlian = dataBerlian.status;
-    let dataEmasBatang = getMarketPrice('emasbatang', 8664500, 4332250, 15678); let Bemasbatang = dataEmasBatang.beli; let Semasbatang = dataEmasBatang.jual; let statusEmasBatang = dataEmasBatang.status;
-    let dataUranium = getMarketPrice('uranium', 35000, 17500, 18005); let Buranium = dataUranium.beli; let Suranium = dataUranium.jual; let statusUranium = dataUranium.status;
+    // ==================== JUS BUAH ====================
+    let baseStockJusAnggur = Math.floor(Math.random() * (25625 - 15768 + 1)) + 15768;
+    let baseStockJusApel   = Math.floor(Math.random() * (25625 - 15768 + 1)) + 15768;
+    let baseStockJusJeruk  = Math.floor(Math.random() * (25625 - 15768 + 1)) + 15768;
+    let baseStockJusMangga = Math.floor(Math.random() * (25625 - 15768 + 1)) + 15768;
+    let baseStockJusPisang = Math.floor(Math.random() * (25625 - 15768 + 1)) + 15768;
 
-    let dataPisang = getMarketPrice('pisang', 5500, 100, 80000); let Bpisang = dataPisang.beli; let Spisang = dataPisang.jual; let statusPisang = dataPisang.status;
-    let dataAnggur = getMarketPrice('anggur', 5500, 150, 80000); let Banggur = dataAnggur.beli; let Sanggur = dataAnggur.jual; let statusAnggur = dataAnggur.status;
-    let dataMangga = getMarketPrice('mangga', 4600, 150, 80000); let Bmangga = dataMangga.beli; let Smangga = dataMangga.jual; let statusMangga = dataMangga.status;
-    let dataJeruk = getMarketPrice('jeruk', 6000, 300, 80000); let Bjeruk = dataJeruk.beli; let Sjeruk = dataJeruk.jual; let statusJeruk = dataJeruk.status;
-    let dataApel = getMarketPrice('apel', 5500, 400, 80000); let Bapel = dataApel.beli; let Sapel = dataApel.jual; let statusApel = dataApel.status;
-    let dataMakananPet = getMarketPrice('makananpet', 50000, 500, 20000); let Bmakananpet = dataMakananPet.beli; let Smakananpet = dataMakananPet.jual; let statusMakananPet = dataMakananPet.status;
-    let dataMakananNaga = getMarketPrice('makanannaga', 150000, 10000, 5000); let Bmakanannaga = dataMakananNaga.beli; let Smakanannaga = dataMakananNaga.jual; let statusMakananNaga = dataMakananNaga.status;
-    let dataMakananKyubi = getMarketPrice('makanankyubi', 150000, 10000, 5000); let Bmakanankyubi = dataMakananKyubi.beli; let Smakanankyubi = dataMakananKyubi.jual; let statusMakananKyubi = dataMakananKyubi.status;
-    let dataMakananGriffin = getMarketPrice('makanangriffin', 80000, 5000, 10000); let Bmakanangriffin = dataMakananGriffin.beli; let Smakanangriffin = dataMakananGriffin.jual; let statusMakananGriffin = dataMakananGriffin.status;
-    let dataMakananPhonix = getMarketPrice('makananphonix', 80000, 5000, 10000); let Bmakananphonix = dataMakananPhonix.beli; let Smakananphonix = dataMakananPhonix.jual; let statusMakananPhonix = dataMakananPhonix.status;
-    let dataMakananCentaur = getMarketPrice('makanancentaur', 150000, 10000, 5000); let Bmakanancentaur = dataMakananCentaur.beli; let Smakanancentaur = dataMakananCentaur.jual; let statusMakananCentaur = dataMakananCentaur.status;
+    let dataJusAnggur = getDynamicPrice('jusanggur', 12000, 2800, baseStockJusAnggur); 
+    let Bjusanggur = dataJusAnggur.beli; let Sjusanggur = dataJusAnggur.jual; let statusJusAnggur = dataJusAnggur.status;
 
-    // MINUMAN (Update Harga & Stock Randomizer 15654 - 18096)
-    let dataAqua = getMarketPrice('aqua', 9900, 4950, 16333); let Baqua = dataAqua.beli; let Saqua = dataAqua.jual; let statusAqua = dataAqua.status;
-    let dataTehBotol = getMarketPrice('tehbotol', 16600, 8300, 17444); let Btehbotol = dataTehBotol.beli; let Stehbotol = dataTehBotol.jual; let statusTehBotol = dataTehBotol.status;
-    let dataNescafe = getMarketPrice('nescafe', 14400, 7200, 16890); let Bnescafe = dataNescafe.beli; let Snescafe = dataNescafe.jual; let statusNescafe = dataNescafe.status;
-    let dataSusu = getMarketPrice('susu', 10000, 5000, 17999); let Bsusu = dataSusu.beli; let Ssusu = dataSusu.jual; let statusSusu = dataSusu.status;
-    let dataMadu = getMarketPrice('madu', 64000, 32000, 16555); let Bmadu = dataMadu.beli; let Smadu = dataMadu.jual; let statusMadu = dataMadu.status;
-    let dataUmpan = getMarketPrice('umpan', 1500, 100, 17234); let Bumpan = dataUmpan.beli; let Sumpan = dataUmpan.jual; let statusUmpan = dataUmpan.status;
+    let dataJusApel = getDynamicPrice('jusapel', 12300, 2900, baseStockJusApel); 
+    let Bjusapel = dataJusApel.beli; let Sjusapel = dataJusApel.jual; let statusJusApel = dataJusApel.status;
 
-    // DATA JUS BUAH
-    let dataJusAnggur = getMarketPrice('jusanggur', 12000, 9500, 16012); let Bjusanggur = dataJusAnggur.beli; let Sjusanggur = dataJusAnggur.jual; let statusJusAnggur = dataJusAnggur.status;
-    let dataJusApel = getMarketPrice('jusapel', 9600, 7500, 17345); let Bjusapel = dataJusApel.beli; let Sjusapel = dataJusApel.jual; let statusJusApel = dataJusApel.status;
-    let dataJusJeruk = getMarketPrice('jusjeruk', 13800, 11000, 15999); let Bjusjeruk = dataJusJeruk.beli; let Sjusjeruk = dataJusJeruk.jual; let statusJusJeruk = dataJusJeruk.status;
-    let dataJusMangga = getMarketPrice('jusmangga', 12160, 9800, 16888); let Bjusmangga = dataJusMangga.beli; let Sjusmangga = dataJusMangga.jual; let statusJusMangga = dataJusMangga.status;
-    let dataJusPisang = getMarketPrice('juspisang', 13200, 10500, 17200); let Bjuspisang = dataJusPisang.beli; let Sjuspisang = dataJusPisang.jual; let statusJusPisang = dataJusPisang.status;
+    let dataJusJeruk = getDynamicPrice('jusjeruk', 12600, 3000, baseStockJusJeruk); 
+    let Bjusjeruk = dataJusJeruk.beli; let Sjusjeruk = dataJusJeruk.jual; let statusJusJeruk = dataJusJeruk.status;
 
+    let dataJusMangga = getDynamicPrice('jusmangga', 12900, 3100, baseStockJusMangga); 
+    let Bjusmangga = dataJusMangga.beli; let Sjusmangga = dataJusMangga.jual; let statusJusMangga = dataJusMangga.status;
+
+    let dataJusPisang = getDynamicPrice('juspisang', 13300, 3200, baseStockJusPisang); 
+    let Bjuspisang = dataJusPisang.beli; let Sjuspisang = dataJusPisang.jual; let statusJusPisang = dataJusPisang.status;
+
+    // Perhiasan & Crate
     let pEmas = getStatusPasarItem(1); let statusEmas = pEmas.statusPasar; let Bemasbiasa = Math.floor(1545000 + (1545000 * pEmas.persentase)); let Semasbiasa = Math.floor(1296000 + (1296000 * pEmas.persentase));
     let pDiamond = getStatusPasarItem(2); let statusDiamond = pDiamond.statusPasar; let Bdiamond = Math.floor(5810000 + (5810000 * pDiamond.persentase)); let Sdiamond = Math.floor(4081000 + (4081000 * pDiamond.persentase));
     let pPerak = getStatusPasarItem(3); let statusPerak = pPerak.statusPasar; let Bperak = Math.floor(1009000 + (1009000 * pPerak.persentase)); let Sperak = Math.floor(891000 + (891000 * pPerak.persentase));
@@ -148,25 +173,20 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
 
     let user = global.db.data.users[m.sender];
 
-    // ==========================================
-    // SISTEM PAJAK HARIAN (DAILY TAX 12%)
-    // ==========================================
+    // Pajak Harian
     let tanggalHariIni = new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' });
     if (user.lastTaxDate !== tanggalHariIni) {
         let uangSaatIni = user.money || 0;
-        let potonganPajak = Math.floor(uangSaatIni * 0.01); // Pajak 1% dari total uang
-        
+        let potonganPajak = Math.floor(uangSaatIni * 0.01);
         if (potonganPajak > 0) {
             user.money -= potonganPajak;
-            // Bot akan mengirim pesan peringatan ke player bahwa pajaknya sudah ditarik
-            conn.reply(m.chat, `🏛️ *INFO PAJAK HARIAN (1%)*\n\nPemerintah server telah memotong uangmu sebesar *Rp ${potonganPajak.toLocaleString()}* untuk pajak harian.\nSisa uangmu sekarang: Rp ${user.money.toLocaleString()}`, m);
+            conn.reply(m.chat, `🏛️ *INFO PAJAK HARIAN (1%)*\nDipotong Rp ${potonganPajak.toLocaleString()}`, m);
         }
-        // Menandai player agar tidak kena pajak lagi di hari yang sama
         user.lastTaxDate = tanggalHariIni;
     }
 
     // ==========================================
-    // MENU KCHAT
+    // MENU LENGKAP (GANTI DENGAN MENU LAMA KAMU)
     // ==========================================
     const Kchat = `
 ━━━「 *HARGA BELI/JUAL* 」━━━
@@ -301,12 +321,6 @@ Info Stock : ${dataTebu.stockStatus}
 
 ╸╸━━━「 *BARANG* 」━━━╺╺
 
-🥤Potion:
-HARGA BELI : ${potion}
-HARGA JUAL : ${Spotion}
-Status Harga : ${statusPotion}
-Info Stock : ${dataPotion.stockStatus}
-
 🗑️Sampah:
 HARGA BELI : ${Bsampah}
 HARGA JUAL : ${Ssampah}
@@ -343,6 +357,12 @@ HARGA JUAL : ${Ssword}
 Status Harga : ${statusSword}
 Info Stock : ${dataSword.stockStatus}
 
+🪤Umpan:
+HARGA BELI : ${Bumpan}
+HARGA JUAL : ${Sumpan}
+Status Harga : ${statusUmpan}
+Info Stock : ${dataUmpan.stockStatus}
+
 ╸╸━━━「 *ALAM* 」━━━╺╺
 
 🪵Kayu:        
@@ -356,12 +376,6 @@ HARGA BELI : ${Bbatu}
 HARGA JUAL : ${Sbatu}
 Status Harga : ${statusBatu}
 Info Stock : ${dataBatu.stockStatus}
-
-⏳Pasir:        
-HARGA BELI : ${Bpasir}
-HARGA JUAL : ${Spasir}
-Status Harga : ${statusPasir}
-Info Stock : ${dataPasir.stockStatus}
 
 🪨Coal:        
 HARGA BELI : ${Bcoal}
@@ -381,17 +395,11 @@ HARGA JUAL : ${Sberlian}
 Status Harga : ${statusBerlian}
 Info Stock : ${dataBerlian.stockStatus}
 
-🥇Emas Mentah:
+🥇Emas Batang:
 HARGA BELI : ${Bemasbatang}
 HARGA JUAL : ${Semasbatang}
 Status Harga : ${statusEmasBatang}
 Info Stock : ${dataEmasBatang.stockStatus}
-
-☢️Uranium:
-HARGA BELI : ${Buranium}
-HARGA JUAL : ${Suranium}
-Status Harga : ${statusUranium}
-Info Stock : ${dataUranium.stockStatus}
 
 ╸╸━━━「 *PERHIASAN* 」━━━╺╺
 
@@ -541,28 +549,19 @@ Info Stock : ${dataMakananCentaur.stockStatus}
 
 ╸╸━━━「 *MINUMAN* 」━━━╺╺
 
-> Untuk menu Jus Buah, ketik:
-*${usedPrefix}shop jusbuah*
+🥤Potion:
+HARGA BELI : ${potion}
+HARGA JUAL : ${Spotion}
+Status Harga : ${statusPotion}
+Info Stock : ${dataPotion.stockStatus}
 
-🫗Air Mineral:
+🫗Aqua:
 HARGA BELI : ${Baqua}
 HARGA JUAL : ${Saqua}
 Status Harga : ${statusAqua}
 Info Stock : ${dataAqua.stockStatus}
 
-🧃Teh Botol:
-HARGA BELI : ${Btehbotol}
-HARGA JUAL : ${Stehbotol}
-Status Harga : ${statusTehBotol}
-Info Stock : ${dataTehBotol.stockStatus}
-
-☕Kopi Nescafe:
-HARGA BELI : ${Bnescafe}
-HARGA JUAL : ${Snescafe}
-Status Harga : ${statusNescafe}
-Info Stock : ${dataNescafe.stockStatus}
-
-🥛Ultra Milk:
+🥛Susu:
 HARGA BELI : ${Bsusu}
 HARGA JUAL : ${Ssusu}
 Status Harga : ${statusSusu}
@@ -581,21 +580,199 @@ HARGA JUAL : ${Sumpan}
 Status Harga : ${statusUmpan}
 Info Stock : ${dataUmpan.stockStatus}
 
-━━━「 *DOMPET KAMU* 」━━━
+> Ketik *.shop jusbuah* untuk melihat daftar Jus Buah saja
 
+━━━「 *DOMPET KAMU* 」━━━
 • *Uang:* Rp ${user.money.toLocaleString()}
 • *Emerald:* ${user.emerald}
 • *Emas:* ${user.emas} gram
 • *Diamond:* ${user.diamond}
 • *Perak:* ${user.perak}
-
-=======================
-Penggunaan ${usedPrefix}shop <Buy|sell> <item> <jumlah>
-Contoh penggunaan: *${usedPrefix}shop buy susu 1*
-`.trim()
+`.trim();
 
     // ==========================================
-    // LOGIKA TRANSAKSI SMART ROUTER
+    // MENU KATEGORI
+    // ==========================================
+    
+    const BarangMenu = `
+━━━「 *Barang* 」━━━
+🗑️Sampah:
+HARGA BELI : ${Bsampah}
+HARGA JUAL : ${Ssampah}
+Status Harga : ${statusSampah}
+Info Stock : ${dataSampah.stockStatus}
+
+🧵String:
+HARGA BELI : ${Bstring}
+HARGA JUAL : ${Sstring}
+Status Harga : ${statusString}
+Info Stock : ${dataString.stockStatus}
+
+🍾Botol:
+HARGA BELI : ${Bbotol}
+HARGA JUAL : ${Sbotol}
+Status Harga : ${statusBotol}
+Info Stock : ${dataBotol.stockStatus}
+
+🥫Kaleng:
+HARGA BELI : ${Bkaleng}
+HARGA JUAL : ${Skaleng}
+Status Harga : ${statusKaleng}
+Info Stock : ${dataKaleng.stockStatus}
+
+📦Kardus:
+HARGA BELI : ${Bkardus}
+HARGA JUAL : ${Skardus}
+Status Harga : ${statusKardus}
+Info Stock : ${dataKardus.stockStatus}
+
+⚔️Sword:
+HARGA BELI : ${Bsword}
+HARGA JUAL : ${Ssword}
+Status Harga : ${statusSword}
+Info Stock : ${dataSword.stockStatus}
+
+🪤Umpan:
+HARGA BELI : ${Bumpan}
+HARGA JUAL : ${Sumpan}
+Status Harga : ${statusUmpan}
+Info Stock : ${dataUmpan.stockStatus}
+
+━━━「 *DOMPET KAMU* 」━━━
+• Uang    : Rp ${user.money.toLocaleString()}
+• Emerald : ${user.emerald}
+• Emas    : ${user.emas} gram
+• Diamond : ${user.diamond}
+• Perak   : ${user.perak}
+
+Ketik: .shop buy <nama item> <jumlah>
+`.trim();
+   
+    const MinumanMenu = `
+━━━「 *MINUMAN* 」━━━
+
+🥤Potion:
+HARGA BELI : ${potion}
+HARGA JUAL : ${Spotion}
+Status Harga : ${statusPotion}
+Info Stock : ${dataPotion.stockStatus}
+
+🫗Aqua:
+HARGA BELI : ${Baqua}
+HARGA JUAL : ${Saqua}
+Status Harga : ${statusAqua}
+Info Stock : ${dataAqua.stockStatus}
+
+🥛Susu:
+HARGA BELI : ${Bsusu}
+HARGA JUAL : ${Ssusu}
+Status Harga : ${statusSusu}
+Info Stock : ${dataSusu.stockStatus}
+
+🍯Madu:
+HARGA BELI : ${Bmadu}
+HARGA JUAL : ${Smadu}
+Status Harga : ${statusMadu}
+Info Stock : ${dataMadu.stockStatus}
+
+🍇 Jus Anggur
+HARGA BELI : ${Bjusanggur}
+HARGA JUAL : ${Sjusanggur}
+Status     : ${statusJusAnggur}
+Stock      : ${dataJusAnggur.stockStatus}
+
+🍎 Jus Apel
+HARGA BELI : ${Bjusapel}
+HARGA JUAL : ${Sjusapel}
+Status     : ${statusJusApel}
+Stock      : ${dataJusApel.stockStatus}
+
+🍊 Jus Jeruk
+HARGA BELI : ${Bjusjeruk}
+HARGA JUAL : ${Sjusjeruk}
+Status     : ${statusJusJeruk}
+Stock      : ${dataJusJeruk.stockStatus}
+
+🥭 Jus Mangga
+HARGA BELI : ${Bjusmangga}
+HARGA JUAL : ${Sjusmangga}
+Status     : ${statusJusMangga}
+Stock      : ${dataJusMangga.stockStatus}
+
+🍌 Jus Pisang
+HARGA BELI : ${Bjuspisang}
+HARGA JUAL : ${Sjuspisang}
+Status     : ${statusJusPisang}
+Stock      : ${dataJusPisang.stockStatus}
+
+━━━「 *DOMPET KAMU* 」━━━
+• Uang    : Rp ${user.money.toLocaleString()}
+• Emerald : ${user.emerald}
+• Emas    : ${user.emas} gram
+• Diamond : ${user.diamond}
+• Perak   : ${user.perak}
+
+Ketik: .shop buy <nama item> <jumlah>
+`.trim();
+
+    const MakananMenu = `
+━━━「 *MAKANAN* 」━━━
+🍌 Pisang | 🍇 Anggur | 🥭 Mangga | 🍊 Jeruk | 🍎 Apel
+MakananPet | MakananNaga | MakananKyubi | MakananGriffin | dll
+
+Ketik: .shop buy <nama item> <jumlah>
+`.trim();
+
+    const AlamMenu = `
+━━━「 *ALAM* 」━━━
+🪵 Kayu | 🪨 Batu | 🪨 Coal | ⛓️ Iron | 💎 Berlian | 🥇 Emas Batang
+
+Ketik: .shop buy <nama item> <jumlah>
+`.trim();
+
+    const BibitMenu = `
+━━━「 *BIBIT TANAMAN* 」━━━
+🍌 Bibit Pisang | 🍇 Bibit Anggur | 🥭 Bibit Mangga | 🍊 Bibit Jeruk | 🍎 Bibit Apel
+🌾 Bibit Padi | Gandum | Wortel | Kentang | Singkong | Ubi Jalar | Tebu
+
+Ketik: .shop buy <nama item> <jumlah>
+`.trim();
+
+    const PerhiasanMenu = `
+╸╸━━━「 *PERHIASAN* 」━━━╺╺
+
+💎Diamond :
+Harga Beli : ${Bdiamond}
+Harga Jual : ${Sdiamond}
+Status Harga : ${statusDiamond}
+               
+⬜Perak : 
+Harga Beli : ${Bperak}
+Harga Jual : ${Sperak}         
+Status Harga : ${statusPerak}      
+               
+🪙Emas :       
+Harga Beli : ${Bemasbiasa}
+Harga Jual : ${Semasbiasa}
+Status Harga : ${statusEmas}
+               
+❇️Emerald :     
+Harga Beli : ${Bemerald}
+Harga Jual : ${Semerald}
+Status Harga : ${statusEmerald}
+
+━━━「 *DOMPET KAMU* 」━━━
+• Uang    : Rp ${user.money.toLocaleString()}
+• Emerald : ${user.emerald}
+• Emas    : ${user.emas} gram
+• Diamond : ${user.diamond}
+• Perak   : ${user.perak}
+
+Ketik: .shop buy <nama item> <jumlah>
+`.trim();
+
+    // ==========================================
+    // LOGIKA COMMAND
     // ==========================================
     let isShop = /^(shop|toko)$/i.test(command);
     let isBuy = /^(buy|beli)$/i.test(command);
@@ -606,158 +783,66 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
     let countRaw = isShop ? args[2] : args[1];
     let count = countRaw && countRaw.length > 0 ? Math.max(parseInt(countRaw), 1) : 1;
 
-    // MENU KHUSUS JUS BUAH (.shop jusbuah)
-    if (action === 'jusbuah') {
-        let txtJus = `🛒 | *MARKET JUS BUAH*\n=========================================\nGunakan command: *${usedPrefix}shop buy <item> <jumlah>*\n\n`;
-        txtJus += `🍇 *Jus Anggur* | Beli: ${Bjusanggur.toLocaleString()} | Jual: ${Sjusanggur.toLocaleString()} | Stok: ${dataJusAnggur.stockStatus} | ${statusJusAnggur}\n`;
-        txtJus += `🍎 *Jus Apel* | Beli: ${Bjusapel.toLocaleString()} | Jual: ${Sjusapel.toLocaleString()} | Stok: ${dataJusApel.stockStatus} | ${statusJusApel}\n`;
-        txtJus += `🍊 *Jus Jeruk* | Beli: ${Bjusjeruk.toLocaleString()} | Jual: ${Sjusjeruk.toLocaleString()} | Stok: ${dataJusJeruk.stockStatus} | ${statusJusJeruk}\n`;
-        txtJus += `🥭 *Jus Mangga* | Beli: ${Bjusmangga.toLocaleString()} | Jual: ${Sjusmangga.toLocaleString()} | Stok: ${dataJusMangga.stockStatus} | ${statusJusMangga}\n`;
-        txtJus += `🍌 *Jus Pisang* | Beli: ${Bjuspisang.toLocaleString()} | Jual: ${Sjuspisang.toLocaleString()} | Stok: ${dataJusPisang.stockStatus} | ${statusJusPisang}\n`;
-        txtJus += `=========================================\n*Stok dan Harga dapat berubah sewaktu-waktu.`;
-        return conn.reply(m.chat, txtJus.trim(), m);
+    if (!action) {
+        const first = (args[0] || '').toLowerCase();
+
+        if (first === 'barang') return conn.reply(m.chat, BarangMenu, m);
+        if (first === 'jusbuah') return conn.reply(m.chat, JusBuahMenu, m);
+        if (first === 'minuman') return conn.reply(m.chat, MinumanMenu, m);
+        if (first === 'makanan') return conn.reply(m.chat, MakananMenu, m);
+        if (first === 'alam') return conn.reply(m.chat, AlamMenu, m);
+        if (first === 'bibit') return conn.reply(m.chat, BibitMenu, m);
+        if (first === 'perhiasan') return conn.reply(m.chat, PerhiasanMenu, m);
+
+        return conn.reply(m.chat, Kchat, m);
     }
 
     const shopItems = {
-        'limit': { costType: 'diamond', B: Blimit, S: Slimit, data: dataLimit, db: 'limit', name: 'Limit' },
-        'pet': { costType: 'money', B: Bpet, S: Spet, data: dataPet, db: 'pet', name: 'Pet' },
-        'gardenboxs': { costType: 'money', B: Bgardenboxs, S: Sgardenboxs, data: dataGarden, db: 'gardenboxs', name: 'Gardenboxs' },
-        'bensin': { costType: 'money', B: BBensin, S: SBensin, data: dataBensin, db: 'bensin', name: 'Bensin' },
-        'weapon': { costType: 'money', B: BWeap, S: SWeap, data: dataWeap, db: 'weapon', name: 'Weapon' },
-        'obat': { costType: 'money', B: BObat, S: SObat, data: dataObat, db: 'obat', name: 'Obat' },
-        'tiketcoin': { costType: 'money', B: Btiketcoin, S: Stiketcoin, data: dataTiketCoin, db: 'tiketcoin', name: 'Tiket Coin' },
-        'healtmonster': { costType: 'money', B: Bhealtmonster, S: Shealtmonster, data: dataHealtMonster, db: 'healtmonster', name: 'Healt Monster' },
-        'pancingan': { costType: 'money', B: Bpancingan, S: Spancingan, data: dataPancingan, db: 'pancingan', name: 'Pancingan' },
-        
-        'bibitpisang': { costType: 'money', B: Bbibitpisang, S: Sbibitpisang, data: dataBibitPisang, db: 'bibitpisang', name: 'Bibit Pisang' },
-        'bibitanggur': { costType: 'money', B: Bbibitanggur, S: Sbibitanggur, data: dataBibitAnggur, db: 'bibitanggur', name: 'Bibit Anggur' },
-        'bibitmangga': { costType: 'money', B: Bbibitmangga, S: Sbibitmangga, data: dataBibitMangga, db: 'bibitmangga', name: 'Bibit Mangga' },
-        'bibitjeruk': { costType: 'money', B: Bbibitjeruk, S: Sbibitjeruk, data: dataBibitJeruk, db: 'bibitjeruk', name: 'Bibit Jeruk' },
-        'bibitapel': { costType: 'money', B: Bbibitapel, S: Sbibitapel, data: dataBibitApel, db: 'bibitapel', name: 'Bibit Apel' },
-        'bibitpadi': { costType: 'money', B: Bpadi, S: Spadi, data: dataPadi, db: 'bibitpadi', name: 'Bibit Padi' },
-        'bibitgandum': { costType: 'money', B: Bgandum, S: Sgandum, data: dataGandum, db: 'bibitgandum', name: 'Bibit Gandum' },
-        'bibitwortel': { costType: 'money', B: Bwortel, S: Swortel, data: dataWortel, db: 'bibitwortel', name: 'Bibit Wortel' },
-        'bibitkentang': { costType: 'money', B: Bkentang, S: Skentang, data: dataKentang, db: 'bibitkentang', name: 'Bibit Kentang' },
-        'bibitsingkong': { costType: 'money', B: Bsingkong, S: Ssingkong, data: dataSingkong, db: 'bibitsingkong', name: 'Bibit Singkong' },
-        'bibitubijalar': { costType: 'money', B: Bubijalar, S: Subijalar, data: dataUbiJalar, db: 'bibitubijalar', name: 'Bibit Ubi Jalar' },
-        'bibittebu': { costType: 'money', B: Btebu, S: Stebu, data: dataTebu, db: 'bibittebu', name: 'Bibit Tebu' },
-
-        'potion': { costType: 'money', B: potion, S: Spotion, data: dataPotion, db: 'potion', name: 'Potion' },
-        'sampah': { costType: 'money', B: Bsampah, S: Ssampah, data: dataSampah, db: 'sampah', name: 'Sampah' },
-        'string': { costType: 'money', B: Bstring, S: Sstring, data: dataString, db: 'string', name: 'String' },
-        'botol': { costType: 'money', B: Bbotol, S: Sbotol, data: dataBotol, db: 'botol', name: 'Botol' },
-        'kaleng': { costType: 'money', B: Bkaleng, S: Skaleng, data: dataKaleng, db: 'kaleng', name: 'Kaleng' },
-        'kardus': { costType: 'money', B: Bkardus, S: Skardus, data: dataKardus, db: 'kardus', name: 'Kardus' },
-        'sword': { costType: 'money', B: Bsword, S: Ssword, data: dataSword, db: 'sword', name: 'Sword' },
-
-        // DB Mapping untuk List Alam 
-        'kayu': { costType: 'money', B: Bkayu, S: Skayu, data: dataKayu, db: 'kayu', name: 'Kayu' },
-        'batu': { costType: 'money', B: Bbatu, S: Sbatu, data: dataBatu, db: 'batu', name: 'Batu' },
-        'pasir': { costType: 'money', B: Bpasir, S: Spasir, data: dataPasir, db: 'pasir', name: 'Pasir' },
-        'coal': { costType: 'money', B: Bcoal, S: Scoal, data: dataCoal, db: 'coal', name: 'Coal' },
-        'iron': { costType: 'money', B: Biron, S: Siron, data: dataIron, db: 'iron', name: 'Iron' },
-        'berlian': { costType: 'money', B: Bberlian, S: Sberlian, data: dataBerlian, db: 'berlian', name: 'Berlian' },
-        'emasbatang': { costType: 'money', B: Bemasbatang, S: Semasbatang, data: dataEmasBatang, db: 'emasbatang', name: 'Emas Mentah' },
-        'uranium': { costType: 'money', B: Buranium, S: Suranium, data: dataUranium, db: 'uranium', name: 'Uranium' },
-
-        // DB Mapping Perhiasan (UNLIMITED STOK -> data diset NULL)
-        'diamond': { costType: 'money', B: Bdiamond, S: Sdiamond, data: null, db: 'diamond', name: 'Diamond' },
-        'perak': { costType: 'money', B: Bperak, S: Sperak, data: null, db: 'perak', name: 'Perak' },
-        'emas': { costType: 'money', B: Bemasbiasa, S: Semasbiasa, data: null, db: 'emas', name: 'Emas' },
-        'emerald': { costType: 'money', B: Bemerald, S: Semerald, data: null, db: 'emerald', name: 'Emerald' },
-
-        // DB Mapping Crate (UNLIMITED STOK -> data yang dipanggil tidak mempunyai object .stock, dianggap unlimited)
-        'common': { costType: 'money', B: Bcommon, S: Scommon, data: dCommon, db: 'common', name: 'Common Crate' },
-        'uncommon': { costType: 'money', B: Buncommon, S: Suncommon, data: dUncommon, db: 'uncommon', name: 'Uncommon Crate' },
-        'rare': { costType: 'money', B: Brare, S: Srare, data: dRare, db: 'rare', name: 'Rare Crate' },
-        'epic': { costType: 'money', B: Bepic, S: Sepic, data: dEpic, db: 'epic', name: 'Epic Crate' },
-        'mythic': { costType: 'money', B: Bmythic, S: Smythic, data: dMythic, db: 'mythic', name: 'Mythic Crate' },
-        'legendary': { costType: 'money', B: Blegendary, S: Slegendary, data: dLegendary, db: 'legendary', name: 'Legendary Crate' },
-        'secret': { costType: 'money', B: Bsecret, S: Ssecret, data: dSecret, db: 'secret', name: 'Secret Crate' },
-        'dark': { costType: 'money', B: Bdark, S: Sdark, data: dDark, db: 'dark', name: 'Dark Crate' },
-        'cheat': { costType: 'money', B: Bcheat, S: Scheat, data: dCheat, db: 'cheat', name: 'Cheat Crate' },
-
-        'pisang': { costType: 'money', B: Bpisang, S: Spisang, data: dataPisang, db: 'pisang', name: 'Pisang' },
-        'anggur': { costType: 'money', B: Banggur, S: Sanggur, data: dataAnggur, db: 'anggur', name: 'Anggur' },
-        'mangga': { costType: 'money', B: Bmangga, S: Smangga, data: dataMangga, db: 'mangga', name: 'Mangga' },
-        'jeruk': { costType: 'money', B: Bjeruk, S: Sjeruk, data: dataJeruk, db: 'jeruk', name: 'Jeruk' },
-        'apel': { costType: 'money', B: Bapel, S: Sapel, data: dataApel, db: 'apel', name: 'Apel' },
-        
-        'makananpet': { costType: 'money', B: Bmakananpet, S: Smakananpet, data: dataMakananPet, db: 'makananpet', name: 'Makanan Pet' },
-        'makanannaga': { costType: 'money', B: Bmakanannaga, S: Smakanannaga, data: dataMakananNaga, db: 'makanannaga', name: 'Makanan Naga' },
-        'makanankyubi': { costType: 'money', B: Bmakanankyubi, S: Smakanankyubi, data: dataMakananKyubi, db: 'makanankyubi', name: 'Makanan Kyubi' },
-        'makanangriffin': { costType: 'money', B: Bmakanangriffin, S: Smakanangriffin, data: dataMakananGriffin, db: 'makanangriffin', name: 'Makanan Griffin' },
-        'makananphonix': { costType: 'money', B: Bmakananphonix, S: Smakananphonix, data: dataMakananPhonix, db: 'makananphonix', name: 'Makanan Phonix' },
-        'makanancentaur': { costType: 'money', B: Bmakanancentaur, S: Smakanancentaur, data: dataMakananCentaur, db: 'makanancentaur', name: 'Makanan Centaur' },
-
-        // DB Mapping untuk List Minuman & Jus
-        'aqua': { costType: 'money', B: Baqua, S: Saqua, data: dataAqua, db: 'aqua', name: 'Air Mineral' },
-        'tehbotol': { costType: 'money', B: Btehbotol, S: Stehbotol, data: dataTehBotol, db: 'tehbotol', name: 'Teh Botol' },
-        'nescafe': { costType: 'money', B: Bnescafe, S: Snescafe, data: dataNescafe, db: 'nescafe', name: 'Kopi Nescafe' },
-        'susu': { costType: 'money', B: Bsusu, S: Ssusu, data: dataSusu, db: 'susu', name: 'Ultra Milk' },
-        'madu': { costType: 'money', B: Bmadu, S: Smadu, data: dataMadu, db: 'madu', name: 'Madu' },
-        
         'jusanggur': { costType: 'money', B: Bjusanggur, S: Sjusanggur, data: dataJusAnggur, db: 'jusanggur', name: 'Jus Anggur' },
         'jusapel': { costType: 'money', B: Bjusapel, S: Sjusapel, data: dataJusApel, db: 'jusapel', name: 'Jus Apel' },
         'jusjeruk': { costType: 'money', B: Bjusjeruk, S: Sjusjeruk, data: dataJusJeruk, db: 'jusjeruk', name: 'Jus Jeruk' },
         'jusmangga': { costType: 'money', B: Bjusmangga, S: Sjusmangga, data: dataJusMangga, db: 'jusmangga', name: 'Jus Mangga' },
-        'juspisang': { costType: 'money', B: Bjuspisang, S: Sjuspisang, data: dataJusPisang, db: 'juspisang', name: 'Jus Pisang' },
-
-        'umpan': { costType: 'money', B: Bumpan, S: Sumpan, data: dataUmpan, db: 'umpan', name: 'Umpan' }
+        'juspisang': { costType: 'money', B: Bjuspisang, S: Sjuspisang, data: dataJusPisang, db: 'juspisang', name: 'Jus Pisang' }
     };
 
     try {
         if (!action) return conn.reply(m.chat, Kchat, m);
         let curItem = shopItems[item];
-        
         if (!curItem) return conn.reply(m.chat, Kchat, m);
 
-        // LOGIKA PENGECEKAN STOK
-        // Item dianggap unlimited jika data null ATAU tidak memiliki nilai `.stock` (seperti perhiasan & crate)
-        let isUnlimited = !curItem.data || typeof curItem.data.stock === 'undefined';
+        let isUnlimited = !curItem.data || !curItem.data.stock;
 
-        // EKSEKUSI PEMBELIAN
         if (action === 'buy') {
             if (!isUnlimited && count > curItem.data.stock) {
-                return conn.reply(m.chat, `Stok Server tidak cukup! Sisa stok saat ini hanya: ${curItem.data.stock.toLocaleString()}`, m);
+                return conn.reply(m.chat, `Stok tidak cukup!`, m);
             }
-
             let totalCost = curItem.B * count;
             if (user[curItem.costType] >= totalCost) {
                 user[curItem.costType] -= totalCost;
                 user[curItem.db] = (user[curItem.db] || 0) + count;
-                
-                // Kurangi stok global hanya jika item bukan kategori unlimited
                 if (!isUnlimited && global.db.data.market[curItem.db]) {
                     global.db.data.market[curItem.db].stock -= count;
                 }
-
-                conn.reply(m.chat, `🛒 *TRANSAKSI SUKSES*\nKamu membeli ${count} ${curItem.name} seharga ${totalCost.toLocaleString()} ${curItem.costType}.`, m);
+                conn.reply(m.chat, `🛒 Berhasil membeli ${count} ${curItem.name}`, m);
             } else {
-                conn.reply(m.chat, `❌ Maaf, ${curItem.costType} kamu tidak cukup untuk membeli item ini.`, m);
+                conn.reply(m.chat, `❌ ${curItem.costType} tidak cukup.`, m);
             }
-
-        // EKSEKUSI PENJUALAN + PAJAK TRANSAKSI (5%)
         } else if (action === 'sell') {
             let totalGain = curItem.S * count;
-            let tax = Math.floor(totalGain * 0.05); // Pajak Penjualan tetap 5%
+            let tax = Math.floor(totalGain * 0.05);
             let finalGain = totalGain - tax;
 
             if ((user[curItem.db] || 0) >= count) {
                 user[curItem.db] -= count;
-                user.money += finalGain; 
-                
-                // Tambah stok global jika item terjual ke toko (jika bukan kategori unlimited)
+                user.money += finalGain;
                 if (!isUnlimited && global.db.data.market[curItem.db]) {
                     global.db.data.market[curItem.db].stock += count;
                 }
-
-                conn.reply(m.chat, `⚖️ *TRANSAKSI SUKSES*\nKamu menjual ${count} ${curItem.name}.\nGross: +${totalGain.toLocaleString()} Money\nPajak Admin (5%): -${tax.toLocaleString()}\n*Diterima Bersih: ${finalGain.toLocaleString()} Money*`, m);
+                conn.reply(m.chat, `✅ Berhasil menjual ${count} ${curItem.name}\nBersih: ${finalGain.toLocaleString()} Money`, m);
             } else {
-                conn.reply(m.chat, `❌ Item ${curItem.name} kamu tidak cukup untuk dijual sebanyak itu.`, m);
+                conn.reply(m.chat, `❌ Item tidak cukup.`, m);
             }
         }
-
     } catch (e) {
         console.error(e);
         conn.reply(m.chat, 'Terjadi kesalahan di sistem Shop.', m);
