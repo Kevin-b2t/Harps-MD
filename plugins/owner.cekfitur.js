@@ -1,7 +1,7 @@
-let handler = async (m, { text }) => {
+let handler = async (m, { text, usedPrefix, command }) => {
     let plugins = global.plugins || {}
 
-    // CEK SATU FITUR
+    // CEK SATU FITUR SPESIFIK
     if (text) {
         let cari = text.toLowerCase()
         let ditemukan = []
@@ -20,15 +20,15 @@ let handler = async (m, { text }) => {
                     cmds.push(String(plugin.command))
                 }
 
-                let help = plugin.help || []
+                let help = Array.isArray(plugin.help) ? plugin.help : [plugin.help]
 
                 let cocok =
-                    cmds.some(v => v.toLowerCase().includes(cari)) ||
-                    help.some(v => String(v).toLowerCase().includes(cari))
+                    cmds.some(v => v && v.toLowerCase().includes(cari)) ||
+                    help.some(v => v && String(v).toLowerCase().includes(cari))
 
                 if (cocok) {
                     ditemukan.push(
-                        `✅ FITUR DITEMUKAN\n` +
+                        `✅ *FITUR DITEMUKAN*\n` +
                         `📂 File: ${file}\n` +
                         `📖 Help: ${help.join(', ') || '-'}`
                     )
@@ -37,50 +37,47 @@ let handler = async (m, { text }) => {
         }
 
         if (!ditemukan.length) {
-            return m.reply(`❌ Fitur "${text}" tidak ditemukan.`)
+            return m.reply(`❌ Fitur "${text}" tidak ditemukan di dalam sistem.`)
         }
 
-        return m.reply(ditemukan.join('\n\n'))
+        let replyText = ditemukan.join('\n\n');
+        
+        // Mencegah bot crash / blank karena teks terlalu panjang
+        if (replyText.length > 10000) {
+             return m.reply(`✅ Ditemukan *${ditemukan.length} kecocokan*, tapi pesannya terlalu panjang untuk dikirim!\n\n_Coba gunakan kata kunci yang lebih spesifik._`);
+        }
+
+        return m.reply(replyText)
     }
 
-    // CEK SEMUA PLUGIN
+    // CEK REKAP SEMUA PLUGIN (TIDAK DILIST SATU-SATU AGAR TIDAK BLANK)
     let total = 0
     let aktif = 0
     let rusak = 0
 
-    let list = []
-
     for (let file in plugins) {
         total++
-
         try {
-            let plugin = plugins[file]
-
-            aktif++
-
-            list.push(`✅ ${file}`)
+            if (plugins[file]) aktif++
         } catch {
             rusak++
-            list.push(`❌ ${file}`)
         }
     }
 
     m.reply(
-`📊 CEK FITUR BOT
+`📊 *REKAP FITUR BOT* 📊
 
-📁 Total Plugin : ${total}
-✅ Aktif : ${aktif}
-❌ Error : ${rusak}
+📁 Total Plugin : *${total} File*
+✅ Berjalan Normal : *${aktif}*
+❌ Error/Rusak : *${rusak}*
 
-━━━━━━━━━━━━━━
-
-${list.join('\n')}`
+_Note: Untuk mencari file spesifik, ketik *${usedPrefix + command} <kata_kunci>*_`
     )
 }
 
-handler.help = ['cekfitur', 'cekfitur <fitur>']
+handler.help = ['cekfitur <teks>']
 handler.tags = ['owner']
-handler.command = /^cekfitur$/i
-handler.owner = true
+handler.command = /^(cekfitur|listplugin|cekplugin)$/i
+handler.owner = true // Pastikan hanya Owner yang bisa pakai
 
-export default handler
+module.exports = handler
