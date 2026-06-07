@@ -23,7 +23,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
     const tipePerusahaan = ['minuman'];
 
-    // Karena pabrik bayar tagihan air & listrik, bahan 'air' dihapus dari resep!
+    // Daftar barang pabrik (Bahan 'air' dihapus karena pabrik sudah otomatis bayar tagihan air PDAM)
     const produkList = {
         'airmineral': { type: 'minuman', name: 'Air Mineral', db: 'airmineral', prodCost: 5000, baseHargaToko: 15000, bahan: { botol: 1 } },
         'tehbotol':   { type: 'minuman', name: 'Teh Botol', db: 'tehbotol', prodCost: 8000, baseHargaToko: 20000, bahan: { botol: 1, daunteh: 1 } },
@@ -150,7 +150,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 let resep = Object.entries(produkList[v].bahan).map(([b, n]) => `${n} ${b}`).join(', ');
                 return `📦 *${produkList[v].name}* (ID: ${v})\n ⚙️ Biaya Prod: Rp ${produkList[v].prodCost.toLocaleString()}\n 🧪 Bahan: ${resep}`;
             }).join('\n\n');
-            m.reply(`📋 *BUKU RESEP PABRIK MINUMAN* 📋\n\nBerikut adalah daftar produk yang bisa diproduksi:\n\n${daftarProd}`);
+            m.reply(`📋 *BUKU RESEP PABRIK MINUMAN* 📋\n\nBerikut adalah daftar produk yang bisa diproduksi:\n_Note: Kebutuhan Air disuplai otomatis dan ditagih saat produksi_\n\n${daftarProd}`);
             break;
         }
 
@@ -290,6 +290,28 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             break;
         }
 
+        case 'batalsaham':
+        case 'tariklisting': {
+            let batalId = parseInt(args[1]);
+            if (!batalId || isNaN(batalId)) return m.reply(`⚠️ Format: *${usedPrefix + command} batalsaham <id_bursa>*`);
+            
+            let batIdx = global.db.data.bursa.findIndex(v => v.id === batalId);
+            if (batIdx === -1) return m.reply(`❌ ID Bursa tidak ditemukan!`);
+            
+            let batListing = global.db.data.bursa[batIdx];
+            if (batListing.seller !== m.sender) return m.reply(`❌ Kamu bukan pemilik dari listing saham ini!`);
+            
+            let ownerPt = user.perusahaan.find(p => p.id === batListing.ptId);
+            if (ownerPt) {
+                if (!ownerPt.pemegangSaham) ownerPt.pemegangSaham = {};
+                ownerPt.pemegangSaham[m.sender] = (ownerPt.pemegangSaham[m.sender] || 0) + batListing.persen;
+            }
+            
+            global.db.data.bursa.splice(batIdx, 1);
+            m.reply(`✅ *LISTING SAHAM DICANCEL*\nLembar saham sebesar ${batListing.persen}% sukses ditarik kembali ke kepemilikan utamamu.`);
+            break;
+        }
+
         case 'buyback': {
             if (user.perusahaan.length === 0) return m.reply('⚠️ Kamu belum memiliki perusahaan!');
             let bbPersen = parseInt(args[1]);
@@ -408,6 +430,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             break;
         }
 
+        // --- PRODUKSI (Tanpa Logistik, Hanya Listrik & Air) ---
         case 'produksi': {
             if (user.perusahaan.length === 0) return m.reply('⚠️ Kamu belum memiliki perusahaan!');
             let jmlProd = parseInt(args[1]); 
@@ -429,9 +452,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             
             let tagihanListrik = jmlProd * 5000; 
             let tagihanAir = jmlProd * 11000;     
-            let tagihanLogistik = Math.floor(Math.random() * (3789000 - 1165000 + 1)) + 1165000;
 
-            let totalKeseluruhan = totalBiayaPabrik + tagihanListrik + tagihanAir + tagihanLogistik;
+            // Total produksi tanpa biaya ekspedisi logistik
+            let totalKeseluruhan = totalBiayaPabrik + tagihanListrik + tagihanAir;
             if (ptProd.saldo < totalKeseluruhan) return m.reply(`❌ Saldo PT Kurang! Butuh: Rp ${totalKeseluruhan.toLocaleString()}`);
 
             let kurangBahan = [];
@@ -460,7 +483,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
             let strukProduksi = `🏭 *PRODUKSI PABRIK SELESAI* 🏭\n\nItem: *${dataProduk.name}*\nHasil: *+${jmlProd.toLocaleString()} Pcs*\n\n*🧾 KAS PABRIK KELUAR:*\n`;
             strukProduksi += `> ⚙️ Biaya Pabrik: -Rp ${totalBiayaPabrik.toLocaleString()}\n`;
-            strukProduksi += `> 🚚 Tagihan Logistik: -Rp ${tagihanLogistik.toLocaleString()}\n`;
             strukProduksi += `> ⚡ Listrik & Air: -Rp ${(tagihanListrik + tagihanAir).toLocaleString()}\n`;
             strukProduksi += `*Total Kas Terpotong: -Rp ${totalKeseluruhan.toLocaleString()}*\n\n`;
             strukProduksi += `*📦 PEMAKAIAN BAHAN BAKU:*\n${logBahanTeks}`;
@@ -468,6 +490,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             break;
         }
 
+        // --- DISTRIBUSI/JUAL (Kena Tagihan Logistik) ---
         case 'jual':
         case 'distribusi': {
             let jualJml = parseInt(args[1]);
@@ -489,6 +512,11 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if (!ptJual) return m.reply(`❌ ID Perusahaan tidak valid!`);
                 if ((ptJual.gudang[jualItem] || 0) < jualJml) return m.reply(`❌ Stok di Gudang Pabrik *${ptJual.name}* tidak cukup!`);
 
+                // --- PEMBAYARAN TAGIHAN TRUK LOGISTIK ---
+                let tagihanLogistik = Math.floor(Math.random() * (3789000 - 1165000 + 1)) + 1165000;
+                if (ptJual.saldo < tagihanLogistik) return m.reply(`❌ Saldo PT tidak cukup untuk menyewa Truk Logistik (Butuh: Rp ${tagihanLogistik.toLocaleString()})!`);
+                
+                ptJual.saldo -= tagihanLogistik;
                 ptJual.gudang[jualItem] -= jualJml;
                 sumberBarang = `Gudang Pabrik (${ptJual.name})`;
 
@@ -501,18 +529,17 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 let totalMasuk = grossProfit + yieldInvestasi;
                 
                 // SISTEM FLUKTUASI MOMENTUM SAHAM
-                let batasProfitIdeal = ptJual.karyawan * 15000; // Target profit (contoh per karyawan)
+                let batasProfitIdeal = ptJual.karyawan * 15000; 
                 if (totalMasuk >= batasProfitIdeal) {
-                    ptJual.momentumSaham += 0.02; // Tren Naik 2%
+                    ptJual.momentumSaham += 0.02; // Tren Naik
                     teksFinansial += `\n📈 *Tren Saham:* NAIK (+2%) karena profit memenuhi target!`;
                 } else {
-                    ptJual.momentumSaham -= 0.01; // Tren Turun 1%
+                    ptJual.momentumSaham -= 0.01; // Tren Turun
                     teksFinansial += `\n📉 *Tren Saham:* TURUN (-1%) karena profit lesu.`;
                 }
                 
-                // Batas momentum agar tidak terlalu gila
-                if (ptJual.momentumSaham > 5.0) ptJual.momentumSaham = 5.0; // Max 5x lipat valuasi
-                if (ptJual.momentumSaham < 0.2) ptJual.momentumSaham = 0.2; // Min 0.2x lipat valuasi
+                if (ptJual.momentumSaham > 5.0) ptJual.momentumSaham = 5.0; 
+                if (ptJual.momentumSaham < 0.2) ptJual.momentumSaham = 0.2; 
 
                 let teksDividenLog = '';
                 let mentionsDividen = [];
@@ -526,6 +553,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         totalDividenKeluar += bagianPublik;
                         teksDividenLog += `> 🏛️ Pajak/Publik Sistem (${persenSaham}%): -Rp ${bagianPublik.toLocaleString()}\n`;
                     } else {
+                        // Investor dapat 80% dari persentase, 20% sisanya fee management ke PT
                         let profitAktifPersen = persenSaham * 0.8; 
                         let bagianDividen = Math.floor(totalMasuk * (profitAktifPersen / 100));
                         if (global.db.data.users[shareholder]) {
@@ -545,6 +573,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 teksDividenLog = `> 🏢 Kas Dompet PT (Saham Owner + Fee): +Rp ${bagianOwnerPT.toLocaleString()}\n` + teksDividenLog;
 
                 teksFinansial += `\n\n*📊 LAPORAN FINANSIAL PABRIK:*\n`;
+                teksFinansial += `> 🚚 Biaya Ekspor Logistik: -Rp ${tagihanLogistik.toLocaleString()}\n`;
                 teksFinansial += `> Gross Profit Penjualan: Rp ${grossProfit.toLocaleString()}\n`;
                 if (yieldInvestasi > 0) teksFinansial += `> 📈 Yield Reksadana: +Rp ${yieldInvestasi.toLocaleString()}\n`;
                 teksFinansial += `\n*🧾 BAGI HASIL DIVIDEN:*\n${teksDividenLog}`;
