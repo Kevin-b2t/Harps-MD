@@ -2,7 +2,7 @@
 //  Plugin: Backup Database ke GitHub
 //  Bot: Harps BotMD
 //  Command: .uploaddb | .downloaddb
-//  Auto-upload setiap 1 jam
+//  Upload pakai Token, Download dari repo publik
 // ============================================================
 
 const fetch = require('node-fetch')
@@ -16,14 +16,16 @@ const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'
 const DB_FILE       = './database.json'
 const BASE_URL      = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents`
 
+// Download langsung dari raw GitHub (tidak perlu token karena repo publik)
+const RAW_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}`
+
 async function getFileSHA(repoPath) {
   try {
     const res = await fetch(`${BASE_URL}/${repoPath}?ref=${GITHUB_BRANCH}`, {
       headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
     })
     if (!res.ok) return null
-    const data = await res.json()
-    return data.sha || null
+    return (await res.json()).sha || null
   } catch { return null }
 }
 
@@ -53,14 +55,18 @@ async function uploadDB() {
 }
 
 async function downloadDB() {
-  const repoPath = path.basename(DB_FILE)
-  const res = await fetch(`${BASE_URL}/${repoPath}?ref=${GITHUB_BRANCH}`, {
-    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
-  })
-  if (!res.ok) return { success: false, reason: 'File tidak ada di GitHub atau Token salah/expired' }
-  const data = await res.json()
-  fs.writeFileSync(DB_FILE, Buffer.from(data.content, 'base64'))
-  return { success: true }
+  try {
+    // Download langsung dari raw GitHub tanpa token (repo publik)
+    const res = await fetch(`${RAW_URL}/${path.basename(DB_FILE)}`)
+    if (!res.ok) return { success: false, reason: `Gagal ambil dari GitHub (${res.status})` }
+    const text = await res.text()
+    // Validasi JSON sebelum disimpan
+    JSON.parse(text)
+    fs.writeFileSync(DB_FILE, text)
+    return { success: true }
+  } catch (e) {
+    return { success: false, reason: e.message || 'Unknown error' }
+  }
 }
 
 // ── Auto upload setiap 1 jam ──
@@ -71,7 +77,7 @@ setInterval(async () => {
 }, 60 * 60 * 1000)
 
 // ════════════════════════════════════════════════════════════
-//  .uploaddb
+//  .uploaddb — Upload ke GitHub pakai Token
 // ════════════════════════════════════════════════════════════
 let handler = async (m, { conn }) => {
   let { key } = await conn.sendMessage(m.chat, {
@@ -86,7 +92,6 @@ let handler = async (m, { conn }) => {
   setTimeout(async () => {
     const result = await uploadDB()
     const waktu  = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
-
     if (result.success) {
       await edit(
         `✅ *UPLOAD BERHASIL!*\n\n[🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩] *100%*\n\n` +
@@ -106,7 +111,7 @@ handler.command = /^uploaddb$/i
 handler.rowner  = true
 
 // ════════════════════════════════════════════════════════════
-//  .downloaddb
+//  .downloaddb — Download dari repo publik (tanpa token)
 // ════════════════════════════════════════════════════════════
 let handler2 = async (m, { conn }) => {
   let { key } = await conn.sendMessage(m.chat, {
@@ -121,7 +126,6 @@ let handler2 = async (m, { conn }) => {
   setTimeout(async () => {
     const result = await downloadDB()
     const waktu  = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
-
     if (result.success) {
       await edit(
         `✅ *DOWNLOAD BERHASIL!*\n\n[🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩] *100%*\n\n` +
@@ -132,10 +136,8 @@ let handler2 = async (m, { conn }) => {
       )
     } else {
       await edit(
-        `❌ *DOWNLOAD GAGAL / SEBAGIAN!*\n\n[🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥] Error\n\n` +
-        `❌ database.json\n   └ ${result.reason}\n\n` +
-        `🕐 ${waktu}\n\n` +
-        `⚠️ Silakan Restart panel/bot kamu agar data terbaru terbaca sempurna.`
+        `❌ *DOWNLOAD GAGAL!*\n\n[🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥]\n\n` +
+        `*Detail Error:*\n\`\`\`${result.reason}\`\`\``
       )
     }
   }, 3500)
