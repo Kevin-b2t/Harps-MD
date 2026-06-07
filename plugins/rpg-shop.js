@@ -13,7 +13,7 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     }
 
     // ==========================================
-    // FUNGSI HARGA PERHIASAN & CRATE (TETAP SAMA/UNLIMITED)
+    // FUNGSI HARGA PERHIASAN & CRATE (UNLIMITED STOK)
     // ==========================================
     function getStatusPasarItem(seedOffset) { 
         let rng = seededRandom(jamCounter + seedOffset); 
@@ -38,7 +38,7 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     }
 
     // ==========================================
-    // FUNGSI EKONOMI GLOBAL (REAL SUPPLY & DEMAND)
+    // FUNGSI EKONOMI GLOBAL (REAL SUPPLY & DEMAND UNTUK ITEM DENGAN STOK)
     // ==========================================
     function getMarketPrice(itemKey, baseBeli, baseJual, baseStock) {
         if (!global.db.data.market[itemKey]) {
@@ -94,12 +94,15 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dataKardus = getMarketPrice('kardus', 400, 50, 150000); let Bkardus = dataKardus.beli; let Skardus = dataKardus.jual; let statusKardus = dataKardus.status;
     let dataSword = getMarketPrice('sword', 150000, 15000, 5000); let Bsword = dataSword.beli; let Ssword = dataSword.jual; let statusSword = dataSword.status;
 
-    let dataKayu = getMarketPrice('kayu', 1000, 400, 300000); let Bkayu = dataKayu.beli; let Skayu = dataKayu.jual; let statusKayu = dataKayu.status;
-    let dataBatu = getMarketPrice('batu', 500, 100, 300000); let Bbatu = dataBatu.beli; let Sbatu = dataBatu.jual; let statusBatu = dataBatu.status;
-    let dataCoal = getMarketPrice('coal', 1500, 1000, 150000); let Bcoal = dataCoal.beli; let Scoal = dataCoal.jual; let statusCoal = dataCoal.status;
-    let dataIron = getMarketPrice('iron', 20000, 5000, 50000); let Biron = dataIron.beli; let Siron = dataIron.jual; let statusIron = dataIron.status;
-    let dataBerlian = getMarketPrice('berlian', 150000, 10000, 10000); let Bberlian = dataBerlian.beli; let Sberlian = dataBerlian.jual; let statusBerlian = dataBerlian.status;
-    let dataEmasBatang = getMarketPrice('emasbatang', 250000, 10000, 5000); let Bemasbatang = dataEmasBatang.beli; let Semasbatang = dataEmasBatang.jual; let statusEmasBatang = dataEmasBatang.status;
+    // ALAM (Update Harga & Stock Randomizer 15654 - 18096)
+    let dataKayu = getMarketPrice('kayu', 16000, 8000, 16842); let Bkayu = dataKayu.beli; let Skayu = dataKayu.jual; let statusKayu = dataKayu.status;
+    let dataBatu = getMarketPrice('batu', 500, 100, 17111); let Bbatu = dataBatu.beli; let Sbatu = dataBatu.jual; let statusBatu = dataBatu.status;
+    let dataPasir = getMarketPrice('pasir', 250000, 125000, 15999); let Bpasir = dataPasir.beli; let Spasir = dataPasir.jual; let statusPasir = dataPasir.status;
+    let dataCoal = getMarketPrice('coal', 100000, 50000, 17543); let Bcoal = dataCoal.beli; let Scoal = dataCoal.jual; let statusCoal = dataCoal.status;
+    let dataIron = getMarketPrice('iron', 76000, 38000, 16210); let Biron = dataIron.beli; let Siron = dataIron.jual; let statusIron = dataIron.status;
+    let dataBerlian = getMarketPrice('berlian', 2875000, 1437500, 17888); let Bberlian = dataBerlian.beli; let Sberlian = dataBerlian.jual; let statusBerlian = dataBerlian.status;
+    let dataEmasBatang = getMarketPrice('emasbatang', 8664500, 4332250, 15678); let Bemasbatang = dataEmasBatang.beli; let Semasbatang = dataEmasBatang.jual; let statusEmasBatang = dataEmasBatang.status;
+    let dataUranium = getMarketPrice('uranium', 35000, 17500, 18005); let Buranium = dataUranium.beli; let Suranium = dataUranium.jual; let statusUranium = dataUranium.status;
 
     let dataPisang = getMarketPrice('pisang', 5500, 100, 80000); let Bpisang = dataPisang.beli; let Spisang = dataPisang.jual; let statusPisang = dataPisang.status;
     let dataAnggur = getMarketPrice('anggur', 5500, 150, 80000); let Banggur = dataAnggur.beli; let Sanggur = dataAnggur.jual; let statusAnggur = dataAnggur.status;
@@ -113,10 +116,20 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dataMakananPhonix = getMarketPrice('makananphonix', 80000, 5000, 10000); let Bmakananphonix = dataMakananPhonix.beli; let Smakananphonix = dataMakananPhonix.jual; let statusMakananPhonix = dataMakananPhonix.status;
     let dataMakananCentaur = getMarketPrice('makanancentaur', 150000, 10000, 5000); let Bmakanancentaur = dataMakananCentaur.beli; let Smakanancentaur = dataMakananCentaur.jual; let statusMakananCentaur = dataMakananCentaur.status;
 
-    let dataAqua = getMarketPrice('aqua', 5000, 1000, 100000); let Baqua = dataAqua.beli; let Saqua = dataAqua.jual; let statusAqua = dataAqua.status;
-    let dataSusu = getMarketPrice('susu', 6000, 1200, 80000); let Bsusu = dataSusu.beli; let Ssusu = dataSusu.jual; let statusSusu = dataSusu.status;
-    let dataMadu = getMarketPrice('madu', 12000, 2500, 50000); let Bmadu = dataMadu.beli; let Smadu = dataMadu.jual; let statusMadu = dataMadu.status;
-    let dataUmpan = getMarketPrice('umpan', 1500, 100, 100000); let Bumpan = dataUmpan.beli; let Sumpan = dataUmpan.jual; let statusUmpan = dataUmpan.status;
+    // MINUMAN (Update Harga & Stock Randomizer 15654 - 18096)
+    let dataAqua = getMarketPrice('aqua', 9900, 4950, 16333); let Baqua = dataAqua.beli; let Saqua = dataAqua.jual; let statusAqua = dataAqua.status;
+    let dataTehBotol = getMarketPrice('tehbotol', 16600, 8300, 17444); let Btehbotol = dataTehBotol.beli; let Stehbotol = dataTehBotol.jual; let statusTehBotol = dataTehBotol.status;
+    let dataNescafe = getMarketPrice('nescafe', 14400, 7200, 16890); let Bnescafe = dataNescafe.beli; let Snescafe = dataNescafe.jual; let statusNescafe = dataNescafe.status;
+    let dataSusu = getMarketPrice('susu', 10000, 5000, 17999); let Bsusu = dataSusu.beli; let Ssusu = dataSusu.jual; let statusSusu = dataSusu.status;
+    let dataMadu = getMarketPrice('madu', 64000, 32000, 16555); let Bmadu = dataMadu.beli; let Smadu = dataMadu.jual; let statusMadu = dataMadu.status;
+    let dataUmpan = getMarketPrice('umpan', 1500, 100, 17234); let Bumpan = dataUmpan.beli; let Sumpan = dataUmpan.jual; let statusUmpan = dataUmpan.status;
+
+    // DATA JUS BUAH
+    let dataJusAnggur = getMarketPrice('jusanggur', 12000, 9500, 16012); let Bjusanggur = dataJusAnggur.beli; let Sjusanggur = dataJusAnggur.jual; let statusJusAnggur = dataJusAnggur.status;
+    let dataJusApel = getMarketPrice('jusapel', 9600, 7500, 17345); let Bjusapel = dataJusApel.beli; let Sjusapel = dataJusApel.jual; let statusJusApel = dataJusApel.status;
+    let dataJusJeruk = getMarketPrice('jusjeruk', 13800, 11000, 15999); let Bjusjeruk = dataJusJeruk.beli; let Sjusjeruk = dataJusJeruk.jual; let statusJusJeruk = dataJusJeruk.status;
+    let dataJusMangga = getMarketPrice('jusmangga', 12160, 9800, 16888); let Bjusmangga = dataJusMangga.beli; let Sjusmangga = dataJusMangga.jual; let statusJusMangga = dataJusMangga.status;
+    let dataJusPisang = getMarketPrice('juspisang', 13200, 10500, 17200); let Bjuspisang = dataJusPisang.beli; let Sjuspisang = dataJusPisang.jual; let statusJusPisang = dataJusPisang.status;
 
     let pEmas = getStatusPasarItem(1); let statusEmas = pEmas.statusPasar; let Bemasbiasa = Math.floor(1545000 + (1545000 * pEmas.persentase)); let Semasbiasa = Math.floor(1296000 + (1296000 * pEmas.persentase));
     let pDiamond = getStatusPasarItem(2); let statusDiamond = pDiamond.statusPasar; let Bdiamond = Math.floor(5810000 + (5810000 * pDiamond.persentase)); let Sdiamond = Math.floor(4081000 + (4081000 * pDiamond.persentase));
@@ -141,7 +154,7 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let tanggalHariIni = new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' });
     if (user.lastTaxDate !== tanggalHariIni) {
         let uangSaatIni = user.money || 0;
-        let potonganPajak = Math.floor(uangSaatIni * 0.01); // Pajak 12% dari total uang
+        let potonganPajak = Math.floor(uangSaatIni * 0.01); // Pajak 1% dari total uang
         
         if (potonganPajak > 0) {
             user.money -= potonganPajak;
@@ -344,6 +357,12 @@ HARGA JUAL : ${Sbatu}
 Status Harga : ${statusBatu}
 Info Stock : ${dataBatu.stockStatus}
 
+⏳Pasir:        
+HARGA BELI : ${Bpasir}
+HARGA JUAL : ${Spasir}
+Status Harga : ${statusPasir}
+Info Stock : ${dataPasir.stockStatus}
+
 🪨Coal:        
 HARGA BELI : ${Bcoal}
 HARGA JUAL : ${Scoal}
@@ -362,11 +381,17 @@ HARGA JUAL : ${Sberlian}
 Status Harga : ${statusBerlian}
 Info Stock : ${dataBerlian.stockStatus}
 
-🥇Emas Batang:
+🥇Emas Mentah:
 HARGA BELI : ${Bemasbatang}
 HARGA JUAL : ${Semasbatang}
 Status Harga : ${statusEmasBatang}
 Info Stock : ${dataEmasBatang.stockStatus}
+
+☢️Uranium:
+HARGA BELI : ${Buranium}
+HARGA JUAL : ${Suranium}
+Status Harga : ${statusUranium}
+Info Stock : ${dataUranium.stockStatus}
 
 ╸╸━━━「 *PERHIASAN* 」━━━╺╺
 
@@ -516,13 +541,28 @@ Info Stock : ${dataMakananCentaur.stockStatus}
 
 ╸╸━━━「 *MINUMAN* 」━━━╺╺
 
-🫗Aqua:
+> Untuk menu Jus Buah, ketik:
+*${usedPrefix}shop jusbuah*
+
+🫗Air Mineral:
 HARGA BELI : ${Baqua}
 HARGA JUAL : ${Saqua}
 Status Harga : ${statusAqua}
 Info Stock : ${dataAqua.stockStatus}
 
-🥛Susu:
+🧃Teh Botol:
+HARGA BELI : ${Btehbotol}
+HARGA JUAL : ${Stehbotol}
+Status Harga : ${statusTehBotol}
+Info Stock : ${dataTehBotol.stockStatus}
+
+☕Kopi Nescafe:
+HARGA BELI : ${Bnescafe}
+HARGA JUAL : ${Snescafe}
+Status Harga : ${statusNescafe}
+Info Stock : ${dataNescafe.stockStatus}
+
+🥛Ultra Milk:
 HARGA BELI : ${Bsusu}
 HARGA JUAL : ${Ssusu}
 Status Harga : ${statusSusu}
@@ -566,6 +606,18 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
     let countRaw = isShop ? args[2] : args[1];
     let count = countRaw && countRaw.length > 0 ? Math.max(parseInt(countRaw), 1) : 1;
 
+    // MENU KHUSUS JUS BUAH (.shop jusbuah)
+    if (action === 'jusbuah') {
+        let txtJus = `🛒 | *MARKET JUS BUAH*\n=========================================\nGunakan command: *${usedPrefix}shop buy <item> <jumlah>*\n\n`;
+        txtJus += `🍇 *Jus Anggur* | Beli: ${Bjusanggur.toLocaleString()} | Jual: ${Sjusanggur.toLocaleString()} | Stok: ${dataJusAnggur.stockStatus} | ${statusJusAnggur}\n`;
+        txtJus += `🍎 *Jus Apel* | Beli: ${Bjusapel.toLocaleString()} | Jual: ${Sjusapel.toLocaleString()} | Stok: ${dataJusApel.stockStatus} | ${statusJusApel}\n`;
+        txtJus += `🍊 *Jus Jeruk* | Beli: ${Bjusjeruk.toLocaleString()} | Jual: ${Sjusjeruk.toLocaleString()} | Stok: ${dataJusJeruk.stockStatus} | ${statusJusJeruk}\n`;
+        txtJus += `🥭 *Jus Mangga* | Beli: ${Bjusmangga.toLocaleString()} | Jual: ${Sjusmangga.toLocaleString()} | Stok: ${dataJusMangga.stockStatus} | ${statusJusMangga}\n`;
+        txtJus += `🍌 *Jus Pisang* | Beli: ${Bjuspisang.toLocaleString()} | Jual: ${Sjuspisang.toLocaleString()} | Stok: ${dataJusPisang.stockStatus} | ${statusJusPisang}\n`;
+        txtJus += `=========================================\n*Stok dan Harga dapat berubah sewaktu-waktu.`;
+        return conn.reply(m.chat, txtJus.trim(), m);
+    }
+
     const shopItems = {
         'limit': { costType: 'diamond', B: Blimit, S: Slimit, data: dataLimit, db: 'limit', name: 'Limit' },
         'pet': { costType: 'money', B: Bpet, S: Spet, data: dataPet, db: 'pet', name: 'Pet' },
@@ -598,18 +650,23 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
         'kardus': { costType: 'money', B: Bkardus, S: Skardus, data: dataKardus, db: 'kardus', name: 'Kardus' },
         'sword': { costType: 'money', B: Bsword, S: Ssword, data: dataSword, db: 'sword', name: 'Sword' },
 
+        // DB Mapping untuk List Alam 
         'kayu': { costType: 'money', B: Bkayu, S: Skayu, data: dataKayu, db: 'kayu', name: 'Kayu' },
         'batu': { costType: 'money', B: Bbatu, S: Sbatu, data: dataBatu, db: 'batu', name: 'Batu' },
+        'pasir': { costType: 'money', B: Bpasir, S: Spasir, data: dataPasir, db: 'pasir', name: 'Pasir' },
         'coal': { costType: 'money', B: Bcoal, S: Scoal, data: dataCoal, db: 'coal', name: 'Coal' },
         'iron': { costType: 'money', B: Biron, S: Siron, data: dataIron, db: 'iron', name: 'Iron' },
         'berlian': { costType: 'money', B: Bberlian, S: Sberlian, data: dataBerlian, db: 'berlian', name: 'Berlian' },
-        'emasbatang': { costType: 'money', B: Bemasbatang, S: Semasbatang, data: dataEmasBatang, db: 'emasbatang', name: 'Emas Batang' },
+        'emasbatang': { costType: 'money', B: Bemasbatang, S: Semasbatang, data: dataEmasBatang, db: 'emasbatang', name: 'Emas Mentah' },
+        'uranium': { costType: 'money', B: Buranium, S: Suranium, data: dataUranium, db: 'uranium', name: 'Uranium' },
 
+        // DB Mapping Perhiasan (UNLIMITED STOK -> data diset NULL)
         'diamond': { costType: 'money', B: Bdiamond, S: Sdiamond, data: null, db: 'diamond', name: 'Diamond' },
         'perak': { costType: 'money', B: Bperak, S: Sperak, data: null, db: 'perak', name: 'Perak' },
         'emas': { costType: 'money', B: Bemasbiasa, S: Semasbiasa, data: null, db: 'emas', name: 'Emas' },
         'emerald': { costType: 'money', B: Bemerald, S: Semerald, data: null, db: 'emerald', name: 'Emerald' },
 
+        // DB Mapping Crate (UNLIMITED STOK -> data yang dipanggil tidak mempunyai object .stock, dianggap unlimited)
         'common': { costType: 'money', B: Bcommon, S: Scommon, data: dCommon, db: 'common', name: 'Common Crate' },
         'uncommon': { costType: 'money', B: Buncommon, S: Suncommon, data: dUncommon, db: 'uncommon', name: 'Uncommon Crate' },
         'rare': { costType: 'money', B: Brare, S: Srare, data: dRare, db: 'rare', name: 'Rare Crate' },
@@ -625,6 +682,7 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
         'mangga': { costType: 'money', B: Bmangga, S: Smangga, data: dataMangga, db: 'mangga', name: 'Mangga' },
         'jeruk': { costType: 'money', B: Bjeruk, S: Sjeruk, data: dataJeruk, db: 'jeruk', name: 'Jeruk' },
         'apel': { costType: 'money', B: Bapel, S: Sapel, data: dataApel, db: 'apel', name: 'Apel' },
+        
         'makananpet': { costType: 'money', B: Bmakananpet, S: Smakananpet, data: dataMakananPet, db: 'makananpet', name: 'Makanan Pet' },
         'makanannaga': { costType: 'money', B: Bmakanannaga, S: Smakanannaga, data: dataMakananNaga, db: 'makanannaga', name: 'Makanan Naga' },
         'makanankyubi': { costType: 'money', B: Bmakanankyubi, S: Smakanankyubi, data: dataMakananKyubi, db: 'makanankyubi', name: 'Makanan Kyubi' },
@@ -632,9 +690,19 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
         'makananphonix': { costType: 'money', B: Bmakananphonix, S: Smakananphonix, data: dataMakananPhonix, db: 'makananphonix', name: 'Makanan Phonix' },
         'makanancentaur': { costType: 'money', B: Bmakanancentaur, S: Smakanancentaur, data: dataMakananCentaur, db: 'makanancentaur', name: 'Makanan Centaur' },
 
-        'aqua': { costType: 'money', B: Baqua, S: Saqua, data: dataAqua, db: 'aqua', name: 'Aqua' },
-        'susu': { costType: 'money', B: Bsusu, S: Ssusu, data: dataSusu, db: 'susu', name: 'Susu' },
+        // DB Mapping untuk List Minuman & Jus
+        'aqua': { costType: 'money', B: Baqua, S: Saqua, data: dataAqua, db: 'aqua', name: 'Air Mineral' },
+        'tehbotol': { costType: 'money', B: Btehbotol, S: Stehbotol, data: dataTehBotol, db: 'tehbotol', name: 'Teh Botol' },
+        'nescafe': { costType: 'money', B: Bnescafe, S: Snescafe, data: dataNescafe, db: 'nescafe', name: 'Kopi Nescafe' },
+        'susu': { costType: 'money', B: Bsusu, S: Ssusu, data: dataSusu, db: 'susu', name: 'Ultra Milk' },
         'madu': { costType: 'money', B: Bmadu, S: Smadu, data: dataMadu, db: 'madu', name: 'Madu' },
+        
+        'jusanggur': { costType: 'money', B: Bjusanggur, S: Sjusanggur, data: dataJusAnggur, db: 'jusanggur', name: 'Jus Anggur' },
+        'jusapel': { costType: 'money', B: Bjusapel, S: Sjusapel, data: dataJusApel, db: 'jusapel', name: 'Jus Apel' },
+        'jusjeruk': { costType: 'money', B: Bjusjeruk, S: Sjusjeruk, data: dataJusJeruk, db: 'jusjeruk', name: 'Jus Jeruk' },
+        'jusmangga': { costType: 'money', B: Bjusmangga, S: Sjusmangga, data: dataJusMangga, db: 'jusmangga', name: 'Jus Mangga' },
+        'juspisang': { costType: 'money', B: Bjuspisang, S: Sjuspisang, data: dataJusPisang, db: 'juspisang', name: 'Jus Pisang' },
+
         'umpan': { costType: 'money', B: Bumpan, S: Sumpan, data: dataUmpan, db: 'umpan', name: 'Umpan' }
     };
 
@@ -644,7 +712,9 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
         
         if (!curItem) return conn.reply(m.chat, Kchat, m);
 
-        let isUnlimited = !curItem.data || !curItem.data.stock;
+        // LOGIKA PENGECEKAN STOK
+        // Item dianggap unlimited jika data null ATAU tidak memiliki nilai `.stock` (seperti perhiasan & crate)
+        let isUnlimited = !curItem.data || typeof curItem.data.stock === 'undefined';
 
         // EKSEKUSI PEMBELIAN
         if (action === 'buy') {
@@ -657,6 +727,7 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
                 user[curItem.costType] -= totalCost;
                 user[curItem.db] = (user[curItem.db] || 0) + count;
                 
+                // Kurangi stok global hanya jika item bukan kategori unlimited
                 if (!isUnlimited && global.db.data.market[curItem.db]) {
                     global.db.data.market[curItem.db].stock -= count;
                 }
@@ -676,6 +747,7 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
                 user[curItem.db] -= count;
                 user.money += finalGain; 
                 
+                // Tambah stok global jika item terjual ke toko (jika bukan kategori unlimited)
                 if (!isUnlimited && global.db.data.market[curItem.db]) {
                     global.db.data.market[curItem.db].stock += count;
                 }
