@@ -200,14 +200,17 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         return total;
     }
 
-    // Hitung Valuasi dengan Efek Tren Saham (Momentum)
+        // Hitung Valuasi dengan Efek Tren Saham (Momentum)
     function getValuasi(pt) {
         let assetGudang = (pt.gudangLevel || 1) * hargaUpgradeGudang;
         let assetKaryawan = (pt.karyawan || 0) * hargaRekrut;
         let assetProduksi = (pt.totalProduksi || 0) * 50000; 
         let totalCash = (pt.saldo || 0) + (pt.investasi || 0);
         
-        let baseValuasi = biayaBuat + assetGudang + assetKaryawan + assetProduksi + totalCash;
+        // Ambil modal awal sesuai data PT atau gunakan harga default tipe pabriknya
+        let modalAwal = pt.hargaAwal || (pt.type === 'listrik' ? 165000000000000 : (pt.type === 'tambang' ? 120000000000000 : 50000000000000));
+        
+        let baseValuasi = modalAwal + assetGudang + assetKaryawan + assetProduksi + totalCash;
         let trenMulti = pt.momentumSaham || 1.0;
         
         return Math.floor(baseValuasi * trenMulti);
