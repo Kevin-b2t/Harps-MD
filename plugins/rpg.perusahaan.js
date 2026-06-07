@@ -581,6 +581,19 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             if (!global.db.data.market[prodData.db]) global.db.data.market[prodData.db] = { stock: 100000 };
             global.db.data.market[prodData.db].stock += jualJml;
             break;
+            
+                    // --- CEK DAFTAR RESEP & PRODUK ---
+        case 'resep':
+        case 'produk':
+        case 'list':
+            let daftarProd = Object.keys(produkList).map(v => {
+                // Mengubah format bahan baku jadi teks yang rapi
+                let resep = Object.entries(produkList[v].bahan).map(([b, n]) => `${n} ${b}`).join(', ');
+                return `📦 *${produkList[v].name}* (ID: ${v})\n ⚙️ Biaya Prod: Rp ${produkList[v].prodCost.toLocaleString()}\n 🧪 Bahan: ${resep}`;
+            }).join('\n\n');
+            
+            m.reply(`📋 *BUKU RESEP PABRIK MINUMAN* 📋\n\nBerikut adalah daftar produk yang bisa diproduksi mesin pabrik:\n\n${daftarProd}`);
+            break;
 
         default:
             let help = `🏢 *SISTEM MEGA KORPORAT & BURSA SAHAM* 🏢\n\n`
