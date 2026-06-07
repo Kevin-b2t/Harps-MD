@@ -286,12 +286,6 @@ Info Stock : ${dataTebu.stockStatus}
 
 ╸╸━━━「 *BARANG* 」━━━╺╺
 
-🥤Potion:
-HARGA BELI : ${potion}
-HARGA JUAL : ${Spotion}
-Status Harga : ${statusPotion}
-Info Stock : ${dataPotion.stockStatus}
-
 🗑️Sampah:
 HARGA BELI : ${Bsampah}
 HARGA JUAL : ${Ssampah}
@@ -504,6 +498,12 @@ Status Harga : ${statusMakananCentaur}
 Info Stock : ${dataMakananCentaur.stockStatus}
 
 ╸╸━━━「 *MINUMAN* 」━━━╺╺
+
+🥤Potion:
+HARGA BELI : ${potion}
+HARGA JUAL : ${Spotion}
+Status Harga : ${statusPotion}
+Info Stock : ${dataPotion.stockStatus}
 
 🫗Airmineral:
 HARGA BELI : ${BAirmineral}
