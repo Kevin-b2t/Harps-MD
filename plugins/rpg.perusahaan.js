@@ -48,11 +48,13 @@ const semuaProduk = {
     'tehbotol':   { type: 'minuman',   name: 'Teh Botol',   db: 'tehbotol',   prodCost: 1500, listrik: 3, bahan: {'aqua': 1, 'botol': 1, 'daunteh': 2, 'tebu': 1} },
     'botol':      { type: 'daurulang', name: 'Botol',       db: 'botol',      prodCost: 500,  listrik: 2, bahan: {'sampah': 5, 'kardus': 1} },
     'kayu':       { type: 'daurulang', name: 'Kayu',        db: 'kayu',       prodCost: 1000, listrik: 3.5, bahan: {} },
-    'pasir':      { type: 'tambang',   name: 'Pasir',       db: 'pasir',      prodCost: 1500, listrik: 3, bahan: {} },
     
-    // Berat
-    'iron':       { type: 'tambang',   name: 'Iron',        db: 'iron',       prodCost: 5000, listrik: 6, bahan: {'batu': 10, 'coal': 2} },
-    'emasmentah': { type: 'tambang',   name: 'Emas Mentah', db: 'emasmentah', prodCost: 50000, listrik: 10, bahan: {'pasir': 15, 'coal': 10} },
+    // Berat (TAMBANG - TANPA BAHAN BAKU LUAR)
+    'pasir':      { type: 'tambang',   name: 'Pasir',       db: 'pasir',      prodCost: 1500, listrik: 3, bahan: {} },
+    'iron':       { type: 'tambang',   name: 'Iron',        db: 'iron',       prodCost: 5000, listrik: 6, bahan: {} },
+    'emasmentah': { type: 'tambang',   name: 'Emas Mentah', db: 'emasmentah', prodCost: 50000, listrik: 10, bahan: {} },
+    
+    // Kompleks
     'sword':      { type: 'senjata',   name: 'Sword',       db: 'sword',      prodCost: 20000, listrik: 8, bahan: {'iron': 5, 'kayu': 2} }
 };
 
@@ -173,6 +175,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             if (pt.type === 'listrik' && !pt.ekstraPembangkit) pt.ekstraPembangkit = [];
             if (pt.hutang === undefined) pt.hutang = 0;
             if (pt.investOpen === undefined) pt.investOpen = true; 
+            if (pt.isProduksi === undefined) pt.isProduksi = false;
 
             if (pt.type === 'listrik') {
                 let periods = Math.floor((now - (pt.lastGenerate || now)) / 1800000);
@@ -218,7 +221,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
                 let newPT = {
                     id: now, name: namaPT, type: tipePT, saldo: 0, hutang: 0, lastTax: now,
-                    pabrik: [], gudang: {}, investors: {}, investOpen: true
+                    pabrik: [], gudang: {}, investors: {}, investOpen: true, isProduksi: false
                 };
 
                 if (tipePT === 'listrik') {
@@ -289,8 +292,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         txt += `💡 Harga Jual: ${formatRp(pt.hargaListrikCustom || 18600)}/W\n`;
                         txt += `🏗️ Ekstra Mesin: ${extraStr} (${pt.ekstraPembangkit.length}/12)\n`;
                     } else {
+                        let statusProduksi = pt.isProduksi ? '⏳ Sedang Beroperasi' : '🟢 Idle';
                         txt += `📦 Level Gudang : Level ${pt.gudangLevel || 1}\n`;
                         txt += `📦 Sisa Gudang: ${getSlotTerpakai(pt.gudang).toLocaleString('id-ID')} / ${getKapasitasGudang(pt).toLocaleString('id-ID')} Slot\n`;
+                        txt += `⚙️ Status Pabrik: ${statusProduksi}\n`;
                         
                         let srcName = '🔵 Negara (PLN)';
                         if (pt.sumberListrik && pt.sumberListrik !== 'negara') {
@@ -323,6 +328,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 return m.reply(txt.trim(), null, { mentions: [targetId, ...Object.keys(targetUser.perusahaan[0]?.investors || {})] });
             }
 
+            // ==============================
+            // B2B & PRODUKSI
+            // ==============================
             case 'kirim':
             case 'transfer': {
                 let jumlah = parseInt(args[1]);
@@ -387,6 +395,8 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 let bisaProduksi = (pt.type === dp.type) || (pt.pabrik && pt.pabrik.some(f => f.type === dp.type));
                 if (!bisaProduksi) return m.reply(`❌ Tidak ada pabrik *${dp.type.toUpperCase()}* di PT ini.`);
 
+                if (pt.isProduksi) return m.reply(`❌ Mesin PT ini masih *bekerja* memproduksi pesanan sebelumnya! Harap tunggu sampai selesai.`);
+
                 let slotSisa = getKapasitasGudang(pt) - getSlotTerpakai(pt.gudang);
                 if (jmlProd > slotSisa) return m.reply(`❌ Gudang penuh! Tersedia: ${slotSisa.toLocaleString('id-ID')} Slot`);
 
@@ -426,18 +436,73 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
                 if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT: ${formatRp(pt.saldo)}`);
 
+                // Potong Resource Di Awal Secara Tunai
                 pt.saldo -= totalBiaya;
                 if (dp.bahan) {
                     for (let b in dp.bahan) { pt.gudang[b] -= (dp.bahan[b] * jmlProd); }
                 }
-                pt.gudang[dp.db] = (pt.gudang[dp.db] || 0) + jmlProd;
-
+                
                 if (provider) {
                     provider.pt.kapasitasTersedia -= totalWattDibutuhkan;
                     provider.pt.saldo += biayaListrik; 
                 }
 
-                m.reply(`🏭 *PRODUKSI BERHASIL*\n\n📦 Item: +${jmlProd.toLocaleString('id-ID')} ${dp.name}\n⚡ Listrik Diserap: ${formatDaya(totalWattDibutuhkan)}\n💸 Kas PT Terpotong: -${formatRp(totalBiaya)}\n🔌 Suplai Listrik: *${provider ? provider.pt.name : 'Negara (PLN)'}*`);
+                // Kalkulasi Waktu Realistis (4 Detik / Item)
+                let waktuDetik = jmlProd * 4;
+                let menit = Math.floor(waktuDetik / 60);
+                let jam = Math.floor(menit / 60);
+                let sisaDetik = waktuDetik % 60;
+                let sisaMenit = menit % 60;
+                
+                let waktuStr = '';
+                if (jam > 0) waktuStr += `${jam} Jam `;
+                if (sisaMenit > 0) waktuStr += `${sisaMenit} Menit `;
+                if (sisaDetik > 0 || waktuStr === '') waktuStr += `${sisaDetik} Detik`;
+
+                pt.isProduksi = true; // Kunci status produksi PT
+
+                m.reply(
+                    `⏳ *PROSES ${dp.type === 'tambang' ? 'PENAMBANGAN' : 'PRODUKSI'} DIMULAI*\n\n` +
+                    `🏢 PT: *${pt.name}*\n` +
+                    `📦 Mengeksekusi: ${jmlProd.toLocaleString('id-ID')} ${dp.name}\n` +
+                    `⏱️ Estimasi Selesai Total: *${waktuStr.trim()}*\n\n` +
+                    `*RINCIAN BIAYA KAS (Dipotong Dimuka):*\n` +
+                    `> 💸 Total Dipotong: -${formatRp(totalBiaya)}\n` +
+                    `> 🛠️ Biaya Alat/Modal: ${formatRp(biayaProd)}\n` +
+                    `> ⚡ Biaya Listrik: ${formatRp(biayaListrik)} (${formatDaya(totalWattDibutuhkan)})\n` +
+                    `> 🔌 Suplai Listrik: ${provider ? provider.pt.name : 'Negara (PLN)'}\n\n` +
+                    `_Barang akan otomatis dicicil masuk ke gudang (1 per 4 detik) di latar belakang..._`
+                );
+
+                // ==============================
+                // SISTEM PRODUKSI REAL-TIME BERTAHAP
+                // ==============================
+                let diproduksi = 0;
+                let intervalId = setInterval(() => {
+                    let currentUser = global.db.data.users[m.sender];
+                    if (!currentUser || !currentUser.perusahaan || !currentUser.perusahaan[idPt]) {
+                        clearInterval(intervalId);
+                        return;
+                    }
+                    
+                    let currentPt = currentUser.perusahaan[idPt];
+                    
+                    currentPt.gudang[dp.db] = (currentPt.gudang[dp.db] || 0) + 1;
+                    diproduksi++;
+
+                    if (diproduksi >= jmlProd) {
+                        currentPt.isProduksi = false; 
+                        clearInterval(intervalId); 
+                        
+                        conn.reply(m.chat, 
+                            `✅ *PROSES ${dp.type === 'tambang' ? 'PENAMBANGAN' : 'PRODUKSI'} RAMPUNG!*\n\n` +
+                            `🏢 PT: *${currentPt.name}*\n` +
+                            `📦 Berhasil Eksekusi: +${jmlProd.toLocaleString('id-ID')} ${dp.name}\n` +
+                            `_Seluruh hasil telah masuk ke Gudang!_`, m
+                        );
+                    }
+                }, 4000); // Trigger setiap 4000ms (4 detik)
+                
                 break;
             }
 
@@ -714,9 +779,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 break;
             }
 
-            // ==============================
-            // FITUR INFOPABRIK (TUTORIAL PENGGUNAAN PABRIK)
-            // ==============================
             case 'infopabrik': {
                 let txt = `🏭 *PANDUAN OPERASIONAL PABRIK & PRODUKSI*\n\n`;
                 txt += `Setelah kamu memiliki Induk PT atau Anak Pabrik, ini langkah-langkah untuk menjalankan bisnis produksinya:\n\n`;
@@ -752,9 +814,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 txt += `  • *Kayu* (Tanpa Bahan Baku, hanya butuh Listrik) - Daya: 3.5 W/item\n\n`;
                 
                 txt += `⛏️ *Tipe: TAMBANG*\n`;
-                txt += `  • *Pasir* (Tanpa Bahan Baku) - Daya: 3 W/item\n`;
-                txt += `  • *Iron* (Butuh: 10 batu, 2 coal) - Daya: 6 W/item\n`;
-                txt += `  • *Emas Mentah* (Butuh: 15 pasir, 10 coal) - Daya: 10 W/item\n\n`;
+                txt += `  • *Pasir* (Tanpa Bahan Baku, hanya butuh listrik & modal) - Daya: 3 W/item\n`;
+                txt += `  • *Iron* (Tanpa Bahan Baku, hanya butuh listrik & modal) - Daya: 6 W/item\n`;
+                txt += `  • *Emas Mentah* (Tanpa Bahan Baku, hanya butuh listrik & modal) - Daya: 10 W/item\n\n`;
                 
                 txt += `⚔️ *Tipe: SENJATA*\n`;
                 txt += `  • *Sword* (Butuh: 5 iron, 2 kayu) - Daya: 8 W/item\n\n`;
