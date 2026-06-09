@@ -941,58 +941,81 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             }
 
             case 'ceklistrik': {
-                let allUsers = global.db.data.users;
+            let allUsers = global.db.data.users;
                 let globalListrik = [];
 
+                // Kumpulkan semua perusahaan listrik global
                 for (let uid in allUsers) {
                     let u = allUsers[uid];
                     if (u && Array.isArray(u.perusahaan)) {
-                        u.perusahaan.forEach((p, i) => {
-                            if (p && p.type === 'listrik') globalListrik.push({ uid, ownerName: u.name || uid.split('@')[0], pt: p, localId: i + 1 });
+                        u.perusahaan.forEach((p) => {
+                            if (p && p.type === 'listrik') globalListrik.push({ uid, pt: p });
                         });
                     }
                 }
 
+                // Urutkan berdasarkan harga termurah
                 globalListrik.sort((a, b) => (a.pt.hargaListrikCustom || 18600) - (b.pt.hargaListrikCustom || 18600));
 
-                let txt = `⚡ *PASAR LISTRIK GLOBAL*\n_Hemat biaya operasional dengan langganan Listrik Swasta! (Pilih yang murah & stok banyak)_\n\n`;
-                txt += `🔵 *Listrik Negara (PLN)*\n   Tarif : *${formatRp(hargaListrikNegara)} / Watt*\n   Stok  : ♾️ Tidak Terbatas\n   Set   : *${usedPrefix+command} setlistrik <id_pt_mu> negara*\n\n`;
+                let txt = `⚡ *PASAR LISTRIK GLOBAL*\n_Hemat biaya operasional dengan langganan Listrik Swasta! (Pilih nomor yang murah & stok banyak)_\n\n`;
+                txt += `🔵 *0. Negara (PLN)*\n   Tarif : *${formatRp(hargaListrikNegara)} / Watt*\n   Stok  : ♾️ Tidak Terbatas\n   Set   : *${usedPrefix+command} setlistrik <id_pt_mu> negara*\n\n`;
                 txt += `🟡 *Listrik Swasta (Pemain Lain)*\n`;
                 
                 if (globalListrik.length === 0) txt += `   _(Belum ada perusahaan listrik swasta yang terdaftar)_\n`;
                 else {
-                    globalListrik.forEach((gl) => {
+                    globalListrik.forEach((gl, index) => {
                         let pt = gl.pt; let tarif = pt.hargaListrikCustom || 18600;
                         let kapMax = getKapasitasListrik(pt); let tersedia = pt.kapasitasTersedia || 0;
-                        txt += `🏢 *${pt.name}* (Milik @${gl.uid.split('@')[0]})\n`;
+                        
+                        txt += `*${index + 1}.* 🏢 *${pt.name}* (Milik @${gl.uid.split('@')[0]})\n`;
                         txt += `   Tarif  : *${formatRp(tarif)} / Watt*\n`;
                         txt += `   Stok   : ${formatDaya(tersedia)} / ${formatDaya(kapMax)}\n`;
                         txt += `   [${progressBar(tersedia, kapMax, 8)}]\n`;
-                        txt += `   Set    : *${usedPrefix+command} setlistrik <id_pt_mu> @${gl.uid.split('@')[0]} ${gl.localId}*\n\n`;
+                        txt += `   Set    : *${usedPrefix+command} setlistrik <id_pt_mu> ${index + 1}*\n\n`;
                     });
                 }
                 return m.reply(txt.trim());
             }
 
             case 'setlistrik': {
-                let idPtTarget = parseInt(args[1]) - 1; let pt = user.perusahaan[idPtTarget];
-                if (!pt || pt.type === 'listrik') return m.reply('❌ ID Perusahaan Produksi tidak valid!');
-
+            let idPtTarget = parseInt(args[1]) - 1; 
                 let param2 = args[2] ? args[2].toLowerCase() : '';
-                if (param2 === 'negara') { pt.sumberListrik = 'negara'; return m.reply(`✅ *${pt.name}* kini memakai listrik PLN (Negara).`); }
+                
+                if (isNaN(idPtTarget) || !param2) return m.reply(`⚠️ Format: *${usedPrefix+command} setlistrik <id_pt_mu> <negara / nomor_ceklistrik>*\nContoh: *${usedPrefix+command} setlistrik 1 1*`);
+                
+                let pt = user.perusahaan[idPtTarget];
+                if (!pt || pt.type === 'listrik') return m.reply('❌ ID Perusahaan Produksi milikmu tidak valid!');
 
-                let targetMention = args[2]; let idPtL = parseInt(args[3]) - 1;
-                if (!targetMention || isNaN(idPtL)) return m.reply(`⚠️ *Format:* *${usedPrefix+command} setlistrik <id_pt_mu> <@tag_pemilik> <id_pt_listrik_mereka>*`);
+                if (param2 === 'negara' || param2 === '0') { 
+                    pt.sumberListrik = 'negara'; 
+                    return m.reply(`✅ *${pt.name}* kini memakai listrik PLN (Negara).`); 
+                }
 
-                let target = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : targetMention.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-                let targetUser = global.db.data.users[target];
+                let globalIndex = parseInt(param2) - 1;
+                if (isNaN(globalIndex)) return m.reply(`❌ Masukkan nomor urut yang valid dari *${usedPrefix+command} ceklistrik*!`);
 
-                if (!targetUser || !targetUser.perusahaan) return m.reply(`❌ Pemilik listrik swasta tidak ditemukan.`);
-                let ptL = targetUser.perusahaan[idPtL];
-                if (!ptL || ptL.type !== 'listrik') return m.reply(`❌ ID Perusahaan Listrik swasta target tidak valid!`);
+                // Rekonstruksi urutan listrik yang sama dengan ceklistrik
+                let allUsers = global.db.data.users;
+                let globalListrik = [];
+                for (let uid in allUsers) {
+                    let u = allUsers[uid];
+                    if (u && Array.isArray(u.perusahaan)) {
+                        u.perusahaan.forEach((p) => {
+                            if (p && p.type === 'listrik') globalListrik.push({ uid, pt: p });
+                        });
+                    }
+                }
+                globalListrik.sort((a, b) => (a.pt.hargaListrikCustom || 18600) - (b.pt.hargaListrikCustom || 18600));
 
+                let selectedProvider = globalListrik[globalIndex];
+                if (!selectedProvider) return m.reply(`❌ Nomor urut *${param2}* tidak ditemukan di bursa listrik! Cek lagi dengan *${usedPrefix+command} ceklistrik*`);
+
+                let ptL = selectedProvider.pt;
+                let targetUid = selectedProvider.uid;
+
+                // Simpan ID Unik perusahaan listrik target
                 pt.sumberListrik = ptL.id; 
-                m.reply(`✅ Berhasil! *${pt.name}* kini terhubung ke jaringan listrik swasta dari *${ptL.name}* milik @${target.split('@')[0]}`, null, {mentions: [target]});
+                m.reply(`✅ *KONTRAK LISTRIK DEAL!*\n\n🏢 *${pt.name}* kini mengambil suplai energi dari *${ptL.name}*\n👤 Pemilik: @${targetUid.split('@')[0]}\n💡 Tarif: *${formatRp(ptL.hargaListrikCustom || 18600)}/W*`, null, {mentions: [targetUid]});
                 break;
             }
 
