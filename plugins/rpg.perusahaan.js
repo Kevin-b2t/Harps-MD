@@ -28,36 +28,39 @@ const wattPerLevel    = 1200;
 
 // Kapasitas Daya Refill (Dasar) per 30 Menit
 const kapasitasPembangkit = {
-    'PLTU':  4000,     // 4 kWh
-    'PLTS':  8000,     // 8 kWh
-    'PLTB':  10000,    // 10 kWh
-    'PLTP':  20000,    // 20 kWh
-    'PLTA':  120000,   // 120 kWh
-    'PLTN':  200000    // 200 kWh
+    'PLTU':  4000,     'PLTS':  8000,    
+    'PLTB':  10000,    'PLTP':  20000,    
+    'PLTA':  120000,   'PLTN':  200000    
 };
 
-// Harga Beli Ekstra Pembangkit
 const hargaPembangkit = {
-    'PLTU':  5000000000,    // 5 Miliar
-    'PLTS':  10000000000,   // 10 Miliar
-    'PLTB':  15000000000,   // 15 Miliar
-    'PLTP':  30000000000,   // 30 Miliar
-    'PLTA':  100000000000,  // 100 Miliar
-    'PLTN':  250000000000   // 250 Miliar
+    'PLTU':  5000000000,    'PLTS':  10000000000,   
+    'PLTB':  15000000000,   'PLTP':  30000000000,   
+    'PLTA':  100000000000,  'PLTN':  250000000000   
 };
 
 // ==========================================
-// DATABASE BARANG PRODUKSI
+// DATABASE BARANG PRODUKSI & RESEP BAHAN BAKU
 // ==========================================
 const semuaProduk = {
-    'airmineral': { type: 'minuman',   name: 'Air Mineral', db: 'airmineral', prodCost: 5000,   baseHargaToko: 15000   },
-    'tehbotol':   { type: 'minuman',   name: 'Teh Botol',   db: 'tehbotol',   prodCost: 8000,   baseHargaToko: 20000   },
-    'botol':      { type: 'daurulang', name: 'Botol',       db: 'botol',      prodCost: 1000,   baseHargaToko: 5000    },
-    'kayu':       { type: 'daurulang', name: 'Kayu',        db: 'kayu',       prodCost: 3000,   baseHargaToko: 10000   },
-    'pasir':      { type: 'tambang',   name: 'Pasir',       db: 'pasir',      prodCost: 3000,   baseHargaToko: 220000  },
-    'iron':       { type: 'tambang',   name: 'Iron',        db: 'iron',       prodCost: 15000,  baseHargaToko: 80000   },
-    'emas':       { type: 'tambang',   name: 'Emas',        db: 'emas',       prodCost: 500000, baseHargaToko: 2675000 },
-    'sword':      { type: 'senjata',   name: 'Sword',       db: 'sword',      prodCost: 50000,  baseHargaToko: 250000  }
+    // Ringan
+    'airmineral': { type: 'minuman',   name: 'Air Mineral', db: 'airmineral', prodCost: 1000, listrik: 2, bahan: {'aqua': 1, 'botol': 1} },
+    'tehbotol':   { type: 'minuman',   name: 'Teh Botol',   db: 'tehbotol',   prodCost: 1500, listrik: 3, bahan: {'aqua': 1, 'botol': 1, 'daunteh': 2, 'tebu': 1} },
+    'botol':      { type: 'daurulang', name: 'Botol',       db: 'botol',      prodCost: 500,  listrik: 2, bahan: {'sampah': 5, 'kardus': 1} },
+    'kayu':       { type: 'daurulang', name: 'Kayu',        db: 'kayu',       prodCost: 1000, listrik: 3.5, bahan: {} },
+    'pasir':      { type: 'tambang',   name: 'Pasir',       db: 'pasir',      prodCost: 1500, listrik: 3, bahan: {} },
+    
+    // Berat
+    'iron':       { type: 'tambang',   name: 'Iron',        db: 'iron',       prodCost: 5000, listrik: 6, bahan: {'batu': 10, 'coal': 2} },
+    'emasmentah': { type: 'tambang',   name: 'Emas Mentah', db: 'emasmentah', prodCost: 50000, listrik: 10, bahan: {'pasir': 15, 'coal': 10} },
+    'sword':      { type: 'senjata',   name: 'Sword',       db: 'sword',      prodCost: 20000, listrik: 8, bahan: {'iron': 5, 'kayu': 2} }
+};
+
+// Base harga pasar untuk Sync Global Market
+const baseHargaPasar = {
+    'aqua': 5000, 'daunteh': 1500, 'tebu': 550, 'sampah': 120, 'kardus': 400,
+    'batu': 500, 'coal': 1500, 'botol': 300, 'kayu': 1000, 'pasir': 250000,
+    'iron': 20000, 'airmineral': 9900, 'tehbotol': 9600, 'emasmentah': 866490, 'sword': 150000
 };
 
 // ==========================================
@@ -83,48 +86,49 @@ function progressBar(val, max, len = 10) {
     filled = Math.min(len, Math.max(0, filled));
     return '█'.repeat(filled) + '░'.repeat(len - filled);
 }
-function getHargaListrik(user, pt) {
-    let src = pt.sumberListrik || 'negara';
-    if (src === 'negara') return hargaListrikNegara;
-    let ptL = user.perusahaan.find(p => p && p.type === 'listrik' && p.id == src);
-    return ptL ? (ptL.hargaListrikCustom || 18600) : hargaListrikNegara;
-}
 function getKapasitasGudang(pt) { return (pt.gudangLevel || 1) * slotPerLevel; }
 function getKapasitasListrik(pt) { return (pt.listrikLevel || 1) * wattPerLevel; }
 function getSlotTerpakai(gudang) { return Object.values(gudang || {}).reduce((s, v) => s + (v || 0), 0); }
 
-// Perhitungan Valuasi sekarang memotong Hutang Bank
-function hitungValuasi(pt) {
-    let val = pt.saldo || 0;
-    if (pt.gudang) {
-        for (let brg in pt.gudang) {
-            let stok = pt.gudang[brg] || 0;
-            if (stok > 0) val += stok * (semuaProduk[brg] ? semuaProduk[brg].baseHargaToko : 0);
-        }
-    }
-    if (Array.isArray(pt.pabrik)) pt.pabrik.forEach(f => { val += biayaPabrikObj[f.type] || 0; });
-    val += biayaInduk[pt.type] || 0;
-    if (pt.type !== 'listrik') val += ((pt.gudangLevel || 1) - 1) * HARGA_UPGRADE_GUDANG;
-    if (pt.type === 'listrik') {
-        val += ((pt.listrikLevel || 1) - 1) * HARGA_UPGRADE_LISTRIK;
-        if (pt.ekstraPembangkit) pt.ekstraPembangkit.forEach(p => val += (hargaPembangkit[p] || 0));
-    }
+// Fitur Pasar Global
+function getMarketPriceSim(itemKey, isBeli = true) {
+    let base = baseHargaPasar[itemKey] || 10000;
+    if (!isBeli) base = Math.floor(base * 0.75); // Harga jual pabrik
     
-    let totalInvest = pt.investors ? Object.values(pt.investors).reduce((a,b)=>a+b,0) : 0;
-    val += totalInvest;
+    if (!global.db.data.market[itemKey]) return base;
     
-    // Kurangi hutang bank
-    val -= (pt.hutang || 0);
-    return Math.max(0, val); // Jangan sampai minus valuasinya
+    let currentStock = global.db.data.market[itemKey].stock || 50000;
+    let baseStock = 100000; 
+    let ratio = baseStock / Math.max(1, currentStock);
+    
+    if (ratio > 3.0) ratio = 3.0; 
+    if (ratio < 0.2) ratio = 0.2;
+    
+    return Math.max(1, Math.floor(base * ratio));
 }
 
-// Helper untuk menghitung aset mentah (sebelum dikurangi hutang) untuk limit kredit
+function findPTListrikGlobal(ptIdTarget) {
+    let allUsers = global.db.data.users;
+    for (let uid in allUsers) {
+        let u = allUsers[uid];
+        if (u && Array.isArray(u.perusahaan)) {
+            for (let i = 0; i < u.perusahaan.length; i++) {
+                let pt = u.perusahaan[i];
+                if (pt && pt.type === 'listrik' && pt.id === ptIdTarget) {
+                    return { ownerId: uid, ownerName: u.name || uid.split('@')[0], pt: pt, index: i };
+                }
+            }
+        }
+    }
+    return null;
+}
+
 function hitungAsetKotor(pt) {
     let val = pt.saldo || 0;
     if (pt.gudang) {
         for (let brg in pt.gudang) {
             let stok = pt.gudang[brg] || 0;
-            if (stok > 0) val += stok * (semuaProduk[brg] ? semuaProduk[brg].baseHargaToko : 0);
+            if (stok > 0) val += stok * getMarketPriceSim(brg, false); // Real-time value
         }
     }
     if (Array.isArray(pt.pabrik)) pt.pabrik.forEach(f => { val += biayaPabrikObj[f.type] || 0; });
@@ -135,6 +139,14 @@ function hitungAsetKotor(pt) {
         if (pt.ekstraPembangkit) pt.ekstraPembangkit.forEach(p => val += (hargaPembangkit[p] || 0));
     }
     return val;
+}
+
+function hitungValuasi(pt) {
+    let val = hitungAsetKotor(pt);
+    let totalInvest = pt.investors ? Object.values(pt.investors).reduce((a,b)=>a+b,0) : 0;
+    val += totalInvest;
+    val -= (pt.hutang || 0);
+    return Math.max(0, val);
 }
 
 // ==========================================
@@ -152,7 +164,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
         let now = Date.now();
 
-        // AUTO: REFILL LISTRIK & PAJAK HARIAN
+        // AUTO: REFILL LISTRIK & PAJAK
         user.perusahaan.forEach(pt => {
             if (!pt) return;
             if (pt.type !== 'listrik' && !pt.gudangLevel) pt.gudangLevel = 1;
@@ -160,6 +172,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             if (!pt.investors) pt.investors = {}; 
             if (pt.type === 'listrik' && !pt.ekstraPembangkit) pt.ekstraPembangkit = [];
             if (pt.hutang === undefined) pt.hutang = 0;
+            if (pt.investOpen === undefined) pt.investOpen = true; // Default Investasi Terbuka
 
             if (pt.type === 'listrik') {
                 let periods = Math.floor((now - (pt.lastGenerate || now)) / 1800000);
@@ -180,7 +193,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             if (!pt.lastTax) pt.lastTax = now;
             let daysPassed = Math.floor((now - pt.lastTax) / 86400000);
             if (daysPassed >= 1) {
-                // Pajak simpanan kas PT: 0.2% / hari
                 let tax = Math.floor((pt.saldo || 0) * 0.002 * daysPassed);
                 pt.saldo = Math.max(0, (pt.saldo || 0) - tax);
                 pt.lastTax += daysPassed * 86400000;
@@ -190,9 +202,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         let action = args[0] ? args[0].toLowerCase() : 'help';
 
         switch (action) {
-            // ==============================
-            // 1. BUAT & BANGUN
-            // ==============================
             case 'buat': {
                 let tipePT = args[1] ? args[1].toLowerCase() : '';
                 let namaPT = args.slice(2).join(' ');
@@ -204,14 +213,12 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if (user.perusahaan.length >= 2) return m.reply('❌ Batas maksimal adalah *2 Perusahaan Induk*!');
                 let hargaBuat = biayaInduk[tipePT];
                 
-                // Buat perusahaan baru TETAP memotong uang probadi user.money (karena PT belum ada kas-nya)
                 if (user.money < hargaBuat) return m.reply(`❌ Uang pribadimu kurang!\nButuh ${formatRp(hargaBuat)}.`);
-
                 user.money -= hargaBuat;
 
                 let newPT = {
                     id: now, name: namaPT, type: tipePT, saldo: 0, hutang: 0, lastTax: now,
-                    pabrik: [], gudang: {}, investors: {}
+                    pabrik: [], gudang: {}, investors: {}, investOpen: true
                 };
 
                 if (tipePT === 'listrik') {
@@ -234,11 +241,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
                 if (isNaN(idPtL) || !kapasitasPembangkit[jenis]) {
                     let listJenis = Object.keys(kapasitasPembangkit).map(k => `  • *${k}* — ${formatRp(hargaPembangkit[k])} (+${formatDaya(kapasitasPembangkit[k], true)}/30mnt)`).join('\n');
-                    return m.reply(
-                        `⚠️ *Format:* *${usedPrefix+command} buatpembangkit <id_pt> <jenis>*\n\n` +
-                        `*Katalog Ekstra Pembangkit:*\n${listJenis}\n\n` +
-                        `_Mempercepat refill energi kapasitas listrikmu setiap 30 menit! (Maks 5 Ekstra)_`
-                    );
+                    return m.reply(`⚠️ *Format:* *${usedPrefix+command} buatpembangkit <id_pt> <jenis>*\n\n*Katalog Ekstra Pembangkit:*\n${listJenis}`);
                 }
 
                 let pt = user.perusahaan[idPtL];
@@ -248,137 +251,30 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if (pt.ekstraPembangkit.length >= 5) return m.reply('❌ Slot Ekstra Pembangkit sudah penuh (Maksimal 5)!');
 
                 let harga = hargaPembangkit[jenis];
-                // BAYAR PAKAI KAS PT
-                if ((pt.saldo || 0) < harga) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(harga)}\nKas PT saat ini: ${formatRp(pt.saldo)}\n\n_Setor uang/pinjam bank dulu untuk menambah kas PT!_`);
+                if ((pt.saldo || 0) < harga) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(harga)}\nKas PT saat ini: ${formatRp(pt.saldo)}`);
 
                 pt.saldo -= harga;
                 pt.ekstraPembangkit.push(jenis);
                 
-                m.reply(
-                    `✅ *PEMBANGUNAN BERHASIL!*\n\n` +
-                    `🏭 *${pt.name}* telah memasang ekstra *${jenis}*.\n` +
-                    `💳 Kas PT Terpotong: -${formatRp(harga)}\n` +
-                    `♻️ Daya Refill Bertambah: *+${formatDaya(kapasitasPembangkit[jenis], true)}* / 30 Menit!\n\n` +
-                    `_Cek total daya refill dengan *${usedPrefix+command} info*_`
-                );
+                m.reply(`✅ *PEMBANGUNAN BERHASIL!*\n\n🏭 *${pt.name}* telah memasang ekstra *${jenis}*.\n💳 Kas PT Terpotong: -${formatRp(harga)}\n♻️ Daya Refill Bertambah: *+${formatDaya(kapasitasPembangkit[jenis], true)}* / 30 Menit!`);
                 break;
             }
 
-            // ==============================
-            // 2. SISTEM BANK (PINJAMAN)
-            // ==============================
-            case 'bank': {
-                let txt = `🏦 *BANK KORPORASI NEGARA*\n\n`;
-                txt += `Bank menyediakan dana segar untuk membantu operasional & ekspansi Perusahaan milikmu. Pinjaman akan masuk ke *Kas PT*.\n\n`;
-                txt += `📊 *Tarif Bunga (Flat):*\n`;
-                txt += `  • < Rp 10 Miliar    : *Bunga 5%*\n`;
-                txt += `  • Rp 10M - Rp 100M  : *Bunga 8%*\n`;
-                txt += `  • > Rp 100 Miliar   : *Bunga 12%*\n\n`;
-                
-                txt += `💳 *Limit Perusahaanmu (50% Valuasi Aset):*\n`;
-                if (user.perusahaan.length === 0) txt += `  _Belum ada perusahaan._\n`;
-                user.perusahaan.forEach((pt, i) => {
-                    let asetKotor = hitungAsetKotor(pt);
-                    let limit = Math.floor(asetKotor / 2);
-                    txt += `  ${i+1}. *${pt.name}*\n`;
-                    txt += `     Limit: ${formatRp(limit)}\n`;
-                    txt += `     Hutang Aktif: ${formatRp(pt.hutang || 0)}\n`;
-                });
+            case 'setpembangkit': {
+                let idPtL = parseInt(args[1]) - 1;
+                let jenis = args[2] ? args[2].toUpperCase() : '';
 
-                txt += `\n*Command:*\n`;
-                txt += `• Pinjam : *${usedPrefix+command} pinjam <nominal> <id_pt>*\n`;
-                txt += `• Bayar  : *${usedPrefix+command} bayarbank <nominal> <id_pt>*`;
-                return m.reply(txt);
-            }
+                if (isNaN(idPtL) || !kapasitasPembangkit[jenis]) return m.reply(`⚠️ Format: *${usedPrefix+command} setpembangkit <id_pt> <jenis>*`);
 
-            case 'pinjam': {
-                let nominal = parseInt(args[1]); 
-                let ptId = parseInt(args[2]) - 1;
+                let ptL = user.perusahaan[idPtL];
+                if (!ptL || ptL.type !== 'listrik') return m.reply('❌ ID tidak valid atau bukan PT tipe Listrik!');
 
-                if (isNaN(nominal) || isNaN(ptId)) 
-                    return m.reply(`⚠️ Format: *${usedPrefix+command} pinjam <nominal> <id_pt>*\nContoh: *${usedPrefix+command} pinjam 5000000000 1*`);
-
-                if (nominal < 1000000) return m.reply(`❌ Minimal pinjaman adalah Rp 1.000.000`);
-
-                let pt = user.perusahaan[ptId];
-                if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
-
-                let asetKotor = hitungAsetKotor(pt);
-                let limitPinjaman = Math.floor(asetKotor / 2);
-                let hutangSekarang = pt.hutang || 0;
-
-                // Cek Limit
-                if (hutangSekarang + nominal > limitPinjaman) {
-                    return m.reply(
-                        `❌ *Limit Kredit Tidak Mencukupi!*\n\n` +
-                        `🏢 PT: *${pt.name}*\n` +
-                        `Batas Maksimal Hutang: ${formatRp(limitPinjaman)}\n` +
-                        `Hutang Saat Ini: ${formatRp(hutangSekarang)}\n` +
-                        `Sisa Limit Anda: ${formatRp(Math.max(0, limitPinjaman - hutangSekarang))}`
-                    );
-                }
-
-                // Hitung Bunga
-                let bungaPersen = 0.05; // 5%
-                if (nominal >= 100000000000) bungaPersen = 0.12;      // > 100M = 12%
-                else if (nominal >= 10000000000) bungaPersen = 0.08;  // >= 10M = 8%
-
-                let bebanBunga = Math.floor(nominal * bungaPersen);
-                let totalHutangBaru = nominal + bebanBunga;
-
-                pt.saldo = (pt.saldo || 0) + nominal;
-                pt.hutang = hutangSekarang + totalHutangBaru;
-
-                m.reply(
-                    `✅ *PINJAMAN BANK DISETUJUI*\n\n` +
-                    `Dana telah ditransfer ke Kas PT *${pt.name}*.\n\n` +
-                    `• Pinjaman Cair : *${formatRp(nominal)}*\n` +
-                    `• Bunga (${bungaPersen*100}%) : *${formatRp(bebanBunga)}*\n` +
-                    `• Total Tagihan : *${formatRp(totalHutangBaru)}*\n\n` +
-                    `💳 Kas PT Saat Ini: ${formatRp(pt.saldo)}\n` +
-                    `🏦 Total Hutang PT: ${formatRp(pt.hutang)}`
-                );
+                ptL.pembangkit = jenis;
+                ptL.generationRate = kapasitasPembangkit[jenis];
+                m.reply(`⚡ Generator utama *${ptL.name}* diubah menjadi *${jenis}*!`);
                 break;
             }
 
-            case 'bayarbank': {
-                let nominal = parseInt(args[1]); 
-                let ptId = parseInt(args[2]) - 1;
-
-                if (isNaN(nominal) || isNaN(ptId)) 
-                    return m.reply(`⚠️ Format: *${usedPrefix+command} bayarbank <nominal> <id_pt>*\n_Bayar otomatis memotong saldo Kas PT_`);
-
-                let pt = user.perusahaan[ptId];
-                if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
-
-                let hutangSekarang = pt.hutang || 0;
-                if (hutangSekarang <= 0) return m.reply(`✅ Perusahaan *${pt.name}* tidak memiliki hutang Bank!`);
-
-                if (nominal > hutangSekarang) nominal = hutangSekarang; // Cegah bayar lebih
-
-                if ((pt.saldo || 0) < nominal) {
-                    return m.reply(
-                        `❌ Kas PT tidak cukup untuk membayar tagihan ini!\n\n` +
-                        `Nominal Bayar: ${formatRp(nominal)}\n` +
-                        `Kas PT: ${formatRp(pt.saldo)}`
-                    );
-                }
-
-                pt.saldo -= nominal;
-                pt.hutang -= nominal;
-
-                m.reply(
-                    `✅ *PEMBAYARAN HUTANG SUKSES*\n\n` +
-                    `🏢 PT: *${pt.name}*\n` +
-                    `💳 Kas PT Terpotong: -${formatRp(nominal)}\n` +
-                    `🏦 Sisa Hutang: *${formatRp(pt.hutang)}*`
-                );
-                break;
-            }
-
-            // ==============================
-            // 3. MENU INFO PT
-            // ==============================
             case 'info': {
                 let targetId = m.sender;
                 if (args[1]) {
@@ -387,9 +283,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 }
 
                 let targetUser = global.db.data.users[targetId];
-                if (!targetUser || !targetUser.perusahaan || !targetUser.perusahaan.length) {
-                    return m.reply(targetId === m.sender ? `❌ Kamu belum punya Perusahaan.` : `❌ User tersebut belum punya perusahaan.`);
-                }
+                if (!targetUser || !targetUser.perusahaan || !targetUser.perusahaan.length) return m.reply(`❌ Belum punya perusahaan.`);
 
                 let isSelf = (targetId === m.sender);
                 let txt = `🏢 *ASET KORPORASI ${isSelf ? 'MILIKMU' : 'MILIK @' + targetId.split('@')[0]}* 🏢\n\n`;
@@ -408,7 +302,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     let karyawanTotal = 10 + (pt.pabrik ? pt.pabrik.length * 10 : 0);
 
                     txt += `${ptHeader}\n`;
-                    txt += `🏭 Tipe Pabrik: *${pt.type.toUpperCase()}*\n`;
+                    txt += `🏭 Induk Pabrik: *${pt.type.toUpperCase()}*\n`;
+                    
+                    // PERBAIKAN: Menampilkan Anak Pabrik
+                    if (pt.pabrik && pt.pabrik.length > 0) {
+                        let listPabrik = pt.pabrik.map(p => `*${p.name}* (${p.type.toUpperCase()})`).join(', ');
+                        txt += `🏢 Anak Pabrik: ${listPabrik}\n`;
+                    }
+                    
                     txt += `👥 Karyawan: ${karyawanTotal} Orang\n`;
 
                     if (pt.type === 'listrik') {
@@ -418,262 +319,110 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                             pt.ekstraPembangkit.forEach(p => totalRefill += (kapasitasPembangkit[p] || 0));
                             extraStr = pt.ekstraPembangkit.join(', ');
                         }
-
                         let kapMaksimum = getKapasitasListrik(pt);
                         let sedia       = pt.kapasitasTersedia || 0;
 
-                        txt += `⚡ Level Kapasitas Listrik : Level ${pt.listrikLevel || 1}\n`;
-                        txt += `⚡ Kapasitas Listrik: ${formatDaya(sedia)} / ${formatDaya(kapMaksimum)}\n`;
+                        txt += `⚡ Level Kapasitas : Level ${pt.listrikLevel || 1}\n`;
+                        txt += `⚡ Listrik Tersedia: ${formatDaya(sedia)} / ${formatDaya(kapMaksimum)}\n`;
                         txt += `♻️ Total Refill: ${formatDaya(totalRefill, true)} / 30 Menit\n`;
                         txt += `💡 Harga Jual: ${formatRp(pt.hargaListrikCustom || 18600)}/W\n`;
-                        txt += `🏗️ Ekstra Pembangkit: ${extraStr}\n`;
+                        txt += `🏗️ Ekstra Mesin: ${extraStr}\n`;
                     } else {
                         txt += `📦 Level Gudang : Level ${pt.gudangLevel || 1}\n`;
-                        txt += `📦 Gudang ${getSlotTerpakai(pt.gudang).toLocaleString('id-ID')}/${getKapasitasGudang(pt).toLocaleString('id-ID')} Slot\n`;
+                        txt += `📦 Sisa Gudang: ${getSlotTerpakai(pt.gudang).toLocaleString('id-ID')} / ${getKapasitasGudang(pt).toLocaleString('id-ID')} Slot\n`;
+                        
+                        let srcName = '🔵 Negara (PLN)';
+                        if (pt.sumberListrik && pt.sumberListrik !== 'negara') {
+                            let provider = findPTListrikGlobal(pt.sumberListrik);
+                            if (provider) srcName = `🟡 ${provider.pt.name} (@${provider.ownerId.split('@')[0]})`;
+                            else srcName = '🔵 Negara (PLN) [Otomatis dialihkan]';
+                        }
+                        txt += `🔌 Sumber Listrik: ${srcName}\n`;
                     }
 
-                    let modalAwal = biayaInduk[pt.type] || 50000000000;
                     let totalInvest = pt.investors ? Object.values(pt.investors).reduce((a,b)=>a+b, 0) : 0;
-                    let totalKapital = modalAwal + totalInvest;
-                    let pctOwner = ((modalAwal / totalKapital) * 100).toFixed(1);
-                    let pctInvest = ((totalInvest / totalKapital) * 100).toFixed(1);
 
                     let detailInvestor = '';
                     if (pt.investors && Object.keys(pt.investors).length > 0) {
                         for (let inv in pt.investors) {
-                            let p = ((pt.investors[inv] / totalKapital) * 100).toFixed(1);
-                            detailInvestor += `\n>    • @${inv.split('@')[0]} (${p}%)`;
+                            let p = ((pt.investors[inv] / totalInvest) * 100).toFixed(1);
+                            detailInvestor += `\n>    • @${inv.split('@')[0]} (${p}% Pool)`;
                         }
                     }
+
+                    let statusInv = (pt.investOpen !== false) ? '🟢 DIBUKA' : '🔴 DITUTUP';
 
                     txt += `\n*📊 LAPORAN KEUANGAN & SAHAM:*\n`;
                     txt += `> 💎 Valuasi Bersih: ~${formatSingkat(val)}\n`;
                     txt += `> 🏦 Hutang Bank: ${formatRp(pt.hutang || 0)}\n`;
-                    txt += `> 💼 Saham: [ Owner: ${pctOwner}% | Publik: ${pctInvest}% ]${detailInvestor}\n`;
-                    txt += `> 💳 Saldo Kas PT: ${formatRp(pt.saldo)}\n`;
-                    txt += `> 📈 Dana Investasi: ${formatRp(totalInvest)}\n\n`;
+                    txt += `> 💼 Status Investasi: ${statusInv}\n`;
+                    txt += `> 👥 Total Modal Publik: ${formatRp(totalInvest)}${detailInvestor}\n`;
+                    txt += `> 💳 Saldo Kas PT: ${formatRp(pt.saldo)}\n\n`;
                 });
 
                 return m.reply(txt.trim(), null, { mentions: [targetId, ...Object.keys(targetUser.perusahaan[0]?.investors || {})] });
             }
 
-            // ==============================
-            // LAIN-LAIN (INVEST, UPGRADE, DLL)
-            // ==============================
-            case 'invest': {
-                let nominal = parseInt(args[1]); let targetMention = args[2]; let ptId = parseInt(args[3]) - 1;
-                if (isNaN(nominal) || !targetMention || isNaN(ptId)) return m.reply(`⚠️ Format: *${usedPrefix+command} invest <nominal> <@tag/nomor> <id_pt>*`);
-                if (nominal < 1000000) return m.reply(`❌ Minimal investasi Rp1.000.000`);
+            case 'ceklistrik': {
+                let allUsers = global.db.data.users;
+                let globalListrik = [];
+
+                for (let uid in allUsers) {
+                    let u = allUsers[uid];
+                    if (u && Array.isArray(u.perusahaan)) {
+                        u.perusahaan.forEach((p, i) => {
+                            if (p && p.type === 'listrik') globalListrik.push({ uid, ownerName: u.name || uid.split('@')[0], pt: p, localId: i + 1 });
+                        });
+                    }
+                }
+
+                globalListrik.sort((a, b) => (a.pt.hargaListrikCustom || 18600) - (b.pt.hargaListrikCustom || 18600));
+
+                let txt = `⚡ *PASAR LISTRIK GLOBAL*\n_Hemat biaya operasional dengan langganan Listrik Swasta! (Pilih yang murah & stok banyak)_\n\n`;
+                txt += `🔵 *Listrik Negara (PLN)*\n   Tarif : *${formatRp(hargaListrikNegara)} / Watt*\n   Stok  : ♾️ Tidak Terbatas\n   Set   : *${usedPrefix+command} setlistrik <id_pt_mu> negara*\n\n`;
+                txt += `🟡 *Listrik Swasta (Pemain Lain)*\n`;
+                
+                if (globalListrik.length === 0) txt += `   _(Belum ada perusahaan listrik swasta yang terdaftar)_\n`;
+                else {
+                    globalListrik.forEach((gl) => {
+                        let pt = gl.pt; let tarif = pt.hargaListrikCustom || 18600;
+                        let kapMax = getKapasitasListrik(pt); let tersedia = pt.kapasitasTersedia || 0;
+                        txt += `🏢 *${pt.name}* (Milik @${gl.uid.split('@')[0]})\n`;
+                        txt += `   Tarif  : *${formatRp(tarif)} / Watt*\n`;
+                        txt += `   Stok   : ${formatDaya(tersedia)} / ${formatDaya(kapMax)}\n`;
+                        txt += `   [${progressBar(tersedia, kapMax, 8)}]\n`;
+                        txt += `   Set    : *${usedPrefix+command} setlistrik <id_pt_mu> @${gl.uid.split('@')[0]} ${gl.localId}*\n\n`;
+                    });
+                }
+                return m.reply(txt.trim());
+            }
+
+            case 'setlistrik': {
+                let idPtTarget = parseInt(args[1]) - 1; let pt = user.perusahaan[idPtTarget];
+                if (!pt || pt.type === 'listrik') return m.reply('❌ ID Perusahaan Produksi tidak valid!');
+
+                let param2 = args[2] ? args[2].toLowerCase() : '';
+                if (param2 === 'negara') { pt.sumberListrik = 'negara'; return m.reply(`✅ *${pt.name}* kini memakai listrik PLN (Negara).`); }
+
+                let targetMention = args[2]; let idPtL = parseInt(args[3]) - 1;
+                if (!targetMention || isNaN(idPtL)) return m.reply(`⚠️ *Format:* *${usedPrefix+command} setlistrik <id_pt_mu> <@tag_pemilik> <id_pt_listrik_mereka>*`);
 
                 let target = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : targetMention.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
                 let targetUser = global.db.data.users[target];
-                if (!targetUser || !targetUser.perusahaan) return m.reply(`❌ User tidak ditemukan.`);
-                let pt = targetUser.perusahaan[ptId];
-                if (!pt) return m.reply(`❌ ID Perusahaan target tidak ditemukan!`);
 
-                if (user.money < nominal) return m.reply(`❌ Uangmu kurang!`);
+                if (!targetUser || !targetUser.perusahaan) return m.reply(`❌ Pemilik listrik swasta tidak ditemukan.`);
+                let ptL = targetUser.perusahaan[idPtL];
+                if (!ptL || ptL.type !== 'listrik') return m.reply(`❌ ID Perusahaan Listrik swasta target tidak valid!`);
 
-                user.money -= nominal;
-                pt.saldo = (pt.saldo || 0) + nominal; 
-                if (!pt.investors) pt.investors = {};
-                pt.investors[m.sender] = (pt.investors[m.sender] || 0) + nominal;
-
-                m.reply(`✅ *INVESTASI BERHASIL*\nMenyuntikkan dana *${formatRp(nominal)}* ke *${pt.name}* milik @${target.split('@')[0]}`, null, { mentions: [target] });
-                break;
-            }
-
-            case 'tarikinvest': {
-                let nominal = parseInt(args[1]); let targetMention = args[2]; let ptId = parseInt(args[3]) - 1;
-                if (isNaN(nominal) || !targetMention || isNaN(ptId)) return m.reply(`⚠️ Format: *${usedPrefix+command} tarikinvest <nominal> <@tag/nomor> <id_pt>*`);
-
-                let target = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : targetMention.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-                let targetUser = global.db.data.users[target];
-                if (!targetUser || !targetUser.perusahaan) return m.reply(`❌ User tidak valid.`);
-                let pt = targetUser.perusahaan[ptId];
-                if (!pt) return m.reply(`❌ ID Perusahaan target tidak ditemukan!`);
-
-                if (!pt.investors || !pt.investors[m.sender] || pt.investors[m.sender] < nominal) return m.reply(`❌ Sahammu tidak cukup!`);
-                if ((pt.saldo || 0) < nominal) return m.reply(`❌ Kas PT target kosong, tidak bisa menarik modal sekarang.`);
-
-                pt.saldo -= nominal;
-                pt.investors[m.sender] -= nominal;
-                user.money += nominal;
-                if (pt.investors[m.sender] <= 0) delete pt.investors[m.sender];
-
-                m.reply(`✅ *PENARIKAN BERHASIL*\nMenarik *${formatRp(nominal)}* dari saham *${pt.name}*`);
-                break;
-            }
-
-            case 'jual':
-            case 'jualsemua':
-            case 'sellall': {
-                let targetPts = [];
-                let isGlobal = false;
-
-                if (action === 'jual') {
-                    if (args[1] !== 'semua') return m.reply(`⚠️ Format: *${usedPrefix+command} jualsemua* (Semua PT) atau *${usedPrefix+command} jualsemua <id_pt>* (Spesifik PT)`);
-                    let id = parseInt(args[2]) - 1;
-                    if (!isNaN(id) && user.perusahaan[id] && user.perusahaan[id].type !== 'listrik') targetPts.push(user.perusahaan[id]);
-                } else {
-                    let id = parseInt(args[1]) - 1;
-                    if (!isNaN(id)) {
-                        if (user.perusahaan[id] && user.perusahaan[id].type !== 'listrik') targetPts.push(user.perusahaan[id]);
-                    } else {
-                        isGlobal = true;
-                        targetPts = user.perusahaan.filter(p => p && p.type !== 'listrik');
-                    }
-                }
-
-                if (targetPts.length === 0) return m.reply('❌ Tidak ada PT produksi yang valid untuk dijual barangnya.');
-
-                let grandTotalPend = 0;
-                let grandTotalPajak = 0;
-                let replyMsg = `🛒 *PENJUALAN GROSIR SUKSES*\n\n`;
-                let allMentions = [];
-
-                for (let pt of targetPts) {
-                    if (!pt.gudang || Object.keys(pt.gudang).every(k => !(pt.gudang[k] > 0))) {
-                        if (!isGlobal) return m.reply(`📦 Gudang *${pt.name}* sudah kosong!`);
-                        continue;
-                    }
-
-                    let totalPend = 0; let rincian = '';
-                    for (let brg in pt.gudang) {
-                        let stok = pt.gudang[brg];
-                        if (!stok || stok <= 0) continue;
-                        let pd = semuaProduk[brg];
-                        let profit = stok * Math.floor((pd ? pd.baseHargaToko : 10000) * 0.75);
-                        totalPend += profit;
-                        rincian += `🔸 ${stok.toLocaleString('id-ID')}x ${brg} = ${formatRp(profit)}\n`;
-                        pt.gudang[brg] = 0; 
-                    }
-
-                    if (totalPend === 0) continue;
-
-                    let pajak = Math.floor(totalPend * 0.002);
-                    let netPend = totalPend - pajak;
-
-                    grandTotalPajak += pajak;
-                    grandTotalPend += netPend;
-
-                    let modalAwal = biayaInduk[pt.type] || 50000000000;
-                    let totalInvest = pt.investors ? Object.values(pt.investors).reduce((a,b)=>a+b, 0) : 0;
-                    let totalKapital = modalAwal + totalInvest;
-
-                    let porsiOwner = modalAwal / totalKapital;
-                    let profitOwner = Math.floor(netPend * porsiOwner);
-                    pt.saldo += profitOwner;
-
-                    replyMsg += `🏢 *${pt.name}*\n${rincian}`;
-                    replyMsg += `> 💰 Omset: ${formatRp(totalPend)} | 🏛️ Pajak 0.2%: -${formatRp(pajak)}\n`;
-                    replyMsg += `> 👑 Kas PT (Owner): +${formatRp(profitOwner)} (${(porsiOwner*100).toFixed(1)}%)\n`;
-
-                    if (pt.investors) {
-                        for (let inv in pt.investors) {
-                            let porsi = pt.investors[inv] / totalKapital;
-                            let profitInv = Math.floor(netPend * porsi);
-                            if (global.db.data.users[inv]) {
-                                global.db.data.users[inv].money += profitInv;
-                                replyMsg += `> 💼 @${inv.split('@')[0]}: +${formatRp(profitInv)} (${(porsi*100).toFixed(1)}%)\n`;
-                                if (!allMentions.includes(inv)) allMentions.push(inv);
-                            }
-                        }
-                    }
-                    replyMsg += '\n';
-                }
-
-                if (grandTotalPend === 0) return m.reply('📦 Tidak ada barang yang bisa dijual dari gudang saat ini.');
-
-                replyMsg += `━━━━━━━━━━━━━━━━━━━━\n📈 *Total Pendapatan Bersih:* ${formatRp(grandTotalPend)}`;
-                return m.reply(replyMsg.trim(), null, { mentions: allMentions });
-            }
-
-            case 'buy':
-            case 'beli': {
-                let jmlProd = parseInt(args[1]); 
-                let namaItem = args[2] ? args[2].toLowerCase() : ''; 
-                let idPt = parseInt(args[3]) - 1;
-                
-                if (!jmlProd || !namaItem || isNaN(idPt)) 
-                    return m.reply(`⚠️ Format: *${usedPrefix+command} buy <jumlah> <item> <id_pt>*\nContoh: *${usedPrefix+command} buy 100 iron 1*`);
-                
-                let pt = user.perusahaan[idPt];
-                if (!pt) return m.reply('❌ ID Perusahaan tidak valid!');
-                
-                let dp = semuaProduk[namaItem];
-                if (!dp) return m.reply(`❌ Produk/Item *${namaItem}* tidak dikenali di sistem pasar Korporasi!`);
-
-                if (pt.type !== 'listrik') {
-                    let slotSisa = getKapasitasGudang(pt) - getSlotTerpakai(pt.gudang);
-                    if (jmlProd > slotSisa) return m.reply(`❌ Gudang PT penuh!\nKapasitas tersisa: ${slotSisa.toLocaleString('id-ID')} slot`);
-                }
-
-                let hargaBeli = dp.baseHargaToko * jmlProd;
-                // BAYAR PAKAI KAS PT
-                if ((pt.saldo || 0) < hargaBeli) 
-                    return m.reply(`❌ Kas PT kurang untuk membeli ${jmlProd.toLocaleString('id-ID')} ${dp.name}!\nButuh: ${formatRp(hargaBeli)}\nKas PT saat ini: ${formatRp(pt.saldo)}\n\n_Setor uang dulu pakai command: ${usedPrefix+command} setor <jumlah> uang ${idPt + 1}_`);
-
-                pt.saldo -= hargaBeli;
-                if (!pt.gudang) pt.gudang = {};
-                pt.gudang[dp.db] = (pt.gudang[dp.db] || 0) + jmlProd;
-
-                m.reply(
-                    `🛒 *PEMBELIAN INSTAN SUKSES*\n\n` +
-                    `🏢 Masuk Gudang: *${pt.name}*\n` +
-                    `📦 Item: +${jmlProd.toLocaleString('id-ID')} ${dp.name}\n` +
-                    `💸 Kas PT Terpotong: -${formatRp(hargaBeli)}`
-                );
-                break;
-            }
-
-            case 'upgrade': {
-                let tipeUpgrade = args[1] ? args[1].toLowerCase() : '';
-                let idPt = parseInt(args[2]) - 1; let jmlLevel = parseInt(args[3]) || 1;
-                if (!['gudang', 'listrik'].includes(tipeUpgrade) || isNaN(idPt)) return m.reply(`⚠️ Format: *${usedPrefix+command} upgrade <gudang|listrik> <id_pt> [jml]*`);
-                let pt = user.perusahaan[idPt];
-                if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
-
-                if (tipeUpgrade === 'gudang') {
-                    if (pt.type === 'listrik') return m.reply('❌ Hanya untuk PT Non-Listrik!');
-                    let totalBiaya = Math.min(jmlLevel, MAX_LEVEL_GUDANG - (pt.gudangLevel || 1)) * HARGA_UPGRADE_GUDANG;
-                    
-                    // BAYAR PAKAI KAS PT
-                    if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT saat ini: ${formatRp(pt.saldo)}\n\n_Setor uang dulu pakai command: ${usedPrefix+command} setor <jumlah> uang ${idPt + 1}_`);
-                    
-                    pt.saldo -= totalBiaya; pt.gudangLevel = (pt.gudangLevel || 1) + jmlLevel;
-                    m.reply(`📦 Gudang diupgrade ke Lv *${pt.gudangLevel}*\nKapasitas Baru: ${getKapasitasGudang(pt).toLocaleString('id-ID')} Slot\n💸 Kas PT Terpotong: -${formatRp(totalBiaya)}`);
-                } else {
-                    if (pt.type !== 'listrik') return m.reply('❌ Hanya untuk PT LISTRIK!');
-                    let totalBiaya = Math.min(jmlLevel, MAX_LEVEL_LISTRIK - (pt.listrikLevel || 1)) * HARGA_UPGRADE_LISTRIK;
-                    
-                    // BAYAR PAKAI KAS PT
-                    if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT saat ini: ${formatRp(pt.saldo)}\n\n_Setor uang dulu pakai command: ${usedPrefix+command} setor <jumlah> uang ${idPt + 1}_`);
-                    
-                    pt.saldo -= totalBiaya; pt.listrikLevel = (pt.listrikLevel || 1) + jmlLevel;
-                    m.reply(`⚡ Kapasitas Listrik diupgrade ke Lv *${pt.listrikLevel}*\nKapasitas Maksimal Baru: ${formatDaya(getKapasitasListrik(pt))}\n💸 Kas PT Terpotong: -${formatRp(totalBiaya)}`);
-                }
-                break;
-            }
-
-            case 'pabrik': {
-                let idPt = parseInt(args[1]) - 1; let tipePabrik = args[2] ? args[2].toLowerCase() : ''; let namaPabrik = args.slice(3).join(' ');
-                if (isNaN(idPt) || !biayaPabrikObj[tipePabrik] || !namaPabrik) return m.reply(`⚠️ Format: *${usedPrefix+command} pabrik <id> <tipe> <nama>*`);
-                let pt = user.perusahaan[idPt];
-                if (!pt || pt.type === 'listrik') return m.reply('❌ Gagal! ID tidak valid.');
-                if (pt.pabrik.length >= 2) return m.reply('❌ Maks 2 anak pabrik per PT!');
-                let hargaP = biayaPabrikObj[tipePabrik];
-                
-                // BAYAR PAKAI KAS PT
-                if ((pt.saldo || 0) < hargaP) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(hargaP)}\nKas PT saat ini: ${formatRp(pt.saldo)}\n\n_Setor uang dulu pakai command: ${usedPrefix+command} setor <jumlah> uang ${idPt + 1}_`);
-                
-                pt.saldo -= hargaP; pt.pabrik.push({ name: namaPabrik, type: tipePabrik, karyawan: 10 });
-                m.reply(`🏭 Pabrik *${namaPabrik}* berhasil dibangun!\n💸 Kas PT Terpotong: -${formatRp(hargaP)}`);
+                pt.sumberListrik = ptL.id; 
+                m.reply(`✅ Berhasil! *${pt.name}* kini terhubung ke jaringan listrik swasta dari *${ptL.name}* milik @${target.split('@')[0]}`, null, {mentions: [target]});
                 break;
             }
 
             case 'produksi': {
                 let jmlProd = parseInt(args[1]); let namaItem = args[2] ? args[2].toLowerCase() : ''; let idPt = parseInt(args[3]) - 1;
                 if (!jmlProd || !namaItem || isNaN(idPt)) return m.reply(`⚠️ Format: *${usedPrefix+command} produksi <jml> <item> <id_pt>*`);
+                
                 let pt = user.perusahaan[idPt];
                 if (!pt || pt.type === 'listrik') return m.reply('❌ ID PT tidak valid!');
                 let dp = semuaProduk[namaItem];
@@ -683,76 +432,314 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if (!bisaProduksi) return m.reply(`❌ Tidak ada pabrik *${dp.type.toUpperCase()}* di PT ini.`);
 
                 let slotSisa = getKapasitasGudang(pt) - getSlotTerpakai(pt.gudang);
-                if (jmlProd > slotSisa) return m.reply(`❌ Gudang penuh! Tersedia: ${slotSisa}`);
+                if (jmlProd > slotSisa) return m.reply(`❌ Gudang penuh! Tersedia: ${slotSisa.toLocaleString('id-ID')} Slot`);
 
-                let hargaL = getHargaListrik(user, pt);
-                let totalBiaya = (jmlProd * dp.prodCost) + (jmlProd * 5 * hargaL);
-                
-                // BAYAR PAKAI KAS PT
-                if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT: ${formatRp(pt.saldo)}\n\n_Silakan setor modal ke PT dulu!_`);
+                // 🌟 CEK BAHAN BAKU DI GUDANG
+                let bahanKurang = [];
+                if (dp.bahan) {
+                    for (let b in dp.bahan) {
+                        let butuh = dp.bahan[b] * jmlProd;
+                        let punya = pt.gudang[b] || 0;
+                        if (punya < butuh) bahanKurang.push(`- ${b} (Butuh: ${butuh.toLocaleString('id-ID')}, Ada: ${punya.toLocaleString('id-ID')})`);
+                    }
+                }
+                if (bahanKurang.length > 0) {
+                    return m.reply(`❌ *Bahan Baku Tidak Cukup di Gudang PT!*\n\nKekurangan:\n${bahanKurang.join('\n')}\n\n_Beli bahan baku via: ${usedPrefix+command} buy <jml> <item> <id_pt>_`);
+                }
+
+                let voltase = dp.listrik || 3; 
+                let totalWattDibutuhkan = jmlProd * voltase;
+
+                let sumberL = pt.sumberListrik || 'negara';
+                let provider = null; let hargaL = hargaListrikNegara;
+
+                if (sumberL !== 'negara') {
+                    provider = findPTListrikGlobal(sumberL);
+                    if (!provider) {
+                        sumberL = 'negara'; pt.sumberListrik = 'negara'; hargaL = hargaListrikNegara;
+                    } else {
+                        hargaL = provider.pt.hargaListrikCustom || 18600;
+                        if ((provider.pt.kapasitasTersedia || 0) < totalWattDibutuhkan) {
+                            return m.reply(`❌ *PRODUKSI GAGAL!*\nListrik langganan swasta kurang daya!\nDaya Dibutuhkan: ${formatDaya(totalWattDibutuhkan)}`);
+                        }
+                    }
+                }
+
+                let biayaProd = jmlProd * dp.prodCost;
+                let biayaListrik = totalWattDibutuhkan * hargaL;
+                let totalBiaya = biayaProd + biayaListrik;
+
+                if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT: ${formatRp(pt.saldo)}`);
 
                 pt.saldo -= totalBiaya;
+                if (dp.bahan) {
+                    for (let b in dp.bahan) { pt.gudang[b] -= (dp.bahan[b] * jmlProd); }
+                }
                 pt.gudang[dp.db] = (pt.gudang[dp.db] || 0) + jmlProd;
-                m.reply(`🏭 *PRODUKSI BERHASIL*\n📦 ${dp.name} +${jmlProd.toLocaleString('id-ID')}\n💸 Kas PT Terpotong: -${formatRp(totalBiaya)}`);
+
+                if (provider) {
+                    provider.pt.kapasitasTersedia -= totalWattDibutuhkan;
+                    provider.pt.saldo += biayaListrik; 
+                }
+
+                m.reply(
+                    `🏭 *PRODUKSI BERHASIL*\n\n` +
+                    `📦 Item: +${jmlProd.toLocaleString('id-ID')} ${dp.name}\n` +
+                    `⚡ Listrik Diserap: ${formatDaya(totalWattDibutuhkan)} (${voltase} W/item)\n` +
+                    `💸 Kas PT Terpotong: -${formatRp(totalBiaya)}\n` +
+                    `🔌 Suplai Listrik: *${provider ? provider.pt.name : 'Negara (PLN)'}*`
+                );
                 break;
             }
 
-            case 'setlistrik': {
-                let idPtTarget = parseInt(args[1]) - 1; let sumber = args[2] ? args[2].toLowerCase() : '';
-                let pt = user.perusahaan[idPtTarget];
-                if (!pt || pt.type === 'listrik') return m.reply('❌ ID invalid!');
-                if (sumber === 'negara') { pt.sumberListrik = 'negara'; return m.reply(`✅ *${pt.name}* memakai listrik PLN`); }
-                let idPtL = parseInt(sumber) - 1; let ptL = user.perusahaan[idPtL];
-                if (!ptL || ptL.type !== 'listrik') return m.reply('❌ PT Listrik tidak valid!');
-                pt.sumberListrik = ptL.id;
-                m.reply(`✅ *${pt.name}* memakai listrik *${ptL.name}*`);
+            // ==============================
+            // JUAL GROSIR & PENGARUH MARKET
+            // ==============================
+            case 'jual':
+            case 'jualsemua':
+            case 'sellall': {
+                let targetPts = []; let isGlobal = false;
+                if (action === 'jual') {
+                    if (args[1] !== 'semua') return m.reply(`⚠️ Format: *${usedPrefix+command} jualsemua*`);
+                    let id = parseInt(args[2]) - 1;
+                    if (!isNaN(id) && user.perusahaan[id] && user.perusahaan[id].type !== 'listrik') targetPts.push(user.perusahaan[id]);
+                } else {
+                    let id = parseInt(args[1]) - 1;
+                    if (!isNaN(id)) {
+                        if (user.perusahaan[id] && user.perusahaan[id].type !== 'listrik') targetPts.push(user.perusahaan[id]);
+                    } else {
+                        isGlobal = true; targetPts = user.perusahaan.filter(p => p && p.type !== 'listrik');
+                    }
+                }
+
+                if (targetPts.length === 0) return m.reply('❌ Tidak ada PT produksi yang valid.');
+
+                let grandTotalPend = 0; let grandTotalPajak = 0; let grandTotalLogistik = 0;
+                let replyMsg = `🛒 *PENJUALAN GROSIR SUKSES*\n\n`; let allMentions = [];
+
+                for (let pt of targetPts) {
+                    if (!pt.gudang || Object.keys(pt.gudang).every(k => !(pt.gudang[k] > 0))) {
+                        if (!isGlobal) return m.reply(`📦 Gudang *${pt.name}* kosong!`); continue;
+                    }
+
+                    let totalPend = 0; let rincian = '';
+                    for (let brg in pt.gudang) {
+                        let stok = pt.gudang[brg]; if (!stok || stok <= 0) continue;
+                        
+                        let hargaJual = getMarketPriceSim(brg, false);
+                        let profit = stok * hargaJual;
+                        totalPend += profit;
+                        rincian += `🔸 ${stok.toLocaleString('id-ID')}x ${brg} = ${formatRp(profit)}\n`;
+                        
+                        if (global.db.data.market[brg]) global.db.data.market[brg].stock += stok;
+                        else global.db.data.market[brg] = { stock: 100000 + stok };
+
+                        pt.gudang[brg] = 0; 
+                    }
+
+                    if (totalPend === 0) continue;
+
+                    let pajak = Math.floor(totalPend * 0.002);
+                    let logistik = Math.floor(totalPend * 0.05); // BIAYA LOGISTIK 5%
+                    let netPend = totalPend - pajak - logistik;
+
+                    grandTotalPajak += pajak; grandTotalLogistik += logistik; grandTotalPend += netPend;
+
+                    // PEMBAGIAN ANTI-RUNGKAT (75% Kas PT, 25% Investor Pool)
+                    let porsiPT = 0.75;
+                    let profitPT = Math.floor(netPend * porsiPT);
+                    let profitInvestorPool = netPend - profitPT;
+
+                    let totalInvest = pt.investors ? Object.values(pt.investors).reduce((a,b)=>a+b, 0) : 0;
+
+                    replyMsg += `🏢 *${pt.name}*\n${rincian}`;
+                    replyMsg += `> 💰 Omset: ${formatRp(totalPend)}\n`;
+                    replyMsg += `> 🚚 Logistik (5%) & Pajak: -${formatRp(logistik + pajak)}\n`;
+
+                    if (totalInvest > 0) {
+                        pt.saldo += profitPT;
+                        replyMsg += `> 👑 Laba ke Kas PT (75%): +${formatRp(profitPT)}\n`;
+                        
+                        for (let inv in pt.investors) {
+                            let share = pt.investors[inv] / totalInvest;
+                            let profitInv = Math.floor(profitInvestorPool * share);
+                            if (global.db.data.users[inv]) {
+                                global.db.data.users[inv].money += profitInv;
+                                replyMsg += `> 💼 @${inv.split('@')[0]}: +${formatRp(profitInv)} (Dividen)\n`;
+                                if (!allMentions.includes(inv)) allMentions.push(inv);
+                            }
+                        }
+                    } else {
+                        // Kalau tidak ada investor, semua laba bersih (100%) masuk PT
+                        pt.saldo += netPend;
+                        replyMsg += `> 👑 Laba ke Kas PT (100%): +${formatRp(netPend)}\n`;
+                    }
+                    replyMsg += '\n';
+                }
+                if (grandTotalPend === 0) return m.reply('📦 Tidak ada barang untuk dijual.');
+                replyMsg += `━━━━━━━━━━━━━━━━━━━━\n📈 *Total Pendapatan Bersih:* ${formatRp(grandTotalPend)}\n_Barang dikirim dan stok pasar Shop telah diupdate._`;
+                return m.reply(replyMsg.trim(), null, { mentions: allMentions });
+            }
+
+            case 'buy':
+            case 'beli': {
+                let jmlProd = parseInt(args[1]); let namaItem = args[2] ? args[2].toLowerCase() : ''; let idPt = parseInt(args[3]) - 1;
+                if (!jmlProd || !namaItem || isNaN(idPt)) return m.reply(`⚠️ Format: *${usedPrefix+command} buy <jumlah> <item> <id_pt>*\nContoh: *${usedPrefix+command} buy 1000 aqua 1*`);
+                
+                let pt = user.perusahaan[idPt];
+                if (!pt) return m.reply('❌ ID Perusahaan tidak valid!');
+                
+                if (!baseHargaPasar[namaItem] && !semuaProduk[namaItem]) return m.reply(`❌ Produk/Bahan Baku *${namaItem}* tidak ditemukan di database distributor!`);
+
+                let hargaBeliSatuan = getMarketPriceSim(namaItem, true);
+                let hargaBeliTotal = hargaBeliSatuan * jmlProd;
+                let biayaLogistik = Math.floor(hargaBeliTotal * 0.05); // BIAYA LOGISTIK 5%
+                let grandTotal = hargaBeliTotal + biayaLogistik;
+
+                if (pt.type !== 'listrik') {
+                    let slotSisa = getKapasitasGudang(pt) - getSlotTerpakai(pt.gudang);
+                    if (jmlProd > slotSisa) return m.reply(`❌ Gudang PT penuh!\nKapasitas tersisa: ${slotSisa.toLocaleString('id-ID')} slot`);
+                }
+
+                if ((pt.saldo || 0) < grandTotal) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(grandTotal)} (termasuk 5% logistik)\nKas PT saat ini: ${formatRp(pt.saldo)}`);
+
+                if (global.db.data.market[namaItem]) {
+                    global.db.data.market[namaItem].stock = Math.max(0, global.db.data.market[namaItem].stock - jmlProd);
+                } else {
+                    global.db.data.market[namaItem] = { stock: Math.max(0, 100000 - jmlProd) };
+                }
+
+                pt.saldo -= grandTotal;
+                if (!pt.gudang) pt.gudang = {};
+                pt.gudang[namaItem] = (pt.gudang[namaItem] || 0) + jmlProd;
+
+                m.reply(
+                    `🛒 *PEMBELIAN INSTAN SUKSES*\n\n` +
+                    `🏢 Masuk Gudang: *${pt.name}*\n` +
+                    `📦 Barang: +${jmlProd.toLocaleString('id-ID')} ${namaItem}\n` +
+                    `💸 Harga Barang: ${formatRp(hargaBeliTotal)} (@${formatRp(hargaBeliSatuan)})\n` +
+                    `🚚 Biaya Logistik (5%): ${formatRp(biayaLogistik)}\n` +
+                    `💳 Kas PT Terpotong: -${formatRp(grandTotal)}\n\n_Persediaan di Global Shop telah dikurangi._`
+                );
+                break;
+            }
+
+            // ==============================
+            // TUTUP / BUKA INVESTASI
+            // ==============================
+            case 'tutupinvest':
+            case 'bukainvest': {
+                let ptId = parseInt(args[1]) - 1;
+                if (isNaN(ptId)) return m.reply(`⚠️ Format: *${usedPrefix+command} ${action} <id_pt>*`);
+                
+                let pt = user.perusahaan[ptId];
+                if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
+                
+                pt.investOpen = (action === 'bukainvest');
+                m.reply(`✅ Jalur investasi publik untuk *${pt.name}* sekarang *${pt.investOpen ? 'DIBUKA 🟢' : 'DITUTUP 🔴'}*.`);
+                break;
+            }
+
+            // ==============================
+            // FITUR BANK & UPGRADE
+            // ==============================
+            case 'bank': {
+                let txt = `🏦 *BANK KORPORASI NEGARA*\n\n`;
+                txt += `Bank menyediakan dana segar untuk ekspansi Perusahaan. Pinjaman akan masuk ke *Kas PT*.\n\n`;
+                txt += `📊 *Tarif Bunga (Flat saat pinjam):*\n  • < Rp 10 Miliar    : *Bunga 5%*\n  • Rp 10M - Rp 100M  : *Bunga 8%*\n  • > Rp 100 Miliar   : *Bunga 12%*\n\n`;
+                txt += `💳 *Limit Perusahaanmu (50% Valuasi Aset):*\n`;
+                if (user.perusahaan.length === 0) txt += `  _Belum ada perusahaan._\n`;
+                user.perusahaan.forEach((pt, i) => {
+                    let asetKotor = hitungAsetKotor(pt);
+                    let limit = Math.floor(asetKotor / 2);
+                    txt += `  ${i+1}. *${pt.name}*\n     Limit: ${formatRp(limit)}\n     Hutang Aktif: ${formatRp(pt.hutang || 0)}\n`;
+                });
+                txt += `\n*Command:*\n• Pinjam : *${usedPrefix+command} pinjam <nominal> <id_pt>*\n• Bayar  : *${usedPrefix+command} bayarbank <nominal> <id_pt>*`;
+                return m.reply(txt);
+            }
+
+            case 'pinjam': {
+                let nominal = parseInt(args[1]); let ptId = parseInt(args[2]) - 1;
+                if (isNaN(nominal) || isNaN(ptId)) return m.reply(`⚠️ Format: *${usedPrefix+command} pinjam <nominal> <id_pt>*`);
+                if (nominal < 1000000) return m.reply(`❌ Minimal pinjaman adalah Rp 1.000.000`);
+
+                let pt = user.perusahaan[ptId];
+                if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
+
+                let asetKotor = hitungAsetKotor(pt); let limitPinjaman = Math.floor(asetKotor / 2); let hutangSekarang = pt.hutang || 0;
+                if (hutangSekarang + nominal > limitPinjaman) return m.reply(`❌ *Limit Kredit Tidak Cukup!*\n🏢 PT: *${pt.name}*\nBatas Hutang: ${formatRp(limitPinjaman)}\nHutang Aktif: ${formatRp(hutangSekarang)}`);
+
+                let bungaPersen = 0.05; 
+                if (nominal >= 100000000000) bungaPersen = 0.12;      
+                else if (nominal >= 10000000000) bungaPersen = 0.08;  
+
+                let bebanBunga = Math.floor(nominal * bungaPersen);
+                let totalHutangBaru = nominal + bebanBunga;
+
+                pt.saldo = (pt.saldo || 0) + nominal; pt.hutang = hutangSekarang + totalHutangBaru;
+                m.reply(`✅ *PINJAMAN CAIR*\nDana ditransfer ke Kas PT *${pt.name}*.\n\n• Cair : *${formatRp(nominal)}*\n• Bunga (${bungaPersen*100}%) : *${formatRp(bebanBunga)}*\n🏦 Total Hutang PT Baru: *${formatRp(pt.hutang)}*`);
+                break;
+            }
+
+            case 'bayarbank': {
+                let nominal = parseInt(args[1]); let ptId = parseInt(args[2]) - 1;
+                if (isNaN(nominal) || isNaN(ptId)) return m.reply(`⚠️ Format: *${usedPrefix+command} bayarbank <nominal> <id_pt>*`);
+                let pt = user.perusahaan[ptId];
+                if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
+
+                let hutangSekarang = pt.hutang || 0;
+                if (hutangSekarang <= 0) return m.reply(`✅ *${pt.name}* tidak punya hutang Bank!`);
+                if (nominal > hutangSekarang) nominal = hutangSekarang; 
+                if ((pt.saldo || 0) < nominal) return m.reply(`❌ Kas PT tidak cukup!\nNominal Bayar: ${formatRp(nominal)}\nKas PT: ${formatRp(pt.saldo)}`);
+
+                pt.saldo -= nominal; pt.hutang -= nominal;
+                m.reply(`✅ *PEMBAYARAN HUTANG SUKSES*\n🏢 PT: *${pt.name}*\n💳 Kas PT: -${formatRp(nominal)}\n🏦 Sisa Hutang: *${formatRp(pt.hutang)}*`);
+                break;
+            }
+
+            case 'upgrade': {
+                let tipeUpgrade = args[1] ? args[1].toLowerCase() : ''; let idPt = parseInt(args[2]) - 1; let jmlLevel = parseInt(args[3]) || 1;
+                if (!['gudang', 'listrik'].includes(tipeUpgrade) || isNaN(idPt)) return m.reply(`⚠️ Format: *${usedPrefix+command} upgrade <gudang|listrik> <id_pt> [jml]*`);
+                let pt = user.perusahaan[idPt]; if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
+
+                if (tipeUpgrade === 'gudang') {
+                    if (pt.type === 'listrik') return m.reply('❌ Hanya untuk PT Non-Listrik!');
+                    let totalBiaya = Math.min(jmlLevel, MAX_LEVEL_GUDANG - (pt.gudangLevel || 1)) * HARGA_UPGRADE_GUDANG;
+                    if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT: ${formatRp(pt.saldo)}`);
+                    pt.saldo -= totalBiaya; pt.gudangLevel = (pt.gudangLevel || 1) + jmlLevel;
+                    m.reply(`📦 Gudang diupgrade ke Lv *${pt.gudangLevel}*\nKapasitas Baru: ${getKapasitasGudang(pt).toLocaleString('id-ID')} Slot\n💸 Kas PT Terpotong: -${formatRp(totalBiaya)}`);
+                } else {
+                    if (pt.type !== 'listrik') return m.reply('❌ Hanya untuk PT LISTRIK!');
+                    let totalBiaya = Math.min(jmlLevel, MAX_LEVEL_LISTRIK - (pt.listrikLevel || 1)) * HARGA_UPGRADE_LISTRIK;
+                    if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT: ${formatRp(pt.saldo)}`);
+                    pt.saldo -= totalBiaya; pt.listrikLevel = (pt.listrikLevel || 1) + jmlLevel;
+                    m.reply(`⚡ Kapasitas Listrik diupgrade ke Lv *${pt.listrikLevel}*\nKapasitas Maksimal Baru: ${formatDaya(getKapasitasListrik(pt))}\n💸 Kas PT Terpotong: -${formatRp(totalBiaya)}`);
+                }
+                break;
+            }
+
+            case 'pabrik': {
+                let idPt = parseInt(args[1]) - 1; let tipePabrik = args[2] ? args[2].toLowerCase() : ''; let namaPabrik = args.slice(3).join(' ');
+                if (isNaN(idPt) || !biayaPabrikObj[tipePabrik] || !namaPabrik) return m.reply(`⚠️ Format: *${usedPrefix+command} pabrik <id> <tipe> <nama>*`);
+                let pt = user.perusahaan[idPt]; if (!pt || pt.type === 'listrik') return m.reply('❌ Gagal! ID tidak valid.');
+                if (pt.pabrik.length >= 2) return m.reply('❌ Maks 2 anak pabrik per PT!');
+                let hargaP = biayaPabrikObj[tipePabrik];
+                if ((pt.saldo || 0) < hargaP) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(hargaP)}\nKas PT: ${formatRp(pt.saldo)}`);
+                pt.saldo -= hargaP; pt.pabrik.push({ name: namaPabrik, type: tipePabrik, karyawan: 10 });
+                m.reply(`🏭 Pabrik *${namaPabrik}* berhasil dibangun!\n💸 Kas PT Terpotong: -${formatRp(hargaP)}`);
                 break;
             }
 
             case 'settarif': {
                 let idPtL = parseInt(args[1]) - 1; let tarif = parseInt(args[2]);
                 if (isNaN(idPtL) || isNaN(tarif) || tarif < 1) return m.reply(`⚠️ Format: *${usedPrefix+command} settarif <id_pt_listrik> <harga_per_W>*`);
-                let ptL = user.perusahaan[idPtL];
-                if (!ptL || ptL.type !== 'listrik') return m.reply('❌ Bukan PT tipe Listrik!');
+                let ptL = user.perusahaan[idPtL]; if (!ptL || ptL.type !== 'listrik') return m.reply('❌ Bukan PT tipe Listrik!');
                 if (tarif < 1000) return m.reply(`❌ Tarif minimum ${formatRp(1000)}/W.`);
-                ptL.hargaListrikCustom = tarif;
-                m.reply(`✅ Tarif *${ptL.name}* diset ke *${formatRp(tarif)}/W*`);
+                ptL.hargaListrikCustom = tarif; m.reply(`✅ Tarif *${ptL.name}* diset ke *${formatRp(tarif)}/W*`);
                 break;
             }
 
-            case 'ceklistrik': {
-                let ptListrikList  = user.perusahaan.map((p,i) => ({idx:i+1,pt:p})).filter(({pt}) => pt && pt.type === 'listrik');
-                
-                let txt = `⚡ *CEK HARGA LISTRIK*\n\n`;
-                txt += `🔵 *Listrik Negara (PLN)*\n`;
-                txt += `   Tarif : *${formatRp(hargaListrikNegara)}/W*\n`;
-                txt += `   Stok  : ♾️ Tidak terbatas\n`;
-                txt += `   Set   : *${usedPrefix+command} setlistrik <id_pt> negara*\n\n`;
-
-                if (ptListrikList.length) {
-                    txt += `🟡 *PT Listrik Milikmu*\n`;
-                    ptListrikList.forEach(({idx, pt}) => {
-                        let tarif    = pt.hargaListrikCustom || 18600;
-                        let kapMax   = getKapasitasListrik(pt);
-                        let tersedia = pt.kapasitasTersedia || 0;
-                        let bar      = progressBar(tersedia, kapMax, 8);
-
-                        txt += `\n   *[ID ${idx}] ${pt.name}* — Lv ${pt.listrikLevel || 1}\n`;
-                        txt += `   Tarif  : *${formatRp(tarif)}/W*\n`;
-                        txt += `   Stok   : ${formatDaya(tersedia)} / ${formatDaya(kapMax)}\n`;
-                        txt += `   [${bar}]\n`;
-                        txt += `   Set    : *${usedPrefix+command} setlistrik <id_pt> ${idx}*\n`;
-                    });
-                } else {
-                    txt += `🟡 *PT Listrik Milikmu*\n   _(Belum punya PT Listrik)_\n`;
-                }
-
-                m.reply(txt);
-                break;
-            }
-
-            case 'setor':
-            case 'tarik': {
+            case 'setor': case 'tarik': {
                 let jumlah = parseInt(args[1]); let tipeAsset = args[2] ? args[2].toLowerCase() : ''; let ptId = parseInt(args[3]) - 1;
                 if (isNaN(jumlah) || !tipeAsset || isNaN(ptId)) return m.reply(`⚠️ Format: *${usedPrefix+command} ${action} <jumlah> <uang|item> <id_pt>*`);
                 let pt = user.perusahaan[ptId]; if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
@@ -786,9 +773,52 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 break;
             }
 
-            case 'ihsg':
-            case 'leaderboard':
-            case 'lb': {
+            case 'invest': {
+                let nominal = parseInt(args[1]); let targetMention = args[2]; let ptId = parseInt(args[3]) - 1;
+                if (isNaN(nominal) || !targetMention || isNaN(ptId)) return m.reply(`⚠️ Format: *${usedPrefix+command} invest <nominal> <@tag/nomor> <id_pt>*`);
+                if (nominal < 1000000) return m.reply(`❌ Minimal investasi Rp1.000.000`);
+
+                let target = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : targetMention.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+                let targetUser = global.db.data.users[target];
+                if (!targetUser || !targetUser.perusahaan) return m.reply(`❌ User tidak ditemukan.`);
+                let pt = targetUser.perusahaan[ptId];
+                if (!pt) return m.reply(`❌ ID Perusahaan target tidak ditemukan!`);
+
+                if (pt.investOpen === false) return m.reply(`❌ Maaf, Perusahaan ini sedang *MENUTUP* jalur investasi publik!`);
+                if (user.money < nominal) return m.reply(`❌ Uangmu kurang!`);
+
+                user.money -= nominal;
+                pt.saldo = (pt.saldo || 0) + nominal; 
+                if (!pt.investors) pt.investors = {};
+                pt.investors[m.sender] = (pt.investors[m.sender] || 0) + nominal;
+
+                m.reply(`✅ *INVESTASI BERHASIL*\nMenyuntikkan dana *${formatRp(nominal)}* ke *${pt.name}* milik @${target.split('@')[0]}`, null, { mentions: [target] });
+                break;
+            }
+
+            case 'tarikinvest': {
+                let nominal = parseInt(args[1]); let targetMention = args[2]; let ptId = parseInt(args[3]) - 1;
+                if (isNaN(nominal) || !targetMention || isNaN(ptId)) return m.reply(`⚠️ Format: *${usedPrefix+command} tarikinvest <nominal> <@tag/nomor> <id_pt>*`);
+
+                let target = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : targetMention.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+                let targetUser = global.db.data.users[target];
+                if (!targetUser || !targetUser.perusahaan) return m.reply(`❌ User tidak valid.`);
+                let pt = targetUser.perusahaan[ptId];
+                if (!pt) return m.reply(`❌ ID Perusahaan target tidak ditemukan!`);
+
+                if (!pt.investors || !pt.investors[m.sender] || pt.investors[m.sender] < nominal) return m.reply(`❌ Sahammu tidak cukup!`);
+                if ((pt.saldo || 0) < nominal) return m.reply(`❌ Kas PT target kosong, tidak bisa menarik modal sekarang.`);
+
+                pt.saldo -= nominal;
+                pt.investors[m.sender] -= nominal;
+                user.money += nominal;
+                if (pt.investors[m.sender] <= 0) delete pt.investors[m.sender];
+
+                m.reply(`✅ *PENARIKAN BERHASIL*\nMenarik *${formatRp(nominal)}* dari saham *${pt.name}*`);
+                break;
+            }
+
+            case 'ihsg': case 'leaderboard': case 'lb': {
                 let allUsers = global.db.data.users; let entries = [];
                 for (let uid in allUsers) {
                     let u = allUsers[uid];
@@ -801,10 +831,8 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if (!entries.length) return m.reply('📊 Belum ada perusahaan.');
                 entries.sort((a, b) => b.valuasi - a.valuasi);
                 
-                let top = entries.slice(0, 10);
-                let total = entries.reduce((s, e) => s + e.valuasi, 0);
+                let top = entries.slice(0, 10); let total = entries.reduce((s, e) => s + e.valuasi, 0);
                 let board = top.map((e, i) => `${i+1}. *${e.name}* (${e.type})\n👤 ${e.owner} | 💹 ~${formatSingkat(e.valuasi)}\n💰 Kas: ${formatRp(e.saldo)}`).join('\n\n');
-
                 m.reply(`📊 *IHSG — LEADERBOARD*\n━━━━━━━━━━━━━━━━━━━━\n💼 Total Valuasi: ~${formatSingkat(total)}\n━━━━━━━━━━━━━━━━━━━━\n\n${board}`);
                 break;
             }
@@ -812,39 +840,17 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             default: {
                 m.reply(
                     `🏢 *MANAJEMEN PERUSAHAAN & SAHAM*\n\n` +
-                    `🏛️ *PT & SAHAM*\n` +
-                    `• *${usedPrefix+command} buat <tipe> <nama>*\n` +
-                    `• *${usedPrefix+command} info [@tag]*\n` +
-                    `• *${usedPrefix+command} invest <nom> <@tag> <id_pt>*\n` +
-                    `• *${usedPrefix+command} tarikinvest <nom> <@tag> <id_pt>*\n\n` +
-                    `🏦 *BANK KORPORASI*\n` +
-                    `• *${usedPrefix+command} bank*\n` +
-                    `• *${usedPrefix+command} pinjam <nom> <id_pt>*\n` +
-                    `• *${usedPrefix+command} bayarbank <nom> <id_pt>*\n\n` +
-                    `⚡ *LISTRIK & REFILL*\n` +
-                    `• *${usedPrefix+command} buatpembangkit <id> <jenis>*\n` +
-                    `• *${usedPrefix+command} upgrade listrik <id> <jml_lv>*\n` +
-                    `• *${usedPrefix+command} setlistrik <id_pt> <negara|id_listrik>*\n` +
-                    `• *${usedPrefix+command} settarif <id_listrik> <tarif>*\n` +
-                    `• *${usedPrefix+command} ceklistrik*\n\n` +
-                    `🏭 *PRODUKSI & UPGRADE*\n` +
-                    `• *${usedPrefix+command} pabrik <id_pt> <tipe> <nama>*\n` +
-                    `• *${usedPrefix+command} upgrade gudang <id_pt> <jml_lv>*\n` +
-                    `• *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n\n` +
-                    `⚙️ *OPERASIONAL*\n` +
-                    `• *${usedPrefix+command} setor/tarik <jml> <uang|item> <id_pt>*\n` +
-                    `• *${usedPrefix+command} buy <jml> <item> <id_pt>*\n` +
-                    `• *${usedPrefix+command} jualsemua [id_pt]*\n\n` +
-                    `📊 *BURSA*\n` +
-                    `• *${usedPrefix+command} ihsg*`
+                    `🏛️ *PT & SAHAM*\n• *${usedPrefix+command} buat <tipe> <nama>*\n• *${usedPrefix+command} info [@tag]*\n• *${usedPrefix+command} tutupinvest <id_pt>*\n• *${usedPrefix+command} bukainvest <id_pt>*\n\n` +
+                    `🏦 *BANK KORPORASI*\n• *${usedPrefix+command} bank / pinjam / bayarbank*\n\n` +
+                    `⚡ *LISTRIK & ENERGI*\n• *${usedPrefix+command} ceklistrik* _(Pasar Listrik Global)_\n• *${usedPrefix+command} setlistrik <id_pt> <negara|@tag_org> <id_pt_org>*\n• *${usedPrefix+command} buatpembangkit <id> <jenis>*\n• *${usedPrefix+command} upgrade listrik <id> <jml_lv>*\n• *${usedPrefix+command} settarif <id_listrik> <tarif>*\n\n` +
+                    `🏭 *PRODUKSI & UPGRADE*\n• *${usedPrefix+command} pabrik <id_pt> <tipe> <nama>*\n• *${usedPrefix+command} upgrade gudang <id_pt> <jml_lv>*\n• *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n\n` +
+                    `⚙️ *OPERASIONAL*\n• *${usedPrefix+command} setor/tarik <jml> <uang|item> <id_pt>*\n• *${usedPrefix+command} buy <jml> <item> <id_pt>*\n• *${usedPrefix+command} jualsemua [id_pt]*\n\n` +
+                    `📊 *BURSA*\n• *${usedPrefix+command} ihsg*`
                 );
                 break;
             }
         }
-    } catch (e) {
-        console.error('ERROR:', e);
-        m.reply(`❌ *Terjadi Kesalahan Sistem!*\nError: ${e.message}`);
-    }
+    } catch (e) { console.error('ERROR:', e); m.reply(`❌ *Terjadi Kesalahan Sistem!*\nError: ${e.message}`); }
 };
 
 handler.help    = ['perusahaan'];
