@@ -20,8 +20,8 @@ const biayaPabrikObj = {
 const hargaListrikNegara  = 14400;   
 const HARGA_UPGRADE_GUDANG = 4000000; 
 const HARGA_UPGRADE_LISTRIK = 1000000; 
-const MAX_LEVEL_GUDANG  = 18700;
-const MAX_LEVEL_LISTRIK = 16500; 
+const MAX_LEVEL_GUDANG  = 20765;
+const MAX_LEVEL_LISTRIK = 18665; 
 
 const slotPerLevel    = 120;  
 const wattPerLevel    = 1200; 
@@ -166,7 +166,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
         let now = Date.now();
 
-        // AUTO: REFILL LISTRIK, PAJAK & PEMBAYARAN GAJI (REVISI: PEKERJA RESIGN JIKA TIDAK DIGAJI)
+        // AUTO: REFILL LISTRIK, PAJAK & PEMBAYARAN GAJI (REVISI: PEKERJA RESIGN & MESIN MATI)
         user.perusahaan.forEach(pt => {
             if (!pt) return;
             if (pt.type !== 'listrik' && !pt.gudangLevel) pt.gudangLevel = 1;
@@ -176,8 +176,8 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             if (pt.hutang === undefined) pt.hutang = 0;
             if (pt.investOpen === undefined) pt.investOpen = true; 
             if (pt.isProduksi === undefined) pt.isProduksi = false;
-            if (!pt.karyawan) pt.karyawan = 10; // Karyawan Dasar
-            if (!pt.lastSalary) pt.lastSalary = now; // Inisiasi Waktu Gaji
+            if (!pt.karyawan) pt.karyawan = 10; 
+            if (!pt.lastSalary) pt.lastSalary = now; 
 
             // Generate Listrik Otomatis
             if (pt.type === 'listrik') {
@@ -185,9 +185,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if (periods >= 1) {
                     let kapMax = getKapasitasListrik(pt);
                     let totalGenRate = pt.generationRate || 4000;
-                    if (pt.ekstraPembangkit) {
-                        pt.ekstraPembangkit.forEach(p => totalGenRate += (kapasitasPembangkit[p] || 0));
+                    
+                    // MESIN MATI: Hitung hanya Pembangkit Ekstra yang "Aktif" sesuai karyawan
+                    let maxBatasSlotAktif = 12 + Math.floor(pt.karyawan / 500);
+                    if (pt.ekstraPembangkit && pt.ekstraPembangkit.length > 0) {
+                        let aktifExtra = pt.ekstraPembangkit.slice(0, maxBatasSlotAktif);
+                        aktifExtra.forEach(p => totalGenRate += (kapasitasPembangkit[p] || 0));
                     }
+                    
                     let remaining = kapMax - (pt.kapasitasTersedia || 0);
                     if (remaining > 0) {
                         let gen = Math.min(remaining, totalGenRate * periods);
@@ -213,16 +218,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 let totalGajiDibutuhkan = pt.karyawan * biayaGajiPerOrang;
                 
                 if ((pt.saldo || 0) >= totalGajiDibutuhkan) {
-                    pt.saldo -= totalGajiDibutuhkan; // Potong lunas dari Kas PT
+                    pt.saldo -= totalGajiDibutuhkan; // Potong lunas
                 } else {
                     // KAS PT TIDAK CUKUP -> Pekerja Resign Sesuai Kemampuan Bayar Kas
                     let mampuBayarBerapaPekerja = Math.floor((pt.saldo || 0) / biayaGajiPerOrang);
-                    pt.saldo -= (mampuBayarBerapaPekerja * biayaGajiPerOrang); // Habiskan Kas untuk pekerja yg bisa dibayar
+                    pt.saldo -= (mampuBayarBerapaPekerja * biayaGajiPerOrang); 
                     
                     // Sisa pekerja keluar, minimum menyisakan 10 pekerja setia
                     pt.karyawan = Math.max(10, mampuBayarBerapaPekerja);
-                    
-                    // Kalau kas benar-benar kosong dan ga sanggup bayar 10 orang dasar, kosongkan kas
                     if (mampuBayarBerapaPekerja < 10) pt.saldo = 0; 
                 }
                 pt.lastSalary += salaryPeriods * (3 * 86400000);
@@ -305,24 +308,29 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
                     if (pt.type === 'listrik') {
                         let totalRefill = pt.generationRate || 4000;
-                        let extraStr = '-';
-                        if (pt.ekstraPembangkit && pt.ekstraPembangkit.length > 0) {
-                            pt.ekstraPembangkit.forEach(p => totalRefill += (kapasitasPembangkit[p] || 0));
-                            extraStr = pt.ekstraPembangkit.join(', ');
-                        }
+                        let maxBatasSlot = 12 + Math.floor(pekerja / 500);
+                        
+                        let aktifExtra = pt.ekstraPembangkit ? pt.ekstraPembangkit.slice(0, maxBatasSlot) : [];
+                        let matiExtra  = pt.ekstraPembangkit ? Math.max(0, pt.ekstraPembangkit.length - maxBatasSlot) : 0;
+                        
+                        aktifExtra.forEach(p => totalRefill += (kapasitasPembangkit[p] || 0));
+                        
+                        let extraStr = aktifExtra.length > 0 ? aktifExtra.join(', ') : '-';
+                        let strMati = matiExtra > 0 ? ` (+${matiExtra} Mesin Mati)` : '';
+
                         let kapMaksimum = getKapasitasListrik(pt);
                         let sedia       = pt.kapasitasTersedia || 0;
-                        let maxBatasSlot = 12 + Math.floor(pekerja / 500);
 
                         txt += `👥 Pekerja: ${pekerja.toLocaleString('id-ID')} Orang (Gaji: ${gajiTigaHari} / 3H)\n`;
                         txt += `⚡ Level Kapasitas : Level ${pt.listrikLevel || 1}\n`;
                         txt += `⚡ Listrik Tersedia: ${formatDaya(sedia)} / ${formatDaya(kapMaksimum)}\n`;
                         txt += `♻️ Total Refill: ${formatDaya(totalRefill, true)} / 30 Menit\n`;
                         txt += `💡 Harga Jual: ${formatRp(pt.hargaListrikCustom || 18600)}/W\n`;
-                        txt += `🏗️ Ekstra Mesin: ${extraStr} (${pt.ekstraPembangkit.length}/${maxBatasSlot})\n`;
+                        txt += `🏗️ Ekstra Mesin: ${extraStr} (${aktifExtra.length}/${maxBatasSlot} Aktif)${strMati}\n`;
                     } else {
                         let statusProduksi = pt.isProduksi ? '⏳ Sedang Beroperasi' : '🟢 Idle';
-                        let currentSpeedMs = Math.max(1000, 4000 - Math.floor((Math.min(pekerja, 1000) / 1000) * 3000));
+                        // Limit Maksimal di 5.000 Pekerja (0.2 detik = 200ms)
+                        let currentSpeedMs = Math.max(200, 4000 - Math.floor((Math.min(pekerja, 5000) / 5000) * 3800));
                         
                         txt += `👥 Pekerja: ${pekerja.toLocaleString('id-ID')} Orang (Gaji: ${gajiTigaHari} / 3H)\n`;
                         txt += `🚀 Kecepatan Produksi: ${currentSpeedMs/1000} Detik / Item\n`;
@@ -368,13 +376,13 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             case 'pecat': {
                 let jmlPekerja = parseInt(args[1]);
                 let idPt = parseInt(args[2]) - 1;
-                if (isNaN(jmlPekerja) || isNaN(idPt) || jmlPekerja < 1) return m.reply(`⚠️ Format: *${usedPrefix+command} ${action} <jumlah> <id_pt>*\n\n_1.000 Pekerja = Produksi Maksimal (1 detik / barang)._`);
+                if (isNaN(jmlPekerja) || isNaN(idPt) || jmlPekerja < 1) return m.reply(`⚠️ Format: *${usedPrefix+command} ${action} <jumlah> <id_pt>*\n\n_5.000 Pekerja = Produksi Maksimal (0.2 detik / barang)._`);
                 
                 let pt = user.perusahaan[idPt];
                 if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
 
                 if (!pt.karyawan) pt.karyawan = 10;
-                let hargaRekrut = 1000000; // Rp 1.000.000 per pekerja (biaya fasilitas & gaji awal)
+                let hargaRekrut = 1000000; 
                 
                 if (action === 'rekrut') {
                     let totalBiaya = jmlPekerja * hargaRekrut;
@@ -385,9 +393,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     
                     if (pt.type === 'listrik') {
                         let maxBatasSlot = 12 + Math.floor(pt.karyawan / 500);
-                        m.reply(`👥 *REKRUTMEN SUKSES*\n\n🏢 PT: *${pt.name}*\n📈 Anda menambah pekerja sebanyak ${jmlPekerja.toLocaleString('id-ID')} orang dan batas mesin pembangkit bertambah!\n💸 Kas PT: -${formatRp(totalBiaya)}\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang\n⚡ *Batas Ekstra Pembangkit:* ${maxBatasSlot} Slot`);
+                        m.reply(`👥 *REKRUTMEN SUKSES*\n\n🏢 PT: *${pt.name}*\n📈 Anda menambah pekerja sebanyak ${jmlPekerja.toLocaleString('id-ID')} orang. Jika ada mesin yang mati, slot pembangkit akan aktif kembali!\n💸 Kas PT: -${formatRp(totalBiaya)}\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang\n⚡ *Batas Slot Pembangkit Aktif:* ${maxBatasSlot} Slot`);
                     } else {
-                        let newSpeed = Math.max(1000, 4000 - Math.floor((Math.min(pt.karyawan, 1000) / 1000) * 3000));
+                        let newSpeed = Math.max(200, 4000 - Math.floor((Math.min(pt.karyawan, 5000) / 5000) * 3800));
                         m.reply(`👥 *REKRUTMEN SUKSES*\n\n🏢 PT: *${pt.name}*\n📈 Anda menambah pekerja sebanyak ${jmlPekerja.toLocaleString('id-ID')} orang dan produksi dipercepat menjadi ${newSpeed/1000} detik per barang.\n💸 Kas PT: -${formatRp(totalBiaya)}\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang`);
                     }
                 } else {
@@ -396,9 +404,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     
                     if (pt.type === 'listrik') {
                         let maxBatasSlot = 12 + Math.floor(pt.karyawan / 500);
-                        m.reply(`📉 *PHK SUKSES*\n\n🏢 PT: *${pt.name}*\n📉 Diberhentikan: ${jmlPekerja.toLocaleString('id-ID')} orang\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang\n⚡ *Batas Ekstra Pembangkit:* ${maxBatasSlot} Slot`);
+                        m.reply(`📉 *PHK SUKSES*\n\n🏢 PT: *${pt.name}*\n📉 Diberhentikan: ${jmlPekerja.toLocaleString('id-ID')} orang\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang\n⚡ *Batas Slot Pembangkit Aktif:* ${maxBatasSlot} Slot (Jika jumlah mesin melebihi batas ini, sisanya akan dinonaktifkan)`);
                     } else {
-                        let newSpeed = Math.max(1000, 4000 - Math.floor((Math.min(pt.karyawan, 1000) / 1000) * 3000));
+                        let newSpeed = Math.max(200, 4000 - Math.floor((Math.min(pt.karyawan, 5000) / 5000) * 3800));
                         m.reply(`📉 *PHK SUKSES*\n\n🏢 PT: *${pt.name}*\n📉 Diberhentikan: ${jmlPekerja.toLocaleString('id-ID')} orang\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang\n🚀 *Kecepatan Produksi Saat Ini:* ${newSpeed/1000} Detik / Barang`);
                     }
                 }
@@ -521,9 +529,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     provider.pt.saldo += biayaListrik; 
                 }
 
-                // Kalkulasi Waktu Dinamis berdasarkan Jumlah Pekerja
+                // Kalkulasi Waktu Dinamis berdasarkan Jumlah Pekerja (Maksimal Limit 5000 Pekerja = 200ms)
                 let pekerja = pt.karyawan || 10;
-                let speedMs = Math.max(1000, 4000 - Math.floor((Math.min(pekerja, 1000) / 1000) * 3000));
+                let speedMs = Math.max(200, 4000 - Math.floor((Math.min(pekerja, 5000) / 5000) * 3800));
                 
                 let waktuTotalMs = jmlProd * speedMs;
                 let waktuTotalDetik = Math.floor(waktuTotalMs / 1000);
@@ -783,7 +791,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if (!pt.ekstraPembangkit) pt.ekstraPembangkit = [];
                 
                 let maxPembangkit = 12 + Math.floor((pt.karyawan || 10) / 500);
-                if (pt.ekstraPembangkit.length >= maxPembangkit) return m.reply(`❌ Slot Ekstra Pembangkit sudah penuh (Maksimal ${maxPembangkit})!\n_Tips: Rekrut pekerja (500 Pekerja = 1 Slot Baru)._`);
+                if (pt.ekstraPembangkit.length >= maxPembangkit) return m.reply(`❌ Slot Ekstra Pembangkit Aktif penuh (Maksimal ${maxPembangkit})!\n_Tips: Tambah 500 pekerja per 1 slot untuk bisa menambah mesin lagi._`);
 
                 let harga = hargaPembangkit[jenis];
                 if ((pt.saldo || 0) < harga) return m.reply(`❌ Kas PT kurang! Butuh: ${formatRp(harga)}`);
@@ -876,10 +884,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 txt += `➡️ *${usedPrefix+command} ceklistrik* (Mencari tarif termurah)\n\n`;
 
                 txt += `*3. Pekerja, Kecepatan & Gaji*\n`;
-                txt += `Waktu standar produksi adalah 4 detik per barang. Kamu bisa mempercepat ini (sampai 1 detik/barang) dengan merekrut karyawan! Khusus PT Listrik, setiap 500 pekerja menambah 1 slot Ekstra Pembangkit.\n`;
+                txt += `Waktu standar produksi adalah 4 detik per barang. Kamu bisa mempercepat ini (sampai maksimal 0.2 detik/barang di 5000 Pekerja) dengan merekrut karyawan! Khusus PT Listrik, setiap 500 pekerja menambah 1 slot Ekstra Pembangkit (Jika pekerja turun, ekstra pembangkit akan nonaktif).\n`;
                 txt += `⚠️ *PERHATIAN:* Pekerja wajib digaji Rp365.000 per orang setiap 3 Hari. Jika Kas PT tidak cukup untuk menggaji semua pekerja, maka pekerja yang tidak dibayar akan otomatis *RESIGN (Keluar)* dari Perusahaanmu!\n`;
                 txt += `➡️ *${usedPrefix+command} rekrut <jml> <id_pt>*\n`;
-                txt += `_(Contoh: .pt rekrut 500 1)_\n\n`;
+                txt += `_(Contoh: .pt rekrut 5000 1)_\n\n`;
 
                 txt += `*4. Proses Produksi*\n`;
                 txt += `Jika bahan baku, modal, dan listrik sudah siap di gudang PT, mulai buat barang dengan:\n`;
