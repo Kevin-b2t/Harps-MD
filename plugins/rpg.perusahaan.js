@@ -16,8 +16,8 @@ const biayaPabrikObj = {
 const hargaListrikNegara  = 14400;   // Rp/W PLN
 const HARGA_UPGRADE_GUDANG = 4000000; // Rp/level — maks 5000 level
 const HARGA_UPGRADE_LISTRIK = 1000000; // Rp/level — maks 3500 level
-const MAX_LEVEL_GUDANG  = 5000;
-const MAX_LEVEL_LISTRIK = 3500;
+const MAX_LEVEL_GUDANG  = 27566;
+const MAX_LEVEL_LISTRIK = 19766;
 
 // Slot gudang per level  : 125 slot × level
 // Kapasitas listrik/level: 1200 W × level  (termasuk kapasitas jual & refill)
@@ -152,13 +152,19 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 }
             }
 
-            // Pajak 0.2% tiap 24 jam
+            // Pajak 0.2% tiap 24 jam → langsung masuk Kas Negara
             if (!pt.lastTax) pt.lastTax = now;
             let daysPassed = Math.floor((now - pt.lastTax) / 86400000);
             if (daysPassed >= 1) {
                 let tax  = Math.floor((pt.saldo || 0) * 0.002 * daysPassed);
                 pt.saldo = Math.max(0, (pt.saldo || 0) - tax);
                 pt.lastTax += daysPassed * 86400000;
+                // Setorkan pajak ke Kas Negara
+                if (tax > 0) {
+                    if (!global.db.data.negara) global.db.data.negara = { kas: 0 };
+                    if (typeof global.db.data.negara.kas !== 'number') global.db.data.negara.kas = 0;
+                    global.db.data.negara.kas += tax;
+                }
             }
         });
 
@@ -246,8 +252,8 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     return m.reply(
                         `⚠️ Format: *${usedPrefix+command} upgrade <gudang|listrik> <id_pt> [jumlah_level]*\n\n` +
                         `Contoh:\n` +
-                        `• *${usedPrefix+command} upgrade gudang 1 10*  _(naik 10 level)_\n` +
-                        `• *${usedPrefix+command} upgrade listrik 2 5*  _(naik 5 level)_\n\n` +
+                        `• *${usedPrefix+command} upgrade gudang 1 10* _(naik 10 level)_\n` +
+                        `• *${usedPrefix+command} upgrade listrik 2 5* _(naik 5 level)_\n\n` +
                         `💰 Harga:\n` +
                         `• Gudang  : ${formatRp(HARGA_UPGRADE_GUDANG)}/level (maks Lv ${MAX_LEVEL_GUDANG.toLocaleString()})\n` +
                         `• Listrik : ${formatRp(HARGA_UPGRADE_LISTRIK)}/level (maks Lv ${MAX_LEVEL_LISTRIK.toLocaleString()})`
@@ -398,7 +404,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             }
 
             // ==============================
-            // 5. PRODUKSI BARANG
+            // 5. PRODUKSI BARANG (INSTAN DENGAN COOLDOWN)
             // ==============================
             case 'produksi': {
                 let jmlProd  = parseInt(args[1]);
@@ -411,6 +417,18 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 let pt = user.perusahaan[idPt];
                 if (!pt || pt.type !== 'produksi')
                     return m.reply('❌ ID PT tidak valid atau bukan tipe Produksi!');
+
+                // CEK COOLDOWN MESIN
+                let currentTime = Date.now();
+                if (pt.lastProduksi && pt.cooldownProduksi) {
+                    let sisaWaktu = (pt.lastProduksi + pt.cooldownProduksi) - currentTime;
+                    if (sisaWaktu > 0) {
+                        let menit = Math.floor(sisaWaktu / 60000);
+                        let detik = Math.floor((sisaWaktu % 60000) / 1000);
+                        let strWaktu = menit > 0 ? `${menit} Menit ${detik} Detik` : `${detik} Detik`;
+                        return m.reply(`⏳ *MESIN SEDANG PENDINGINAN/ISTIRAHAT*\n\nPerusahaanmu baru saja memproduksi barang. Harap tunggu *${strWaktu}* lagi untuk memulai produksi baru.`);
+                    }
+                }
 
                 let dp = semuaProduk[namaItem];
                 if (!dp)
@@ -454,17 +472,29 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         `• Listrik  : ${formatRp(biayaL)} (${sumberLabel})`
                     );
 
+                // Eksekusi Produksi (Instan)
                 pt.saldo -= totalBiaya;
                 pt.gudang[dp.db] = (pt.gudang[dp.db] || 0) + jmlProd;
+                
+                // Beri Cooldown setelah produksi sukses
+                pt.lastProduksi = currentTime;
+                if (dp.type === 'tambang' || dp.type === 'senjata') {
+                    pt.cooldownProduksi = 120000; // 2 Menit untuk produk berat
+                } else {
+                    pt.cooldownProduksi = 60000;  // 1 Menit untuk produk ringan
+                }
 
+                let menitPendinginan = pt.cooldownProduksi / 60000;
                 let slotPakaiBaru = getSlotTerpakai(pt.gudang);
+                
                 m.reply(
-                    `🏭 *PRODUKSI BERHASIL*\n` +
+                    `🏭 *PRODUKSI INSTAN BERHASIL*\n` +
                     `📦 ${dp.name} +${jmlProd.toLocaleString('id-ID')}\n` +
                     `⚡ Listrik  : ${sumberLabel} (${formatRp(hargaL)}/W)\n` +
                     `💸 Biaya    : -${formatRp(totalBiaya)}\n` +
                     `💰 Sisa Kas : ${formatRp(pt.saldo)}\n` +
-                    `📦 Gudang   : ${slotPakaiBaru}/${slotMax} slot`
+                    `📦 Gudang   : ${slotPakaiBaru}/${slotMax} slot\n\n` +
+                    `⏳ _Mesin masuk masa pendinginan selama ${menitPendinginan} Menit._`
                 );
                 break;
             }
@@ -506,13 +536,24 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 }
 
                 if (totalPend === 0) return m.reply('📦 Tidak ada barang yang bisa dijual!');
-                pt.saldo += totalPend;
+
+                // Pajak penjualan grosir 2% → Kas Negara
+                let pajakJual = Math.floor(totalPend * 0.02);
+                let bersih    = totalPend - pajakJual;
+                pt.saldo += bersih;
+                if (pajakJual > 0) {
+                    if (!global.db.data.negara) global.db.data.negara = { kas: 0 };
+                    if (typeof global.db.data.negara.kas !== 'number') global.db.data.negara.kas = 0;
+                    global.db.data.negara.kas += pajakJual;
+                }
 
                 return m.reply(
                     `🛒 *PENJUALAN GROSIR SUKSES*\n` +
                     `🏢 *${pt.name}*\n\n` +
                     `Rincian:\n${rincian}\n` +
-                    `💰 Kas Masuk : *${formatRp(totalPend)}*\n` +
+                    `💵 Gross    : *${formatRp(totalPend)}*\n` +
+                    `🏛️ Pajak (2%): *-${formatRp(pajakJual)}* → Kas Negara\n` +
+                    `💰 Kas Masuk : *${formatRp(bersih)}*\n` +
                     `💼 Total Kas : *${formatRp(pt.saldo)}*\n` +
                     `_(Harga mengikuti fluktuasi Shop)_`
                 );
@@ -557,6 +598,18 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     `Pajak/Hr : -${formatRp(pajEsok)}\n`;
 
                 if (pt.type === 'produksi') {
+                    // === STATUS MESIN COOLDOWN ===
+                    let statusMesin = '🟢 Siap Produksi';
+                    let currTime = Date.now();
+                    if (pt.lastProduksi && pt.cooldownProduksi) {
+                        let sisaWaktu = (pt.lastProduksi + pt.cooldownProduksi) - currTime;
+                        if (sisaWaktu > 0) {
+                            let m = Math.floor(sisaWaktu / 60000);
+                            let s = Math.floor((sisaWaktu % 60000) / 1000);
+                            statusMesin = `⏳ Pendinginan (${m}m ${s}s)`;
+                        }
+                    }
+
                     // === GUDANG ===
                     if (!pt.gudang)        pt.gudang     = {};
                     if (!pt.gudangLevel)   pt.gudangLevel = 1;
@@ -576,6 +629,8 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                             let l = user.perusahaan.find(p => p && p.id == pt.sumberListrik);
                             return l ? `${l.name} — ${formatRp(l.hargaListrikCustom || 18600)}/W` : `PT Listrik (tidak ditemukan)`;
                           })();
+
+                    txt += `\n⚙️ *Status Mesin:* ${statusMesin}\n`;
 
                     txt += `\n⚡ *Sumber Listrik*\n   ${sLabel}\n`;
 
@@ -823,7 +878,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let bar      = progressBar(tersedia, kapMax, 8);
 
                         txt += `\n   *[ID ${idx}] ${pt.name}* — Lv ${pt.listrikLevel || 1}\n`;
-                        txt += `   Tarif  : *${formatRp(tarif)}/W*  ${badge}\n`;
+                        txt += `   Tarif  : *${formatRp(tarif)}/W* ${badge}\n`;
                         txt += `   Stok   : ${tersedia.toLocaleString('id-ID')} / ${kapMax.toLocaleString('id-ID')} W\n`;
                         txt += `   [${bar}]\n`;
                         txt += `   Refill : +${(pt.generationRate||4000).toLocaleString('id-ID')} W/30mnt (${pt.pembangkit||'PLTU'})\n`;
@@ -919,7 +974,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 m.reply(
                     `📊 *IHSG — BURSA EFEK PERUSAHAAN*\n` +
                     `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `${trendEmoji} *Indeks IHSG* : *${ihsgScore.toLocaleString('id-ID')}*  (${selisihIdx >= 0 ? '+' : ''}${selisihIdx})\n` +
+                    `${trendEmoji} *Indeks IHSG* : *${ihsgScore.toLocaleString('id-ID')}* (${selisihIdx >= 0 ? '+' : ''}${selisihIdx})\n` +
                     `🏭 Total Emiten: ${entries.length} PT\n` +
                     `💼 Total Valuasi: ~${formatSingkat(total)}\n` +
                     `━━━━━━━━━━━━━━━━━━━━\n\n` +

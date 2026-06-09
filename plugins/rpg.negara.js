@@ -44,17 +44,67 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             global.db.data.negara = {
                 presiden: null,
                 waktuLantik: 0,
-                kas: 100000000000, // Modal awal kas negara Rp 100 Miliar
+                kas: 100000000000,
                 bank: false,
-                bumn: [], // Tempat menampung perusahaan yang disita
+                bumn: [],
                 kandidat: {},
                 isPemilu: false,
-                waktuMulaiPemilu: 0
+                waktuMulaiPemilu: 0,
+                pln: null,
+                pdam: null,
             };
         }
 
         let negara = global.db.data.negara;
+
+        // Patch field baru untuk data lama
+        if (!negara.pln && negara.pln !== null) negara.pln = null;
+        if (!negara.pdam && negara.pdam !== null) negara.pdam = null;
         let now = Date.now();
+
+        // ==========================================
+        // HELPER: HITUNG PELANGGAN OTOMATIS BUMN
+        // Setiap 20 menit, karyawan otomatis cari pelanggan
+        // Karyawan 0: tidak aktif | 1-4: dapat 2-5 | 5+: dapat 6-9
+        // Max pelanggan: 6000
+        // ==========================================
+        function prosesAutoBUMN(perusahaan) {
+            if (!perusahaan || !perusahaan.karyawan) return;
+            if (perusahaan.pelanggan >= 6000) return;
+            let interval = 20 * 60 * 1000; // 20 menit
+            let lastAuto = perusahaan.lastAuto || 0;
+            let siklusLewat = Math.floor((now - lastAuto) / interval);
+            if (siklusLewat <= 0) return;
+
+            // Tentukan range pelanggan per siklus berdasarkan jumlah karyawan
+            let karyawan = perusahaan.karyawan || 0;
+            if (karyawan <= 0) return;
+
+            let totalDapat = 0;
+            for (let s = 0; s < siklusLewat; s++) {
+                if (perusahaan.pelanggan + totalDapat >= 6000) break;
+                let dapat;
+                if (karyawan >= 5) {
+                    dapat = Math.floor(Math.random() * 4) + 6; // 6–9
+                } else {
+                    dapat = Math.floor(Math.random() * 4) + 2; // 2–5
+                }
+                totalDapat += dapat;
+            }
+            // Clamp ke max 6000
+            let sebelum = perusahaan.pelanggan;
+            perusahaan.pelanggan = Math.min(6000, perusahaan.pelanggan + totalDapat);
+            let aktualDapat = perusahaan.pelanggan - sebelum;
+            perusahaan.lastAuto = lastAuto + siklusLewat * interval;
+
+            // Hitung pendapatan dari pelanggan baru
+            let harga = perusahaan.hargaPerWatt || perusahaan.hargaPerLiter || 0;
+            perusahaan.saldo += aktualDapat * harga;
+        }
+
+        // Jalankan auto-collect untuk PLN dan PDAM setiap request masuk
+        if (negara.pln) prosesAutoBUMN(negara.pln);
+        if (negara.pdam) prosesAutoBUMN(negara.pdam);
 
         // ==========================================
         // SISTEM AUTO-CHECK 1: JABATAN PRESIDEN (7 HARI)
@@ -127,11 +177,16 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     statusPemilu += `\n⏳ *Sisa Waktu Vote:* ${msToTime(sisaPemilu)}`;
                 }
 
+                let statusPLN = negara.pln ? `🟢 Aktif | ${negara.pln.pelanggan} Pelanggan | Saldo: ${formatRp(negara.pln.saldo)}` : '🔴 Belum Dibangun';
+                let statusPDAM = negara.pdam ? `🟢 Aktif | ${negara.pdam.pelanggan} Pelanggan | Saldo: ${formatRp(negara.pdam.saldo)}` : '🔴 Belum Dibangun';
+
                 let txt = ` Republic of WhatsApp - Pemerintahan RPG 🏛️\n`;
                 txt += `━━━━━━━━━━━━━━━━━━━━\n`;
                 txt += `👑 *Presiden:* ${namaPresiden}${statusJabatan}\n`;
                 txt += `💰 *Kas Negara:* ${formatRp(negara.kas)}\n`;
                 txt += `🏦 *Bank Negara:* ${statusBank}\n`;
+                txt += `⚡ *PLN Negara:* ${statusPLN}\n`;
+                txt += `💧 *PDAM Negara:* ${statusPDAM}\n`;
                 txt += `🗳️ *Status Pemilu:* ${statusPemilu}\n`;
                 txt += `🏢 *Aset BUMN (Sitaan):* ${negara.bumn.length} Perusahaan\n`;
                 txt += `━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -146,7 +201,18 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 txt += `• *${usedPrefix+command} pemilu* — Buka masa pendaftaran capres (1 Jam)\n`;
                 txt += `• *${usedPrefix+command} bangunbank* — Dirikan Bank Negara (Biaya 50M dari Kas)\n`;
                 txt += `• *${usedPrefix+command} bansos <nominal> @tag* — Kirim BLT dari Kas Negara\n`;
-                txt += `• *${usedPrefix+command} razia* — Tarik pajak paksa & sita PT nunggak`;
+                txt += `• *${usedPrefix+command} razia* — Tarik pajak paksa & sita PT nunggak\n`;
+                txt += `• *${usedPrefix+command} bangunpln* — Dirikan PLN Negara (Biaya 865M)\n`;
+                txt += `• *${usedPrefix+command} bangunpdam* — Dirikan PDAM Negara (Biaya 865M)\n`;
+                txt += `• *${usedPrefix+command} rekrut pln/pdam <jml>* — Rekrut karyawan (5M/org)\n\n`;
+
+                txt += `*⚡ PERINTAH BUMN NEGARA:*\n`;
+                txt += `• *${usedPrefix+command} investasi pln/pdam <nominal>* — Investasi ke BUMN\n`;
+                txt += `• *${usedPrefix+command} investasiku* — Cek portofolio investasi kamu\n`;
+                txt += `• *${usedPrefix+command} tagihpln* — Tarik pendapatan PLN ke Kas Negara\n`;
+                txt += `• *${usedPrefix+command} tagihpdam* — Tarik pendapatan PDAM ke Kas Negara\n`;
+                txt += `• *${usedPrefix+command} statuspln* — Lihat detail perusahaan PLN\n`;
+                txt += `• *${usedPrefix+command} statuspdam* — Lihat detail perusahaan PDAM`;
 
                 return m.reply(txt);
             }
@@ -365,6 +431,244 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 txt += `━━━━━━━━━━━━━━━━━━━━\n\n`;
                 txt += `_Himbauan bagi para pelaku usaha yang perusahaannya terkunci, harap segera lakukan penyetoran modal ke Kas PT agar bisa diproses normal kembali pada siklus razia pajak berikutnya!_`;
 
+                m.reply(txt);
+                break;
+            }
+
+            // ==============================
+            // BUMN: BANGUN PLN & PDAM
+            // ==============================
+            case 'bangunpln': {
+                if (!isPresiden) return m.reply('❌ Hanya Presiden yang berhak mendirikan perusahaan negara!');
+                if (negara.pln) return m.reply('❌ PLN Negara sudah berdiri! Tidak perlu dibangun ulang.');
+                let biaya = 865000000000; // 865 Miliar
+                if (negara.kas < biaya) return m.reply(`❌ Kas Negara tidak cukup! Butuh *${formatRp(biaya)}* untuk membangun PLN.\nKas saat ini: ${formatRp(negara.kas)}`);
+
+                negara.kas -= biaya;
+                negara.pln = {
+                    pelanggan: 0,
+                    saldo: 0,
+                    hargaPerWatt: 6500,
+                    karyawan: 0,
+                    lastAuto: Date.now(),
+                    investasi: {}, // { jid: nominalInvestasi }
+                    totalInvestasi: 0,
+                };
+                m.reply(`⚡ *PLN NEGARA RESMI BERDIRI!*\n━━━━━━━━━━━━━━━━━━━━\n🏗️ Biaya Pembangunan: -${formatRp(biaya)}\n💡 Harga Listrik: Rp 6.500/watt\n👷 Karyawan: 0\n👥 Pelanggan: 0\n\nRekrut karyawan dulu agar pelanggan otomatis bertambah:\n*${usedPrefix+command} rekrut pln <jumlah>*`);
+                break;
+            }
+
+            case 'bangunpdam': {
+                if (!isPresiden) return m.reply('❌ Hanya Presiden yang berhak mendirikan perusahaan negara!');
+                if (negara.pdam) return m.reply('❌ PDAM Negara sudah berdiri! Tidak perlu dibangun ulang.');
+                let biaya = 865000000000; // 865 Miliar
+                if (negara.kas < biaya) return m.reply(`❌ Kas Negara tidak cukup! Butuh *${formatRp(biaya)}* untuk membangun PDAM.\nKas saat ini: ${formatRp(negara.kas)}`);
+
+                negara.kas -= biaya;
+                negara.pdam = {
+                    pelanggan: 0,
+                    saldo: 0,
+                    hargaPerLiter: 16000,
+                    karyawan: 0,
+                    lastAuto: Date.now(),
+                    investasi: {},
+                    totalInvestasi: 0,
+                };
+                m.reply(`💧 *PDAM NEGARA RESMI BERDIRI!*\n━━━━━━━━━━━━━━━━━━━━\n🏗️ Biaya Pembangunan: -${formatRp(biaya)}\n🚰 Harga Air: Rp 16.000/liter\n👷 Karyawan: 0\n👥 Pelanggan: 0\n\nRekrut karyawan dulu agar pelanggan otomatis bertambah:\n*${usedPrefix+command} rekrut pdam <jumlah>*`);
+                break;
+            }
+
+            // ==============================
+            // BUMN: REKRUT KARYAWAN (Presiden)
+            // Biaya 5M/karyawan dari Kas Negara
+            // ==============================
+            case 'rekrut': {
+                if (!isPresiden) return m.reply('❌ Hanya Presiden yang berhak merekrut karyawan BUMN!');
+                let jenis = args[1] ? args[1].toLowerCase() : '';
+                let jumlah = parseInt(args[2]) || 1;
+                if (jenis !== 'pln' && jenis !== 'pdam') return m.reply(`⚠️ Format: *${usedPrefix+command} rekrut pln <jumlah>* atau *rekrut pdam <jumlah>*`);
+
+                let perusahaan = negara[jenis];
+                if (!perusahaan) return m.reply(`❌ ${jenis.toUpperCase()} belum dibangun!`);
+                if (jumlah < 1 || jumlah > 100) return m.reply('⚠️ Jumlah rekrut harus antara 1–100 orang.');
+
+                let biayaPerOrang = 5000000000; // 5 Miliar/karyawan
+                let totalBiaya = biayaPerOrang * jumlah;
+                if (negara.kas < totalBiaya) return m.reply(`❌ Kas Negara tidak cukup!\nButuh: *${formatRp(totalBiaya)}*\nKas saat ini: ${formatRp(negara.kas)}`);
+
+                negara.kas -= totalBiaya;
+                perusahaan.karyawan = (perusahaan.karyawan || 0) + jumlah;
+
+                let rangeInfo = perusahaan.karyawan >= 5 ? '6–9 pelanggan/20 menit' : '2–5 pelanggan/20 menit';
+                let emoji = jenis === 'pln' ? '⚡' : '💧';
+                m.reply(`${emoji} *REKRUTMEN ${jenis.toUpperCase()} BERHASIL!*\n━━━━━━━━━━━━━━━━━━━━\n👷 Karyawan Baru: +${jumlah} orang\n👷 Total Karyawan: *${perusahaan.karyawan} orang*\n💸 Biaya: -${formatRp(totalBiaya)}\n📈 Produktivitas: *${rangeInfo}*\n\n_Karyawan langsung bekerja otomatis setiap 20 menit!_`);
+                break;
+            }
+
+            // ==============================
+            // BUMN: INVESTASI WARGA (Siapapun bisa)
+            // Investasi ke PLN/PDAM, dapat bagi hasil 5% saldo saat tagih
+            // ==============================
+            case 'investasi': {
+                let jenis = args[1] ? args[1].toLowerCase() : '';
+                let nominal = parseInt(args[2]);
+                if (jenis !== 'pln' && jenis !== 'pdam') return m.reply(`⚠️ Format: *${usedPrefix+command} investasi pln <nominal>* atau *investasi pdam <nominal>*`);
+                if (isNaN(nominal) || nominal < 1000000000) return m.reply('⚠️ Minimal investasi Rp 1.000.000.000 (1 Miliar).');
+
+                let perusahaan = negara[jenis];
+                if (!perusahaan) return m.reply(`❌ ${jenis.toUpperCase()} Negara belum dibangun! Belum bisa menerima investasi.`);
+                if (user.money < nominal) return m.reply(`❌ Uang Anda tidak cukup! Saldo: ${formatRp(user.money)}`);
+
+                user.money -= nominal;
+                if (!perusahaan.investasi) perusahaan.investasi = {};
+                perusahaan.investasi[m.sender] = (perusahaan.investasi[m.sender] || 0) + nominal;
+                perusahaan.totalInvestasi = (perusahaan.totalInvestasi || 0) + nominal;
+                // Investasi langsung masuk saldo BUMN sebagai modal
+                perusahaan.saldo += nominal;
+
+                let emoji = jenis === 'pln' ? '⚡' : '💧';
+                let namaP = jenis === 'pln' ? 'PLN' : 'PDAM';
+                m.reply(`${emoji} *INVESTASI ${namaP} BERHASIL!*\n━━━━━━━━━━━━━━━━━━━━\n💰 Nominal Investasi: *${formatRp(nominal)}*\n📊 Total Investasi Anda: *${formatRp(perusahaan.investasi[m.sender])}*\n🏦 Total Investasi Masuk: *${formatRp(perusahaan.totalInvestasi)}*\n\n_Saat Presiden menagih, investor mendapat bagi hasil 5% dari saldo ${namaP}!_\n_Cek portofolio: *${usedPrefix+command} investasiku*_`);
+                break;
+            }
+
+            // ==============================
+            // BUMN: CEK INVESTASI MILIK SENDIRI
+            // ==============================
+            case 'investasiku': {
+                let hasInvestasi = false;
+                let txt = `📊 *PORTOFOLIO INVESTASI BUMN ANDA*\n━━━━━━━━━━━━━━━━━━━━\n`;
+                for (let jenis of ['pln', 'pdam']) {
+                    let p = negara[jenis];
+                    if (!p || !p.investasi || !p.investasi[m.sender]) continue;
+                    hasInvestasi = true;
+                    let nominal = p.investasi[m.sender];
+                    let totalInv = p.totalInvestasi || 1;
+                    let porsi = ((nominal / totalInv) * 100).toFixed(2);
+                    let emoji = jenis === 'pln' ? '⚡' : '💧';
+                    let estimasiBagiHasil = Math.floor(p.saldo * 0.05 * (nominal / totalInv));
+                    txt += `${emoji} *${jenis.toUpperCase()}*\n`;
+                    txt += `   💵 Investasi Anda: ${formatRp(nominal)}\n`;
+                    txt += `   📈 Porsi Kepemilikan: ${porsi}%\n`;
+                    txt += `   🎁 Est. Bagi Hasil: ~${formatRp(estimasiBagiHasil)}\n\n`;
+                }
+                if (!hasInvestasi) return m.reply('📊 Anda belum memiliki investasi di BUMN Negara manapun.');
+                txt += `_Bagi hasil diterima otomatis saat Presiden menjalankan tagihpln/tagihpdam_`;
+                m.reply(txt);
+                break;
+            }
+
+            // ==============================
+            // BUMN: TARIK PENDAPATAN KE KAS NEGARA
+            // ==============================
+            case 'tagihpln': {
+                if (!isPresiden) return m.reply('❌ Hanya Presiden yang berhak menarik pendapatan BUMN ke Kas Negara!');
+                if (!negara.pln) return m.reply('❌ PLN Negara belum dibangun!');
+                if (negara.pln.saldo <= 0) return m.reply('⚠️ Saldo PLN masih kosong. Tunggu karyawan bekerja atau tambah investasi dulu.');
+
+                let saldoTotal = negara.pln.saldo;
+                let totalInv = negara.pln.totalInvestasi || 0;
+                let poolBagiHasil = totalInv > 0 ? Math.floor(saldoTotal * 0.05) : 0; // 5% untuk investor
+                let masukKas = saldoTotal - poolBagiHasil;
+                let jumlahInvestor = 0;
+
+                // Distribusi bagi hasil ke investor
+                if (poolBagiHasil > 0 && negara.pln.investasi) {
+                    for (let jid in negara.pln.investasi) {
+                        let porsi = negara.pln.investasi[jid] / totalInv;
+                        let hasilnya = Math.floor(poolBagiHasil * porsi);
+                        if (hasilnya > 0 && global.db.data.users[jid]) {
+                            global.db.data.users[jid].money = (global.db.data.users[jid].money || 0) + hasilnya;
+                            jumlahInvestor++;
+                        }
+                    }
+                }
+
+                negara.kas += masukKas;
+                negara.pln.saldo = 0;
+                m.reply(`⚡ *SETORAN PLN KE KAS NEGARA*\n━━━━━━━━━━━━━━━━━━━━\n💰 Total Saldo PLN: *${formatRp(saldoTotal)}*\n🎁 Bagi Hasil Investor (5%): *${formatRp(poolBagiHasil)}* → ${jumlahInvestor} investor\n💸 Masuk Kas Negara: *${formatRp(masukKas)}*\n👥 Total Pelanggan: ${negara.pln.pelanggan} orang\n💰 Kas Negara Sekarang: *${formatRp(negara.kas)}*`);
+                break;
+            }
+
+            case 'tagihpdam': {
+                if (!isPresiden) return m.reply('❌ Hanya Presiden yang berhak menarik pendapatan BUMN ke Kas Negara!');
+                if (!negara.pdam) return m.reply('❌ PDAM Negara belum dibangun!');
+                if (negara.pdam.saldo <= 0) return m.reply('⚠️ Saldo PDAM masih kosong. Tunggu karyawan bekerja atau tambah investasi dulu.');
+
+                let saldoTotal = negara.pdam.saldo;
+                let totalInv = negara.pdam.totalInvestasi || 0;
+                let poolBagiHasil = totalInv > 0 ? Math.floor(saldoTotal * 0.05) : 0;
+                let masukKas = saldoTotal - poolBagiHasil;
+                let jumlahInvestor = 0;
+
+                if (poolBagiHasil > 0 && negara.pdam.investasi) {
+                    for (let jid in negara.pdam.investasi) {
+                        let porsi = negara.pdam.investasi[jid] / totalInv;
+                        let hasilnya = Math.floor(poolBagiHasil * porsi);
+                        if (hasilnya > 0 && global.db.data.users[jid]) {
+                            global.db.data.users[jid].money = (global.db.data.users[jid].money || 0) + hasilnya;
+                            jumlahInvestor++;
+                        }
+                    }
+                }
+
+                negara.kas += masukKas;
+                negara.pdam.saldo = 0;
+                m.reply(`💧 *SETORAN PDAM KE KAS NEGARA*\n━━━━━━━━━━━━━━━━━━━━\n💰 Total Saldo PDAM: *${formatRp(saldoTotal)}*\n🎁 Bagi Hasil Investor (5%): *${formatRp(poolBagiHasil)}* → ${jumlahInvestor} investor\n💸 Masuk Kas Negara: *${formatRp(masukKas)}*\n👥 Total Pelanggan: ${negara.pdam.pelanggan} orang\n💰 Kas Negara Sekarang: *${formatRp(negara.kas)}*`);
+                break;
+            }
+
+            // ==============================
+            // BUMN: STATUS DETAIL
+            // ==============================
+            case 'statuspln': {
+                if (!negara.pln) return m.reply('❌ PLN Negara belum dibangun. Presiden bisa mendirikannya dengan *' + usedPrefix + command + ' bangunpln*');
+                let p = negara.pln;
+                let karyawan = p.karyawan || 0;
+                let rangeInfo = karyawan === 0 ? 'Tidak aktif (0 karyawan)' : karyawan >= 5 ? '6–9 pelanggan/20 menit' : '2–5 pelanggan/20 menit';
+                let nextAuto = p.lastAuto ? Math.max(0, (p.lastAuto + 20*60*1000) - now) : 0;
+                let nextTxt = karyawan > 0 ? (nextAuto > 0 ? msToTime(nextAuto) : 'Sebentar lagi!') : 'Rekrut karyawan dulu';
+                let persenPenuh = ((p.pelanggan / 6000) * 100).toFixed(1);
+                let txt = `⚡ *STATUS PLN NEGARA*\n`;
+                txt += `━━━━━━━━━━━━━━━━━━━━\n`;
+                txt += `🏢 Perusahaan Listrik Negara (PLN)\n`;
+                txt += `👷 Karyawan: *${karyawan} orang*\n`;
+                txt += `👥 Pelanggan: *${p.pelanggan}/6.000* (${persenPenuh}% penuh)\n`;
+                txt += `📈 Produktivitas: *${rangeInfo}*\n`;
+                txt += `⏱️ Auto-collect berikutnya: *${nextTxt}*\n`;
+                txt += `💡 Tarif: *${formatRp(p.hargaPerWatt)}/watt*\n`;
+                txt += `💰 Saldo Terkumpul: *${formatRp(p.saldo)}*\n`;
+                txt += `🏦 Total Investasi Masuk: *${formatRp(p.totalInvestasi || 0)}*\n`;
+                txt += `━━━━━━━━━━━━━━━━━━━━\n`;
+                txt += `• *${usedPrefix+command} rekrut pln <jml>* — Tambah karyawan (5M/org)\n`;
+                txt += `• *${usedPrefix+command} investasi pln <nominal>* — Investasikan uang\n`;
+                txt += `• *${usedPrefix+command} tagihpln* — Setor pendapatan ke Kas`;
+                m.reply(txt);
+                break;
+            }
+
+            case 'statuspdam': {
+                if (!negara.pdam) return m.reply('❌ PDAM Negara belum dibangun. Presiden bisa mendirikannya dengan *' + usedPrefix + command + ' bangunpdam*');
+                let p = negara.pdam;
+                let karyawan = p.karyawan || 0;
+                let rangeInfo = karyawan === 0 ? 'Tidak aktif (0 karyawan)' : karyawan >= 5 ? '6–9 pelanggan/20 menit' : '2–5 pelanggan/20 menit';
+                let nextAuto = p.lastAuto ? Math.max(0, (p.lastAuto + 20*60*1000) - now) : 0;
+                let nextTxt = karyawan > 0 ? (nextAuto > 0 ? msToTime(nextAuto) : 'Sebentar lagi!') : 'Rekrut karyawan dulu';
+                let persenPenuh = ((p.pelanggan / 6000) * 100).toFixed(1);
+                let txt = `💧 *STATUS PDAM NEGARA*\n`;
+                txt += `━━━━━━━━━━━━━━━━━━━━\n`;
+                txt += `🏢 Perusahaan Daerah Air Minum (PDAM)\n`;
+                txt += `👷 Karyawan: *${karyawan} orang*\n`;
+                txt += `👥 Pelanggan: *${p.pelanggan}/6.000* (${persenPenuh}% penuh)\n`;
+                txt += `📈 Produktivitas: *${rangeInfo}*\n`;
+                txt += `⏱️ Auto-collect berikutnya: *${nextTxt}*\n`;
+                txt += `🚰 Tarif: *${formatRp(p.hargaPerLiter)}/liter*\n`;
+                txt += `💰 Saldo Terkumpul: *${formatRp(p.saldo)}*\n`;
+                txt += `🏦 Total Investasi Masuk: *${formatRp(p.totalInvestasi || 0)}*\n`;
+                txt += `━━━━━━━━━━━━━━━━━━━━\n`;
+                txt += `• *${usedPrefix+command} rekrut pdam <jml>* — Tambah karyawan (5M/org)\n`;
+                txt += `• *${usedPrefix+command} investasi pdam <nominal>* — Investasikan uang\n`;
+                txt += `• *${usedPrefix+command} tagihpdam* — Setor pendapatan ke Kas`;
                 m.reply(txt);
                 break;
             }

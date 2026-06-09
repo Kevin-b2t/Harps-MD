@@ -148,7 +148,10 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
         let potonganPajak = Math.floor(uangSaatIni * 0.01);
         if (potonganPajak > 0) {
             user.money -= potonganPajak;
-            conn.reply(m.chat, `🏛️ *INFO PAJAK HARIAN (1%)*\n\nPemerintah server telah memotong uangmu sebesar *Rp ${potonganPajak.toLocaleString()}* untuk pajak harian.\nSisa uangmu sekarang: Rp ${user.money.toLocaleString()}`, m);
+            if (!global.db.data.negara) global.db.data.negara = { kas: 0 };
+            if (typeof global.db.data.negara.kas !== 'number') global.db.data.negara.kas = 0;
+            global.db.data.negara.kas += potonganPajak;
+            conn.reply(m.chat, `🏛️ *INFO PAJAK HARIAN (1%)*\n\nPemerintah telah memotong uangmu sebesar *Rp ${potonganPajak.toLocaleString()}* dan langsung disetor ke Kas Negara.\nSisa uangmu sekarang: Rp ${user.money.toLocaleString()}`, m);
         }
         user.lastTaxDate = tanggalHariIni;
     }
@@ -1258,10 +1261,15 @@ Contoh: ${usedPrefix}shop alam | ${usedPrefix}shop minuman | ${usedPrefix}shop c
             if ((user[curItem.db] || 0) >= count) {
                 user[curItem.db] -= count;
                 user.money += finalGain;
+                if (tax > 0) {
+                    if (!global.db.data.negara) global.db.data.negara = { kas: 0 };
+                    if (typeof global.db.data.negara.kas !== 'number') global.db.data.negara.kas = 0;
+                    global.db.data.negara.kas += tax;
+                }
                 if (!isUnlimited && global.db.data.market[curItem.db]) {
                     global.db.data.market[curItem.db].stock += count;
                 }
-                conn.reply(m.chat, `⚖️ *TRANSAKSI SUKSES*\nKamu menjual ${count} ${curItem.name}.\nGross: +${totalGain.toLocaleString()} Money\nPajak Admin (5%): -${tax.toLocaleString()}\n*Diterima Bersih: ${finalGain.toLocaleString()} Money*`, m);
+                conn.reply(m.chat, `⚖️ *TRANSAKSI SUKSES*\nKamu menjual ${count} ${curItem.name}.\nGross: +${totalGain.toLocaleString()} Money\nPajak Negara (5%): -${tax.toLocaleString()}\n*Diterima Bersih: ${finalGain.toLocaleString()} Money*`, m);
             } else {
                 conn.reply(m.chat, `❌ Item ${curItem.name} kamu tidak cukup untuk dijual sebanyak itu.`, m);
             }
