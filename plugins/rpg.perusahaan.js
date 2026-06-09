@@ -166,7 +166,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
         let now = Date.now();
 
-        // AUTO: REFILL LISTRIK & PAJAK
+        // AUTO: REFILL LISTRIK, PAJAK & PEMBAYARAN GAJI (REVISI: PEKERJA RESIGN JIKA TIDAK DIGAJI)
         user.perusahaan.forEach(pt => {
             if (!pt) return;
             if (pt.type !== 'listrik' && !pt.gudangLevel) pt.gudangLevel = 1;
@@ -176,7 +176,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             if (pt.hutang === undefined) pt.hutang = 0;
             if (pt.investOpen === undefined) pt.investOpen = true; 
             if (pt.isProduksi === undefined) pt.isProduksi = false;
+            if (!pt.karyawan) pt.karyawan = 10; // Karyawan Dasar
+            if (!pt.lastSalary) pt.lastSalary = now; // Inisiasi Waktu Gaji
 
+            // Generate Listrik Otomatis
             if (pt.type === 'listrik') {
                 let periods = Math.floor((now - (pt.lastGenerate || now)) / 1800000);
                 if (periods >= 1) {
@@ -193,12 +196,36 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     pt.lastGenerate = now;
                 }
             }
+
+            // Pembayaran Pajak Harian
             if (!pt.lastTax) pt.lastTax = now;
             let daysPassed = Math.floor((now - pt.lastTax) / 86400000);
             if (daysPassed >= 1) {
                 let tax = Math.floor((pt.saldo || 0) * 0.002 * daysPassed);
                 pt.saldo = Math.max(0, (pt.saldo || 0) - tax);
                 pt.lastTax += daysPassed * 86400000;
+            }
+
+            // Pembayaran Gaji Karyawan Setiap 3 Hari
+            let salaryPeriods = Math.floor((now - pt.lastSalary) / (3 * 86400000));
+            if (salaryPeriods >= 1) {
+                let biayaGajiPerOrang = 365000 * salaryPeriods;
+                let totalGajiDibutuhkan = pt.karyawan * biayaGajiPerOrang;
+                
+                if ((pt.saldo || 0) >= totalGajiDibutuhkan) {
+                    pt.saldo -= totalGajiDibutuhkan; // Potong lunas dari Kas PT
+                } else {
+                    // KAS PT TIDAK CUKUP -> Pekerja Resign Sesuai Kemampuan Bayar Kas
+                    let mampuBayarBerapaPekerja = Math.floor((pt.saldo || 0) / biayaGajiPerOrang);
+                    pt.saldo -= (mampuBayarBerapaPekerja * biayaGajiPerOrang); // Habiskan Kas untuk pekerja yg bisa dibayar
+                    
+                    // Sisa pekerja keluar, minimum menyisakan 10 pekerja setia
+                    pt.karyawan = Math.max(10, mampuBayarBerapaPekerja);
+                    
+                    // Kalau kas benar-benar kosong dan ga sanggup bayar 10 orang dasar, kosongkan kas
+                    if (mampuBayarBerapaPekerja < 10) pt.saldo = 0; 
+                }
+                pt.lastSalary += salaryPeriods * (3 * 86400000);
             }
         });
 
@@ -221,7 +248,8 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
                 let newPT = {
                     id: now, name: namaPT, type: tipePT, saldo: 0, hutang: 0, lastTax: now,
-                    pabrik: [], gudang: {}, investors: {}, investOpen: true, isProduksi: false
+                    pabrik: [], gudang: {}, investors: {}, investOpen: true, isProduksi: false, 
+                    karyawan: 10, lastSalary: now
                 };
 
                 if (tipePT === 'listrik') {
@@ -262,7 +290,8 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 targetUser.perusahaan.forEach((pt, i) => {
                     let val = hitungValuasi(pt);
                     let ptHeader = pt.type === 'listrik' ? `*${i+1}. ${pt.name} (${pt.pembangkit || 'PLTU'})*` : `*${i+1}. ${pt.name}*`;
-                    let karyawanTotal = 10 + (pt.pabrik ? pt.pabrik.length * 10 : 0);
+                    let pekerja = pt.karyawan || 10;
+                    let gajiTigaHari = formatRp(pekerja * 365000);
 
                     txt += `${ptHeader}\n`;
                     txt += `🏭 Induk Pabrik: *${pt.type.toUpperCase()}*\n`;
@@ -273,8 +302,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                             txt += `   ${idx + 1}. *${p.name}* (${p.type.toUpperCase()})\n`;
                         });
                     }
-                    
-                    txt += `👥 Karyawan: ${karyawanTotal} Orang\n`;
 
                     if (pt.type === 'listrik') {
                         let totalRefill = pt.generationRate || 4000;
@@ -285,14 +312,20 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         }
                         let kapMaksimum = getKapasitasListrik(pt);
                         let sedia       = pt.kapasitasTersedia || 0;
+                        let maxBatasSlot = 12 + Math.floor(pekerja / 500);
 
+                        txt += `👥 Pekerja: ${pekerja.toLocaleString('id-ID')} Orang (Gaji: ${gajiTigaHari} / 3H)\n`;
                         txt += `⚡ Level Kapasitas : Level ${pt.listrikLevel || 1}\n`;
                         txt += `⚡ Listrik Tersedia: ${formatDaya(sedia)} / ${formatDaya(kapMaksimum)}\n`;
                         txt += `♻️ Total Refill: ${formatDaya(totalRefill, true)} / 30 Menit\n`;
                         txt += `💡 Harga Jual: ${formatRp(pt.hargaListrikCustom || 18600)}/W\n`;
-                        txt += `🏗️ Ekstra Mesin: ${extraStr} (${pt.ekstraPembangkit.length}/12)\n`;
+                        txt += `🏗️ Ekstra Mesin: ${extraStr} (${pt.ekstraPembangkit.length}/${maxBatasSlot})\n`;
                     } else {
                         let statusProduksi = pt.isProduksi ? '⏳ Sedang Beroperasi' : '🟢 Idle';
+                        let currentSpeedMs = Math.max(1000, 4000 - Math.floor((Math.min(pekerja, 1000) / 1000) * 3000));
+                        
+                        txt += `👥 Pekerja: ${pekerja.toLocaleString('id-ID')} Orang (Gaji: ${gajiTigaHari} / 3H)\n`;
+                        txt += `🚀 Kecepatan Produksi: ${currentSpeedMs/1000} Detik / Item\n`;
                         txt += `📦 Level Gudang : Level ${pt.gudangLevel || 1}\n`;
                         txt += `📦 Sisa Gudang: ${getSlotTerpakai(pt.gudang).toLocaleString('id-ID')} / ${getKapasitasGudang(pt).toLocaleString('id-ID')} Slot\n`;
                         txt += `⚙️ Status Pabrik: ${statusProduksi}\n`;
@@ -329,8 +362,49 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             }
 
             // ==============================
-            // B2B & PRODUKSI
+            // REKRUT PEKERJA (SPEED & SLOT LISTRIK)
             // ==============================
+            case 'rekrut':
+            case 'pecat': {
+                let jmlPekerja = parseInt(args[1]);
+                let idPt = parseInt(args[2]) - 1;
+                if (isNaN(jmlPekerja) || isNaN(idPt) || jmlPekerja < 1) return m.reply(`⚠️ Format: *${usedPrefix+command} ${action} <jumlah> <id_pt>*\n\n_1.000 Pekerja = Produksi Maksimal (1 detik / barang)._`);
+                
+                let pt = user.perusahaan[idPt];
+                if (!pt) return m.reply('❌ ID Perusahaan tidak ditemukan!');
+
+                if (!pt.karyawan) pt.karyawan = 10;
+                let hargaRekrut = 1000000; // Rp 1.000.000 per pekerja (biaya fasilitas & gaji awal)
+                
+                if (action === 'rekrut') {
+                    let totalBiaya = jmlPekerja * hargaRekrut;
+                    if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang untuk merekrut!\nButuh: ${formatRp(totalBiaya)}\nKas PT: ${formatRp(pt.saldo)}\n\n_Harga: Rp1 Juta / Pekerja_`);
+                    
+                    pt.saldo -= totalBiaya;
+                    pt.karyawan += jmlPekerja;
+                    
+                    if (pt.type === 'listrik') {
+                        let maxBatasSlot = 12 + Math.floor(pt.karyawan / 500);
+                        m.reply(`👥 *REKRUTMEN SUKSES*\n\n🏢 PT: *${pt.name}*\n📈 Anda menambah pekerja sebanyak ${jmlPekerja.toLocaleString('id-ID')} orang dan batas mesin pembangkit bertambah!\n💸 Kas PT: -${formatRp(totalBiaya)}\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang\n⚡ *Batas Ekstra Pembangkit:* ${maxBatasSlot} Slot`);
+                    } else {
+                        let newSpeed = Math.max(1000, 4000 - Math.floor((Math.min(pt.karyawan, 1000) / 1000) * 3000));
+                        m.reply(`👥 *REKRUTMEN SUKSES*\n\n🏢 PT: *${pt.name}*\n📈 Anda menambah pekerja sebanyak ${jmlPekerja.toLocaleString('id-ID')} orang dan produksi dipercepat menjadi ${newSpeed/1000} detik per barang.\n💸 Kas PT: -${formatRp(totalBiaya)}\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang`);
+                    }
+                } else {
+                    if (pt.karyawan - jmlPekerja < 10) return m.reply(`❌ Perusahaan minimal harus memiliki 10 pekerja (Karyawan Dasar)!`);
+                    pt.karyawan -= jmlPekerja;
+                    
+                    if (pt.type === 'listrik') {
+                        let maxBatasSlot = 12 + Math.floor(pt.karyawan / 500);
+                        m.reply(`📉 *PHK SUKSES*\n\n🏢 PT: *${pt.name}*\n📉 Diberhentikan: ${jmlPekerja.toLocaleString('id-ID')} orang\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang\n⚡ *Batas Ekstra Pembangkit:* ${maxBatasSlot} Slot`);
+                    } else {
+                        let newSpeed = Math.max(1000, 4000 - Math.floor((Math.min(pt.karyawan, 1000) / 1000) * 3000));
+                        m.reply(`📉 *PHK SUKSES*\n\n🏢 PT: *${pt.name}*\n📉 Diberhentikan: ${jmlPekerja.toLocaleString('id-ID')} orang\n\n*Total Pekerja:* ${pt.karyawan.toLocaleString('id-ID')} orang\n🚀 *Kecepatan Produksi Saat Ini:* ${newSpeed/1000} Detik / Barang`);
+                    }
+                }
+                break;
+            }
+
             case 'kirim':
             case 'transfer': {
                 let jumlah = parseInt(args[1]);
@@ -447,11 +521,16 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     provider.pt.saldo += biayaListrik; 
                 }
 
-                // Kalkulasi Waktu Realistis (4 Detik / Item)
-                let waktuDetik = jmlProd * 4;
-                let menit = Math.floor(waktuDetik / 60);
+                // Kalkulasi Waktu Dinamis berdasarkan Jumlah Pekerja
+                let pekerja = pt.karyawan || 10;
+                let speedMs = Math.max(1000, 4000 - Math.floor((Math.min(pekerja, 1000) / 1000) * 3000));
+                
+                let waktuTotalMs = jmlProd * speedMs;
+                let waktuTotalDetik = Math.floor(waktuTotalMs / 1000);
+                
+                let menit = Math.floor(waktuTotalDetik / 60);
                 let jam = Math.floor(menit / 60);
-                let sisaDetik = waktuDetik % 60;
+                let sisaDetik = waktuTotalDetik % 60;
                 let sisaMenit = menit % 60;
                 
                 let waktuStr = '';
@@ -465,13 +544,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     `⏳ *PROSES ${dp.type === 'tambang' ? 'PENAMBANGAN' : 'PRODUKSI'} DIMULAI*\n\n` +
                     `🏢 PT: *${pt.name}*\n` +
                     `📦 Mengeksekusi: ${jmlProd.toLocaleString('id-ID')} ${dp.name}\n` +
+                    `🚀 Kecepatan: ${speedMs/1000}s / Barang (Didukung ${pekerja} pekerja)\n` +
                     `⏱️ Estimasi Selesai Total: *${waktuStr.trim()}*\n\n` +
                     `*RINCIAN BIAYA KAS (Dipotong Dimuka):*\n` +
                     `> 💸 Total Dipotong: -${formatRp(totalBiaya)}\n` +
                     `> 🛠️ Biaya Alat/Modal: ${formatRp(biayaProd)}\n` +
                     `> ⚡ Biaya Listrik: ${formatRp(biayaListrik)} (${formatDaya(totalWattDibutuhkan)})\n` +
                     `> 🔌 Suplai Listrik: ${provider ? provider.pt.name : 'Negara (PLN)'}\n\n` +
-                    `_Barang akan otomatis dicicil masuk ke gudang (1 per 4 detik) di latar belakang..._`
+                    `_Barang akan otomatis dicicil masuk ke gudang (${speedMs/1000} detik per item) di latar belakang..._`
                 );
 
                 // ==============================
@@ -501,7 +581,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                             `_Seluruh hasil telah masuk ke Gudang!_`, m
                         );
                     }
-                }, 4000); // Trigger setiap 4000ms (4 detik)
+                }, speedMs); 
                 
                 break;
             }
@@ -701,7 +781,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 let pt = user.perusahaan[idPtL];
                 if (!pt || pt.type !== 'listrik') return m.reply('❌ ID Perusahaan bukan tipe Listrik!');
                 if (!pt.ekstraPembangkit) pt.ekstraPembangkit = [];
-                if (pt.ekstraPembangkit.length >= 12) return m.reply('❌ Slot Ekstra Pembangkit sudah penuh (Maksimal 12)!');
+                
+                let maxPembangkit = 12 + Math.floor((pt.karyawan || 10) / 500);
+                if (pt.ekstraPembangkit.length >= maxPembangkit) return m.reply(`❌ Slot Ekstra Pembangkit sudah penuh (Maksimal ${maxPembangkit})!\n_Tips: Rekrut pekerja (500 Pekerja = 1 Slot Baru)._`);
 
                 let harga = hargaPembangkit[jenis];
                 if ((pt.saldo || 0) < harga) return m.reply(`❌ Kas PT kurang! Butuh: ${formatRp(harga)}`);
@@ -793,12 +875,18 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 txt += `➡️ *${usedPrefix+command} setlistrik <id_pt_mu> negara* (PLN)\n`;
                 txt += `➡️ *${usedPrefix+command} ceklistrik* (Mencari tarif termurah)\n\n`;
 
-                txt += `*3. Proses Produksi*\n`;
+                txt += `*3. Pekerja, Kecepatan & Gaji*\n`;
+                txt += `Waktu standar produksi adalah 4 detik per barang. Kamu bisa mempercepat ini (sampai 1 detik/barang) dengan merekrut karyawan! Khusus PT Listrik, setiap 500 pekerja menambah 1 slot Ekstra Pembangkit.\n`;
+                txt += `⚠️ *PERHATIAN:* Pekerja wajib digaji Rp365.000 per orang setiap 3 Hari. Jika Kas PT tidak cukup untuk menggaji semua pekerja, maka pekerja yang tidak dibayar akan otomatis *RESIGN (Keluar)* dari Perusahaanmu!\n`;
+                txt += `➡️ *${usedPrefix+command} rekrut <jml> <id_pt>*\n`;
+                txt += `_(Contoh: .pt rekrut 500 1)_\n\n`;
+
+                txt += `*4. Proses Produksi*\n`;
                 txt += `Jika bahan baku, modal, dan listrik sudah siap di gudang PT, mulai buat barang dengan:\n`;
                 txt += `➡️ *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n`;
                 txt += `_(Contoh: .pt produksi 100 tehbotol 1)_\n\n`;
 
-                txt += `*4. Distribusi & Penjualan (Gajian!)*\n`;
+                txt += `*5. Distribusi & Penjualan (Gajian!)*\n`;
                 txt += `Jual seluruh barang yang ada di gudang ke Pasar Global untuk mendapatkan Omset, membayar pajak, logistik, dan membagikan dividen ke investor:\n`;
                 txt += `➡️ *${usedPrefix+command} jualsemua <id_pt>*\n\n`;
                 txt += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -996,7 +1084,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     `🤝 *B2B KERJASAMA*\n• *${usedPrefix+command} kirim <jumlah> <uang|item> <id_pt_mu> <@tag_partner> <id_pt_partner>*\n\n` +
                     `🏦 *BANK KORPORASI*\n• *${usedPrefix+command} bank / pinjam / bayarbank*\n\n` +
                     `⚡ *LISTRIK & ENERGI*\n• *${usedPrefix+command} ceklistrik* _(Pasar Listrik Global)_\n• *${usedPrefix+command} setlistrik <id_pt> <negara|@tag_org> <id_pt_org>*\n• *${usedPrefix+command} buatpembangkit <id> <jenis>*\n• *${usedPrefix+command} upgrade listrik <id> <jml_lv>*\n• *${usedPrefix+command} settarif <id_listrik> <tarif>*\n\n` +
-                    `🏭 *PRODUKSI & PABRIK*\n• *${usedPrefix+command} infopabrik* _(📖 Tutorial & Resep Barang)_\n• *${usedPrefix+command} pabrik <id_pt> <tipe> <nama>*\n• *${usedPrefix+command} upgrade gudang <id_pt> <jml_lv>*\n• *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n\n` +
+                    `🏭 *PRODUKSI & PABRIK*\n• *${usedPrefix+command} infopabrik* _(📖 Tutorial & Resep Barang)_\n• *${usedPrefix+command} pabrik <id_pt> <tipe> <nama>*\n• *${usedPrefix+command} upgrade gudang <id_pt> <jml_lv>*\n• *${usedPrefix+command} rekrut/pecat <jml> <id_pt>* _(Pekerja mempercepat produksi)_\n• *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n\n` +
                     `⚙️ *OPERASIONAL*\n• *${usedPrefix+command} setor/tarik <jml> <uang|item> <id_pt>*\n• *${usedPrefix+command} buy <jml> <item> <id_pt>*\n• *${usedPrefix+command} jualsemua [id_pt]*\n\n` +
                     `📊 *BURSA*\n• *${usedPrefix+command} ihsg*`
                 );
