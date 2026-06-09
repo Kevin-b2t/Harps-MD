@@ -21,7 +21,7 @@ const hargaListrikNegara  = 14400;
 const HARGA_UPGRADE_GUDANG = 4000000; 
 const HARGA_UPGRADE_LISTRIK = 1000000; 
 const MAX_LEVEL_GUDANG  = 5000;
-const MAX_LEVEL_LISTRIK = 4000; // DIUBAH MENJADI 4000
+const MAX_LEVEL_LISTRIK = 4000; 
 
 const slotPerLevel    = 120;  
 const wattPerLevel    = 1200; 
@@ -287,7 +287,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         txt += `⚡ Listrik Tersedia: ${formatDaya(sedia)} / ${formatDaya(kapMaksimum)}\n`;
                         txt += `♻️ Total Refill: ${formatDaya(totalRefill, true)} / 30 Menit\n`;
                         txt += `💡 Harga Jual: ${formatRp(pt.hargaListrikCustom || 18600)}/W\n`;
-                        txt += `🏗️ Ekstra Mesin: ${extraStr}\n`;
+                        txt += `🏗️ Ekstra Mesin: ${extraStr} (${pt.ekstraPembangkit.length}/12)\n`;
                     } else {
                         txt += `📦 Level Gudang : Level ${pt.gudangLevel || 1}\n`;
                         txt += `📦 Sisa Gudang: ${getSlotTerpakai(pt.gudang).toLocaleString('id-ID')} / ${getKapasitasGudang(pt).toLocaleString('id-ID')} Slot\n`;
@@ -629,11 +629,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
             case 'buatpembangkit': {
                 let idPtL = parseInt(args[1]) - 1; let jenis = args[2] ? args[2].toUpperCase() : '';
-                if (isNaN(idPtL) || !kapasitasPembangkit[jenis]) return m.reply(`⚠️ *Format:* *${usedPrefix+command} buatpembangkit <id_pt> <jenis>*`);
+                if (isNaN(idPtL) || !kapasitasPembangkit[jenis]) {
+                    let listJenis = Object.keys(kapasitasPembangkit).map(k => `  • *${k}* — ${formatRp(hargaPembangkit[k])} (+${formatDaya(kapasitasPembangkit[k], true)}/30mnt)`).join('\n');
+                    return m.reply(`⚠️ *Format:* *${usedPrefix+command} buatpembangkit <id_pt> <jenis>*\n\n*Katalog Ekstra Pembangkit:*\n${listJenis}`);
+                }
                 let pt = user.perusahaan[idPtL];
                 if (!pt || pt.type !== 'listrik') return m.reply('❌ ID Perusahaan bukan tipe Listrik!');
                 if (!pt.ekstraPembangkit) pt.ekstraPembangkit = [];
-                if (pt.ekstraPembangkit.length >= 5) return m.reply('❌ Slot Ekstra Pembangkit penuh!');
+                if (pt.ekstraPembangkit.length >= 12) return m.reply('❌ Slot Ekstra Pembangkit sudah penuh (Maksimal 12)!');
 
                 let harga = hargaPembangkit[jenis];
                 if ((pt.saldo || 0) < harga) return m.reply(`❌ Kas PT kurang! Butuh: ${formatRp(harga)}`);
@@ -659,35 +662,106 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
                 if (tipeUpgrade === 'gudang') {
                     if (pt.type === 'listrik') return m.reply('❌ Hanya untuk PT Non-Listrik!');
-                    let totalBiaya = Math.min(jmlLevel, MAX_LEVEL_GUDANG - (pt.gudangLevel || 1)) * HARGA_UPGRADE_GUDANG;
+                    let currentLevel = pt.gudangLevel || 1;
+                    if (currentLevel >= MAX_LEVEL_GUDANG) return m.reply(`❌ Gudang sudah mencapai level maksimal (Lv ${MAX_LEVEL_GUDANG})!`);
+                    
+                    let allowedLevel = Math.min(jmlLevel, MAX_LEVEL_GUDANG - currentLevel);
+                    let totalBiaya = allowedLevel * HARGA_UPGRADE_GUDANG;
+                    
                     if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT: ${formatRp(pt.saldo)}`);
-                    pt.saldo -= totalBiaya; pt.gudangLevel = (pt.gudangLevel || 1) + jmlLevel;
+                    pt.saldo -= totalBiaya; pt.gudangLevel = currentLevel + allowedLevel;
                     m.reply(`📦 Gudang diupgrade ke Lv *${pt.gudangLevel}*\nKapasitas Baru: ${getKapasitasGudang(pt).toLocaleString('id-ID')} Slot\n💸 Kas PT Terpotong: -${formatRp(totalBiaya)}`);
                 } else {
                     if (pt.type !== 'listrik') return m.reply('❌ Hanya untuk PT LISTRIK!');
+                    let currentLevel = pt.listrikLevel || 1;
+                    if (currentLevel >= MAX_LEVEL_LISTRIK) return m.reply(`❌ Kapasitas Listrik sudah mencapai level maksimal (Lv ${MAX_LEVEL_LISTRIK})!`);
                     
-                    // CEK BATAS MAKSIMAL LEVEL LISTRIK
-                    if ((pt.listrikLevel || 1) >= MAX_LEVEL_LISTRIK) return m.reply(`❌ Level Listrik sudah mencapai batas maksimal (Lv ${MAX_LEVEL_LISTRIK})!`);
-                    let allowedLevel = Math.min(jmlLevel, MAX_LEVEL_LISTRIK - (pt.listrikLevel || 1));
-                    
+                    let allowedLevel = Math.min(jmlLevel, MAX_LEVEL_LISTRIK - currentLevel);
                     let totalBiaya = allowedLevel * HARGA_UPGRADE_LISTRIK;
+                    
                     if ((pt.saldo || 0) < totalBiaya) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(totalBiaya)}\nKas PT: ${formatRp(pt.saldo)}`);
-                    pt.saldo -= totalBiaya; pt.listrikLevel = (pt.listrikLevel || 1) + allowedLevel;
-                    m.reply(`⚡ Kapasitas Listrik diupgrade ke Lv *${pt.listrikLevel}*\nKapasitas Baru: ${formatDaya(getKapasitasListrik(pt))}\n💸 Kas PT: -${formatRp(totalBiaya)}`);
+                    pt.saldo -= totalBiaya; pt.listrikLevel = currentLevel + allowedLevel;
+                    m.reply(`⚡ Kapasitas Listrik diupgrade ke Lv *${pt.listrikLevel}*\nKapasitas Maksimal Baru: ${formatDaya(getKapasitasListrik(pt))}\n💸 Kas PT: -${formatRp(totalBiaya)}`);
                 }
                 break;
             }
 
             case 'pabrik': {
                 let idPt = parseInt(args[1]) - 1; let tipePabrik = args[2] ? args[2].toLowerCase() : ''; let namaPabrik = args.slice(3).join(' ');
-                if (isNaN(idPt) || !biayaPabrikObj[tipePabrik] || !namaPabrik) return m.reply(`⚠️ Format: *${usedPrefix+command} pabrik <id> <tipe> <nama>*`);
-                let pt = user.perusahaan[idPt]; if (!pt || pt.type === 'listrik') return m.reply('❌ Gagal! ID tidak valid.');
-                if (pt.pabrik.length >= 2) return m.reply('❌ Maks 2 anak pabrik per PT!');
+                
+                if (isNaN(idPt) || !biayaPabrikObj[tipePabrik] || !namaPabrik) {
+                    let tutPabrik = `🏭 *TUTORIAL BANGUN ANAK PABRIK*\n\n` +
+                                    `Fungsi anak pabrik adalah membuat Perusahaanmu bisa memproduksi *lintas tipe barang*. (Batas maksimal 2 pabrik per PT).\n\n` +
+                                    `*Format Pembangunan:*\n` +
+                                    `*${usedPrefix+command} pabrik <id_pt_mu> <tipe_pabrik> <Nama Pabrik>*\n\n` +
+                                    `*Katalog Tipe & Harga Pabrik:*\n` +
+                                    `• *daurulang* — ${formatRp(biayaPabrikObj['daurulang'])}\n` +
+                                    `• *minuman* — ${formatRp(biayaPabrikObj['minuman'])}\n` +
+                                    `• *tambang* — ${formatRp(biayaPabrikObj['tambang'])}\n` +
+                                    `• *senjata* — ${formatRp(biayaPabrikObj['senjata'])}\n\n` +
+                                    `_Contoh: ${usedPrefix+command} pabrik 1 senjata Pabrik Besi Baja_`;
+                    return m.reply(tutPabrik);
+                }
+
+                let pt = user.perusahaan[idPt]; if (!pt || pt.type === 'listrik') return m.reply('❌ Gagal! ID PT tidak valid.');
+                if (pt.pabrik.length >= 2) return m.reply('❌ Perusahaanmu sudah mencapai batas maksimal 2 anak pabrik!');
+                
                 let hargaP = biayaPabrikObj[tipePabrik];
                 if ((pt.saldo || 0) < hargaP) return m.reply(`❌ Kas PT kurang!\nButuh: ${formatRp(hargaP)}\nKas PT: ${formatRp(pt.saldo)}`);
+                
                 pt.saldo -= hargaP; pt.pabrik.push({ name: namaPabrik, type: tipePabrik, karyawan: 10 });
-                m.reply(`🏭 Pabrik *${namaPabrik}* berhasil dibangun!\n💸 Kas PT Terpotong: -${formatRp(hargaP)}`);
+                m.reply(`🏭 Pabrik *${namaPabrik}* berhasil dibangun!\n💸 Kas PT Terpotong: -${formatRp(hargaP)}\n\n_Ketik *${usedPrefix+command} infopabrik* untuk panduan cara menjalankan produksi._`);
                 break;
+            }
+
+            // ==============================
+            // FITUR INFOPABRIK (TUTORIAL PENGGUNAAN PABRIK)
+            // ==============================
+            case 'infopabrik': {
+                let txt = `🏭 *PANDUAN OPERASIONAL PABRIK & PRODUKSI*\n\n`;
+                txt += `Setelah kamu memiliki Induk PT atau Anak Pabrik, ini langkah-langkah untuk menjalankan bisnis produksinya:\n\n`;
+                
+                txt += `*1. Persiapan Bahan Baku & Modal*\n`;
+                txt += `Setiap produksi butuh bahan baku dan biaya operasi. Kamu bisa memborong bahan baku di pasar global menggunakan command:\n`;
+                txt += `➡️ *${usedPrefix+command} buy <jml> <item> <id_pt>*\n`;
+                txt += `_(Contoh: .pt buy 1000 aqua 1)_\n\n`;
+
+                txt += `*2. Persediaan Listrik (Wajib)*\n`;
+                txt += `Produksi menyedot banyak energi. Pastikan PT kamu terhubung ke PLN atau beli lisrik swasta yang lebih murah:\n`;
+                txt += `➡️ *${usedPrefix+command} setlistrik <id_pt_mu> negara* (PLN)\n`;
+                txt += `➡️ *${usedPrefix+command} ceklistrik* (Mencari tarif termurah)\n\n`;
+
+                txt += `*3. Proses Produksi*\n`;
+                txt += `Jika bahan baku, modal, dan listrik sudah siap di gudang PT, mulai buat barang dengan:\n`;
+                txt += `➡️ *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n`;
+                txt += `_(Contoh: .pt produksi 100 tehbotol 1)_\n\n`;
+
+                txt += `*4. Distribusi & Penjualan (Gajian!)*\n`;
+                txt += `Jual seluruh barang yang ada di gudang ke Pasar Global untuk mendapatkan Omset, membayar pajak, logistik, dan membagikan dividen ke investor:\n`;
+                txt += `➡️ *${usedPrefix+command} jualsemua <id_pt>*\n\n`;
+                txt += `━━━━━━━━━━━━━━━━━━━━\n`;
+
+                txt += `📚 *KATALOG RESEP BARANG BERDASARKAN TIPE PABRIK:*\n\n`;
+                
+                txt += `💧 *Tipe: MINUMAN*\n`;
+                txt += `  • *Air Mineral* (Butuh: 1 aqua, 1 botol) - Daya: 2 W/item\n`;
+                txt += `  • *Teh Botol* (Butuh: 1 aqua, 1 botol, 2 daunteh, 1 tebu) - Daya: 3 W/item\n\n`;
+                
+                txt += `♻️ *Tipe: DAUR ULANG*\n`;
+                txt += `  • *Botol* (Butuh: 5 sampah, 1 kardus) - Daya: 2 W/item\n`;
+                txt += `  • *Kayu* (Tanpa Bahan Baku, hanya butuh Listrik) - Daya: 3.5 W/item\n\n`;
+                
+                txt += `⛏️ *Tipe: TAMBANG*\n`;
+                txt += `  • *Pasir* (Tanpa Bahan Baku) - Daya: 3 W/item\n`;
+                txt += `  • *Iron* (Butuh: 10 batu, 2 coal) - Daya: 6 W/item\n`;
+                txt += `  • *Emas Mentah* (Butuh: 15 pasir, 10 coal) - Daya: 10 W/item\n\n`;
+                
+                txt += `⚔️ *Tipe: SENJATA*\n`;
+                txt += `  • *Sword* (Butuh: 5 iron, 2 kayu) - Daya: 8 W/item\n\n`;
+                
+                txt += `_Makin kompleks barang yang diproduksi, makin besar cuan-nya! Selamat berbisnis!_`;
+                
+                return m.reply(txt);
             }
 
             case 'settarif': {
@@ -857,10 +931,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 m.reply(
                     `🏢 *MANAJEMEN PERUSAHAAN & SAHAM*\n\n` +
                     `🏛️ *PT & SAHAM*\n• *${usedPrefix+command} buat <tipe> <nama>*\n• *${usedPrefix+command} info [@tag]*\n• *${usedPrefix+command} tutup/bukainvest <id_pt>*\n\n` +
-                    `🤝 *B2B KERJASAMA (BARU!)*\n• *${usedPrefix+command} kirim <jumlah> <uang|item> <id_pt_mu> <@tag_partner> <id_pt_partner>*\n\n` +
+                    `🤝 *B2B KERJASAMA*\n• *${usedPrefix+command} kirim <jumlah> <uang|item> <id_pt_mu> <@tag_partner> <id_pt_partner>*\n\n` +
                     `🏦 *BANK KORPORASI*\n• *${usedPrefix+command} bank / pinjam / bayarbank*\n\n` +
                     `⚡ *LISTRIK & ENERGI*\n• *${usedPrefix+command} ceklistrik* _(Pasar Listrik Global)_\n• *${usedPrefix+command} setlistrik <id_pt> <negara|@tag_org> <id_pt_org>*\n• *${usedPrefix+command} buatpembangkit <id> <jenis>*\n• *${usedPrefix+command} upgrade listrik <id> <jml_lv>*\n• *${usedPrefix+command} settarif <id_listrik> <tarif>*\n\n` +
-                    `🏭 *PRODUKSI & UPGRADE*\n• *${usedPrefix+command} pabrik <id_pt> <tipe> <nama>*\n• *${usedPrefix+command} upgrade gudang <id_pt> <jml_lv>*\n• *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n\n` +
+                    `🏭 *PRODUKSI & PABRIK*\n• *${usedPrefix+command} infopabrik* _(📖 Tutorial & Resep Barang)_\n• *${usedPrefix+command} pabrik <id_pt> <tipe> <nama>*\n• *${usedPrefix+command} upgrade gudang <id_pt> <jml_lv>*\n• *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n\n` +
                     `⚙️ *OPERASIONAL*\n• *${usedPrefix+command} setor/tarik <jml> <uang|item> <id_pt>*\n• *${usedPrefix+command} buy <jml> <item> <id_pt>*\n• *${usedPrefix+command} jualsemua [id_pt]*\n\n` +
                     `📊 *BURSA*\n• *${usedPrefix+command} ihsg*`
                 );
