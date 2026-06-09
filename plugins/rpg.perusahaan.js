@@ -20,8 +20,8 @@ const biayaPabrikObj = {
 const hargaListrikNegara  = 14400;   
 const HARGA_UPGRADE_GUDANG = 4000000; 
 const HARGA_UPGRADE_LISTRIK = 1000000; 
-const MAX_LEVEL_GUDANG  = 5000;
-const MAX_LEVEL_LISTRIK = 4000; 
+const MAX_LEVEL_GUDANG  = 18700;
+const MAX_LEVEL_LISTRIK = 16500; 
 
 const slotPerLevel    = 120;  
 const wattPerLevel    = 1200; 
