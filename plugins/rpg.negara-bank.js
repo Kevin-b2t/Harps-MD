@@ -86,34 +86,68 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             user.lastBankTax = now; 
         }
 
-        // ==========================================
-        // AUTO COLLECT BUMN
+                // ==========================================
+        // FIXED AUTO COLLECT BUMN (AKUMULASI CUAN)
         // ==========================================
         function prosesAutoBUMN(perusahaan) {
             if (!perusahaan) return;
             let karyawan = perusahaan.karyawan || 0;
-            if (karyawan <= 0 || perusahaan.pelanggan >= 5000000) return;
+            if (karyawan <= 0) return;
+            if (perusahaan.pelanggan >= 5000000) {
+                // Jika pelanggan sudah maksimal (5jt), kas tetap bertambah dari pelanggan yang ada
+                let interval = 15 * 60 * 1000;
+                if (!perusahaan.lastAuto || perusahaan.lastAuto === 0) { perusahaan.lastAuto = now; return; }
+                let siklusLewat = Math.floor((now - perusahaan.lastAuto) / interval);
+                if (siklusLewat <= 0) return;
+
+                let harga = perusahaan.hargaPerWatt || perusahaan.hargaPerLiter || 0;
+                let cuanPerSiklus = perusahaan.pelanggan * harga;
+                
+                perusahaan.saldo += cuanPerSiklus * siklusLewat; // Uang nambah terus!
+                perusahaan.lastAuto = perusahaan.lastAuto + siklusLewat * interval;
+                return;
+            }
 
             let interval = 15 * 60 * 1000; 
-            if (!perusahaan.lastAuto || perusahaan.lastAuto === 0) { perusahaan.lastAuto = now; return; }
-            let siklusLewat = Math.floor((now - perusahaan.lastAuto) / interval);
+            if (!perusahaan.lastAuto || perusahaan.lastAuto === 0) {
+                perusahaan.lastAuto = now;
+                return;
+            }
+            let lastAuto = perusahaan.lastAuto;
+            let siklusLewat = Math.floor((now - lastAuto) / interval);
             if (siklusLewat <= 0) return;
 
-            let totalDapat = 0;
+            let totalPelangganBaru = 0;
+            let totalCuanAkumulasi = 0;
+            let harga = perusahaan.hargaPerWatt || perusahaan.hargaPerLiter || 0;
+            let pelangganBerjalan = perusahaan.pelanggan || 0;
+
             for (let s = 0; s < siklusLewat; s++) {
-                if (perusahaan.pelanggan + totalDapat >= 5000000) break;
+                if (pelangganBerjalan >= 5000000) {
+                    // Jika di tengah siklus pelanggan penuh, hitung cuan maksimal
+                    totalCuanAkumulasi += 5000000 * harga;
+                    continue;
+                }
+                
                 let dapat;
                 if (karyawan >= 500000) dapat = Math.floor(Math.random() * 50000) + 50000;  
                 else if (karyawan >= 100000) dapat = Math.floor(Math.random() * 10000) + 10000;  
                 else if (karyawan >= 10000) dapat = Math.floor(Math.random() * 1000) + 1000;    
                 else if (karyawan >= 6000) dapat = Math.floor(Math.random() * 101) + 500;
-                else dapat = Math.floor(Math.random() * 4) + 6;
-                totalDapat += dapat;
+                else if (karyawan >= 5000) dapat = Math.floor(Math.random() * 51) + 50;
+                else if (karyawan >= 5) dapat = Math.floor(Math.random() * 4) + 6;
+                else dapat = Math.floor(Math.random() * 4) + 2;
+                
+                pelangganBerjalan = Math.min(5000000, pelangganBerjalan + dapat);
+                totalPelangganBaru += dapat;
+                
+                // FIXED: Setiap siklus 15 menit, uang pelanggan langsung ditambahkan ke total akumulasi
+                totalCuanAkumulasi += pelangganBerjalan * harga;
             }
-            perusahaan.pelanggan = Math.min(5000000, perusahaan.pelanggan + totalDapat);
-            perusahaan.lastAuto = perusahaan.lastAuto + siklusLewat * interval;
-            let harga = perusahaan.hargaPerWatt || perusahaan.hargaPerLiter || 0;
-            perusahaan.saldo += totalDapat * harga;
+
+            perusahaan.pelanggan = Math.min(5000000, (perusahaan.pelanggan || 0) + totalPelangganBaru);
+            perusahaan.saldo += totalCuanAkumulasi; // SEKARANG UANG AKAN BERTAUT / NAMBAH TERUS!
+            perusahaan.lastAuto = lastAuto + siklusLewat * interval;
         }
 
         if (negara.pln) prosesAutoBUMN(negara.pln);
