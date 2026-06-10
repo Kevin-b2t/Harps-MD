@@ -1,6 +1,7 @@
 // ==========================================
 // FITUR NEGARA, BANK, BUMN & KORUPSI RPG (PREMIUM UI)
 // Coded/Merged with Enhanced Visuals by: Gemini AI
+// FIXED: Bug '$ is not defined' pada fitur investasi
 // ==========================================
 
 function formatRp(n) { return 'Rp ' + (n || 0).toLocaleString('id-ID'); }
@@ -59,6 +60,15 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         }
         let negara = global.db.data.negara;
         
+        // ==========================================
+        // PATCH DATABASE LAMA AGAR TIDAK ERROR
+        // ==========================================
+        if (!negara.bumn) negara.bumn = [];
+        if (!negara.kandidat) negara.kandidat = {};
+        if (negara.isPemilu === undefined) clanInfo = negara.isPemilu = false;
+        if (!negara.waktuMulaiPemilu) negara.waktuMulaiPemilu = 0;
+        if (!negara.kas) negara.kas = 100000000000;
+        if (negara.bank === undefined) negara.bank = false;
         if (negara.investBankOpen === undefined) negara.investBankOpen = true;
         if (negara.investPTOpen === undefined) negara.investPTOpen = true;
         if (negara.danaBansos === undefined) negara.danaBansos = 0;
@@ -86,45 +96,35 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             user.lastBankTax = now; 
         }
 
-                // ==========================================
-        // FIXED AUTO COLLECT BUMN (AKUMULASI CUAN)
+        // ==========================================
+        // FIXED AUTO COLLECT BUMN (AKUMULASI CUAN HARIAN)
         // ==========================================
         function prosesAutoBUMN(perusahaan) {
             if (!perusahaan) return;
             let karyawan = perusahaan.karyawan || 0;
             if (karyawan <= 0) return;
-            if (perusahaan.pelanggan >= 5000000) {
-                // Jika pelanggan sudah maksimal (5jt), kas tetap bertambah dari pelanggan yang ada
-                let interval = 15 * 60 * 1000;
-                if (!perusahaan.lastAuto || perusahaan.lastAuto === 0) { perusahaan.lastAuto = now; return; }
-                let siklusLewat = Math.floor((now - perusahaan.lastAuto) / interval);
-                if (siklusLewat <= 0) return;
-
-                let harga = perusahaan.hargaPerWatt || perusahaan.hargaPerLiter || 0;
-                let cuanPerSiklus = perusahaan.pelanggan * harga;
-                
-                perusahaan.saldo += cuanPerSiklus * siklusLewat; // Uang nambah terus!
-                perusahaan.lastAuto = perusahaan.lastAuto + siklusLewat * interval;
-                return;
-            }
 
             let interval = 15 * 60 * 1000; 
-            if (!perusahaan.lastAuto || perusahaan.lastAuto === 0) {
-                perusahaan.lastAuto = now;
-                return;
-            }
+            if (!perusahaan.lastAuto || perusahaan.lastAuto === 0) { perusahaan.lastAuto = now; return; }
             let lastAuto = perusahaan.lastAuto;
             let siklusLewat = Math.floor((now - lastAuto) / interval);
             if (siklusLewat <= 0) return;
 
+            let harga = perusahaan.hargaPerWatt || perusahaan.hargaPerLiter || 0;
+
+            if (perusahaan.pelanggan >= 5000000) {
+                let cuanPerSiklus = 5000000 * harga;
+                perusahaan.saldo += cuanPerSiklus * siklusLewat; 
+                perusahaan.lastAuto = lastAuto + siklusLewat * interval;
+                return;
+            }
+
             let totalPelangganBaru = 0;
             let totalCuanAkumulasi = 0;
-            let harga = perusahaan.hargaPerWatt || perusahaan.hargaPerLiter || 0;
             let pelangganBerjalan = perusahaan.pelanggan || 0;
 
             for (let s = 0; s < siklusLewat; s++) {
                 if (pelangganBerjalan >= 5000000) {
-                    // Jika di tengah siklus pelanggan penuh, hitung cuan maksimal
                     totalCuanAkumulasi += 5000000 * harga;
                     continue;
                 }
@@ -141,12 +141,11 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 pelangganBerjalan = Math.min(5000000, pelangganBerjalan + dapat);
                 totalPelangganBaru += dapat;
                 
-                // FIXED: Setiap siklus 15 menit, uang pelanggan langsung ditambahkan ke total akumulasi
                 totalCuanAkumulasi += pelangganBerjalan * harga;
             }
 
             perusahaan.pelanggan = Math.min(5000000, (perusahaan.pelanggan || 0) + totalPelangganBaru);
-            perusahaan.saldo += totalCuanAkumulasi; // SEKARANG UANG AKAN BERTAUT / NAMBAH TERUS!
+            perusahaan.saldo += totalCuanAkumulasi; 
             perusahaan.lastAuto = lastAuto + siklusLewat * interval;
         }
 
@@ -348,9 +347,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             let action = args[0] ? args[0].toLowerCase() : 'info';
 
             switch (action) {
-                // ==============================
-                // COMMAND BARU: PREMIUN HELP MENU
-                // ==============================
                 case 'help': {
                     let txtHelp = `╭━━━• 🏛️ *GOVERNMENT HELP INTERFACE* 🏛️ •━━━╮\n`
                         + `┃\n`
@@ -424,19 +420,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     return conn.reply(m.chat, txt, m, { mentions: [negara.presiden].filter(Boolean) });
                 }
 
-                                // ==============================
-                // INFO PERUSAHAAN NEGARA (BUMN)
-                // ==============================
                 case 'infobumn':
                 case 'info-bumn': {
                     let txt = `╭━━━• 🏢 *FINANCIAL REPORT BUMN* 🏢 •━━━╮\n┃\n`;
                     
-                    // 1. DATA PLN
                     if (negara.pln) {
-                        let p = meta = negara.pln;
+                        let p = negara.pln;
                         let pelangganPLN = p.pelanggan || 0;
                         let persenPLN = ((pelangganPLN / 5000000) * 100).toFixed(2);
-                        // Rumus: Total pelanggan x Harga PLN (Rp 6.500)
                         let pendapatanPLN = pelangganPLN * 6500;
                         
                         txt += `┣ ⚡ *Perusahaan Listrik Negara (PLN)*\n`
@@ -449,12 +440,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         txt += `┣ ⚡ *PLN Negara:* 🔴 Belum Ada Infrastruktur\n┃\n`;
                     }
 
-                    // 2. DATA PDAM
                     if (negara.pdam) {
                         let p = negara.pdam;
                         let pelangganPDAM = p.pelanggan || 0;
                         let persenPDAM = ((pelangganPDAM / 5000000) * 100).toFixed(2);
-                        // Rumus: Total pelanggan x Harga PDAM (Rp 16.000)
                         let pendapatanPDAM = pelangganPDAM * 16000;
                         
                         txt += `┣ 💧 *Perusahaan Daerah Air Minum (PDAM)*\n`
@@ -467,7 +456,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         txt += `┣ 💧 *PDAM Negara:* 🔴 Belum Beroperasi\n┃\n`;
                     }
 
-                    // 3. DATA PT SITAAN
                     let totalSitaan = negara.bumn ? negara.bumn.reduce((sum, pt) => sum + (pt.saldo || 0), 0) : 0;
                     let jumlahSitaan = negara.bumn ? negara.bumn.length : 0;
                     
@@ -521,7 +509,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         negara.isPemilu = false;
                         m.reply(`🗳️ *TPS DITUTUP!* Gunakan perintah *${usedPrefix+command} sahkan* untuk pelantikan.`);
                     } else {
-                        negara.isPemilu = true; negara.waktuMulaiPemilu = now; negara.kandidat = {}; negara.voters = [];
+                        negara.isPemilu = true; negara.waktuMulaiPemilu = now; clanInfo = negara.kandidat = {}; negara.voters = [];
                         m.reply(`🗳️ *TPS DIBUKA (Masa Aktif 1 Jam)*\nDaftarkan diri Anda lewat perintah *${usedPrefix+command} daftarcalon*`);
                     }
                     break;
@@ -665,13 +653,13 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 }
 
                 case 'investasi': {
-                    if (!negara.investPTOpen) return m.reply('❌ Bursa investasi BUMN sedang di-suspend oleh otoritas keuangan negara.');
+                    if (!negara.investPTOpen) return m.reply('❌ Gerbang investasi BUMN ditutup sementara.');
                     let jenis = args[1] ? args[1].toLowerCase() : '';
                     let nominal = parseInt(args[2]);
                     if (jenis !== 'pln' && jenis !== 'pdam') return m.reply(`⚠️ Format salah: *${usedPrefix+command} investasi <pln/pdam> <nominal>*`);
                     if (isNaN(nominal) || nominal < 1000000000) return m.reply('⚠️ Batas investasi bursa minimal Rp 1 Miliar.');
 
-                    let perusahaan = $.perusahaan = negara[jenis];
+                    let perusahaan = negara[jenis];
                     if (!perusahaan) return m.reply(`❌ Perusahaan target belum dibangun.`);
                     if (user.money < nominal) return m.reply(`❌ Modal pribadi Anda di dompet kurang.`);
 
@@ -747,7 +735,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let u = users[uid]; if (!Array.isArray(u.perusahaan)) continue;
                         u.perusahaan.forEach(pt => { if (pt) entries.push({ nama: pt.name, pemilik: u.name || uid.split('@')[0], kategori: 'Private', valuasi: hitungAset(pt), saldo: pt.saldo || 0 }); });
                     }
-                    if (negara.pln) entries.push({ nama: 'PLN (Persero)', pemilik: 'Negara', kategori: 'BUMN', valuasi: ((negara.pln.saldo || 0) + (negara.pln.pelanggan || 0) * 6500 + (negara.pln.karyawan || 0) * 5000000000), saldo: negara.pln.saldo || 0 });
+                    if (negara.pln) entries.push({ nama: 'PLN (Persero)', pemilik: 'Negara', kategori: 'BUMN', valuasi: ((negara.pln.saldo || 0) + (negara.pln.pelanggan || 0) * 6500 + (negara.pln.karyawan || 0) * 5000000000), saldo: clanInfo = negara.pln.saldo || 0 });
                     if (negara.pdam) entries.push({ nama: 'PDAM (Persero)', pemilik: 'Negara', kategori: 'BUMN', valuasi: ((negara.pdam.saldo || 0) + (negara.pdam.pelanggan || 0) * 16000 + (negara.pdam.karyawan || 0) * 5000000000), saldo: negara.pdam.saldo || 0 });
                     
                     if (!entries.length) return m.reply('📊 Belum ada korporasi yang terdaftar di kementerian bursa.');
