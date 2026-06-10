@@ -399,17 +399,17 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     
                     // 1. DATA PLN
                     if (negara.pln) {
-                        let p = negara.pln;
+                        let p = meta = negara.pln;
                         let pelangganPLN = p.pelanggan || 0;
                         let persenPLN = ((pelangganPLN / 5000000) * 100).toFixed(2);
-                        // Hitung Pendapatan PLN per 15 Menit
-                        let pendapatanPLN = pelangganPLN * (p.hargaPerWatt || 6500);
+                        // Rumus: Total pelanggan x Harga PLN (Rp 6.500)
+                        let pendapatanPLN = pelangganPLN * 6500;
                         
                         txt += `┣ ⚡ *Perusahaan Listrik Negara (PLN)*\n`
                             + `┃   ◦ Saldo Kas PT: *${formatRp(p.saldo)}*\n`
                             + `┃   ◦ Tenaga Kerja: ${p.karyawan ? p.karyawan.toLocaleString('id-ID') : 0} / 1jt Orang\n`
                             + `┃   ◦ Total Pelanggan: ${pelangganPLN.toLocaleString('id-ID')} (${persenPLN}%)\n`
-                            + `┃   ◦ Pendapatan: *${formatRp(pendapatanPLN)} / 15 Menit*\n`
+                            + `┃   ◦ Pendapatan: *${formatRp(pendapatanPLN)} / 15 Menit* _(Pelanggan × Rp 6.500)_\n`
                             + `┃   ◦ Total Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n┃\n`;
                     } else {
                         txt += `┣ ⚡ *PLN Negara:* 🔴 Belum Ada Infrastruktur\n┃\n`;
@@ -420,14 +420,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let p = negara.pdam;
                         let pelangganPDAM = p.pelanggan || 0;
                         let persenPDAM = ((pelangganPDAM / 5000000) * 100).toFixed(2);
-                        // Hitung Pendapatan PDAM per 15 Menit
-                        let pendapatanPDAM = pelangganPDAM * (p.hargaPerLiter || 16000);
+                        // Rumus: Total pelanggan x Harga PDAM (Rp 16.000)
+                        let pendapatanPDAM = pelangganPDAM * 16000;
                         
                         txt += `┣ 💧 *Perusahaan Daerah Air Minum (PDAM)*\n`
                             + `┃   ◦ Saldo Kas PT: *${formatRp(p.saldo)}*\n`
                             + `┃   ◦ Tenaga Kerja: ${p.karyawan ? p.karyawan.toLocaleString('id-ID') : 0} / 1jt Orang\n`
                             + `┃   ◦ Total Pelanggan: ${pelangganPDAM.toLocaleString('id-ID')} (${persenPDAM}%)\n`
-                            + `┃   ◦ Pendapatan: *${formatRp(pendapatanPDAM)} / 15 Menit*\n`
+                            + `┃   ◦ Pendapatan: *${formatRp(pendapatanPDAM)} / 15 Menit* _(Pelanggan × Rp 16.000)_\n`
                             + `┃   ◦ Total Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n┃\n`;
                     } else {
                         txt += `┣ 💧 *PDAM Negara:* 🔴 Belum Beroperasi\n┃\n`;
