@@ -35,7 +35,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           // Ambil maksimal 8 foto sesuai permintaan
           let images = data.result.slice(0, 8); 
           
-          // Simpan data pencarian di memori bot untuk user ini
+          // Simpan data pencarian di memori bot untuk user ini (khusus Pinterest)
           conn.pinterestSearch = conn.pinterestSearch || {};
           conn.pinterestSearch[m.sender] = {
             query: text,
@@ -44,12 +44,32 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           };
 
           let firstImage = images[0];
-          let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}\n\n💡 *Ketik "next" untuk melihat foto selanjutnya.*`;
+          let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}`;
 
+          // Kirim Foto Pertama
           await conn.sendMessage(m.chat, { 
             image: { url: firstImage }, 
             caption: captionText 
           }, { quoted: m });
+
+          // Kirim Tombol List untuk opsi "Next"
+          let sections = [{
+            title: 'Aksi Pinterest',
+            rows: [{
+              title: '➡️ Next Foto',
+              description: 'Lihat foto selanjutnya dari pencarian ini',
+              rowId: 'next' // Akan ditangkap oleh handler.before di bawah
+            }]
+          }];
+
+          await conn.sendList(
+            m.chat, 
+            'Pinterest Downloader', 
+            'Klik tombol di bawah untuk melihat foto selanjutnya.', 
+            'Pilih Aksi', 
+            sections, 
+            m
+          );
           
         } catch (e) {
           throw eror;
@@ -62,6 +82,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
     case 'spotify': {
       if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} payung teduh`;
       
+      // Jika link Spotify langsung dikirim atau dieksekusi dari List Menu
       if (args[0].match(/https:\/\/open\.spotify\.com/i)) {
         m.reply(wait);
         try {
@@ -77,26 +98,32 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           throw `🚩 ${eror}`;
         }
       } 
+      // Jika melakukan pencarian lagu
       else { 
         m.reply(wait);
         const query = args.join(" ");
         try {
           const api = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(query)}&apikey=${global.btc || btc}`);
           let json = await api.json();
-          let res = json.result.data.slice(0, 5); // Tetap 5 untuk lagu agar tidak terlalu panjang daftarnya
+          let res = json.result.data.slice(0, 5); 
           
-          // Simpan hasil pencarian di memori bot untuk user ini
-          conn.spotifySearch = conn.spotifySearch || {};
-          conn.spotifySearch[m.sender] = res; 
+          // Struktur untuk fungsi conn.sendList
+          let sections = [{
+            title: `Hasil Pencarian Spotify`,
+            rows: res.map((v) => ({
+              title: v.title,
+              description: `Durasi: ${v.duration} | Populer: ${v.popularity}`,
+              // Saat diklik, bot otomatis mengeksekusi ".spotify <url>"
+              rowId: `${usedPrefix}${command} ${v.url}` 
+            }))
+          }];
 
-          let teks = `🎵 *Hasil Pencarian Spotify: ${query}*\n\n`;
-          for (let i = 0; i < res.length; i++) {
-            teks += `*${i + 1}.* ${res[i].title}\n`;
-            teks += `   ∘ Duration: ${res[i].duration}\n`;
-            teks += `   ∘ Popularity: ${res[i].popularity}\n\n`;
-          }
-          teks += `💡 *Silakan ketik "lagu 1" sampai "lagu ${res.length}" untuk mendownload audionya.*`;
-          await conn.reply(m.chat, teks, m);
+          let title = `🎵 *Hasil Pencarian: ${query}*`;
+          let description = `Silakan klik tombol di bawah untuk memilih lagu yang ingin didownload.`;
+          let buttonText = `Pilih Lagu Disini`;
+
+          // Kirimkan List Message
+          await conn.sendList(m.chat, title, description, buttonText, sections, m);
         } catch (e) {
           throw `🚩 ${eror}`;
         }
@@ -194,7 +221,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
 };
 
 // ================== LISTENER (HANDLER.BEFORE) ==================
-// Berfungsi untuk mendengarkan ketikan "lagu 1" atau "next"
+// Berfungsi untuk mendengarkan ketikan "next" atau klik List Button dari Pinterest
 handler.before = async (m, { conn }) => {
   if (m.isBaileys || !m.text) return;
   
@@ -206,65 +233,48 @@ handler.before = async (m, { conn }) => {
     let pinData = conn.pinterestSearch[m.sender];
     pinData.currentIndex += 1;
 
-    // Cek apakah sudah melebihi jumlah foto yang disimpan (8 foto)
+    // Cek apakah sudah melebihi jumlah foto yang disimpan
     if (pinData.currentIndex >= pinData.urls.length) {
       m.reply('✅ *Sudah mencapai foto terakhir dari pencarian ini.*');
-      delete conn.pinterestSearch[m.sender]; // Hapus sesi jika sudah habis
+      delete conn.pinterestSearch[m.sender]; 
       return true;
     }
 
     let nextImageUrl = pinData.urls[pinData.currentIndex];
     let isLast = pinData.currentIndex === pinData.urls.length - 1;
     let captionText = `🍟 *Pinterest Search:* ${pinData.query}\n📷 *Foto:* ${pinData.currentIndex + 1}/${pinData.urls.length}`;
-    
-    // Tambahkan info jika ini belum foto terakhir
-    if (!isLast) {
-      captionText += `\n\n💡 *Ketik "next" untuk melihat foto selanjutnya.*`;
-    } else {
-      captionText += `\n\n✅ _Ini adalah foto terakhir._`;
-      delete conn.pinterestSearch[m.sender]; // Otomatis bersihkan sesi di foto terakhir
-    }
 
+    // Kirim foto selanjutnya
     await conn.sendMessage(m.chat, { 
       image: { url: nextImageUrl }, 
       caption: captionText 
     }, { quoted: m });
 
-    return true;
-  }
+    // Tambahkan tombol list lagi jika ini belum foto terakhir
+    if (!isLast) {
+      let sections = [{
+        title: 'Aksi Pinterest',
+        rows: [{
+          title: '➡️ Next Foto',
+          description: 'Lihat foto selanjutnya dari pencarian ini',
+          rowId: 'next'
+        }]
+      }];
 
-  // --- LISTENER SPOTIFY ("lagu 1", "lagu 2", dst) ---
-  conn.spotifySearch = conn.spotifySearch || {};
-  let matchSpotify = teks.match(/^lagu\s+([1-5])$/);
-  
-  if (matchSpotify && conn.spotifySearch[m.sender]) {
-    let index = parseInt(matchSpotify[1]) - 1;
-    let data = conn.spotifySearch[m.sender];
-    
-    if (!data[index]) {
-       m.reply('Pilihan lagu tidak ada di daftar. Silakan cari ulang.');
-       return true;
+      await conn.sendList(
+        m.chat, 
+        'Pinterest Downloader', 
+        'Klik tombol di bawah untuk melihat foto selanjutnya.', 
+        'Pilih Aksi', 
+        sections, 
+        m
+      );
+    } else {
+      m.reply('✅ _Ini adalah foto terakhir dari hasil pencarian._');
+      delete conn.pinterestSearch[m.sender]; // Otomatis hapus memori
     }
-    
-    let url = data[index].url;
-    m.reply(`⏳ *Mendownload ${data[index].title}...*`);
-    
-    try {
-      const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${global.btc || btc}`);
-      let jsons = await res.json();
-      const { title, url: audioUrl } = jsons.result.data;
-      
-      await conn.sendMessage(m.chat, { 
-        audio: { url: audioUrl }, 
-        mimetype: 'audio/mpeg' 
-      }, { quoted: m });
-      
-      // Hapus sesi spotify setelah lagu berhasil dikirim
-      delete conn.spotifySearch[m.sender];
-    } catch (e) {
-       m.reply('Gagal mendownload lagu. API sedang bermasalah.');
-    }
-    return true; 
+
+    return true;
   }
 };
 
