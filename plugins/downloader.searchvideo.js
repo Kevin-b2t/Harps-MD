@@ -1,53 +1,64 @@
 const fetch = require('node-fetch');
 const yts = require('yt-search');
-const crypto = require('crypto');
+const { prepareWAMessageMedia, generateWAMessageFromContent } = require('@adiwajshing/baileys');
 
 // =========================================================================
-// FUNGSI CUSTOM: Mengirim List Button V2 (Anti Server Error / Anti Banned)
-// Menggunakan Native Flow Message seperti UI WhatsApp terbaru
+// HELPER: Mengirim Gambar + Tombol Biasa (Anti-Blokir WA)
 // =========================================================================
-const sendListInteractive = async (conn, jid, title, text, footer, btnText, sections, quoted) => {
-    let contextInfo = {};
-    if (quoted) {
-        contextInfo = {
-            stanzaId: quoted.key.id,
-            participant: quoted.sender,
-            quotedMessage: quoted.message
-        };
-    }
-    
-    const msg = {
+async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted) {
+    let media = await conn.getFile(imageUrl);
+    let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
+
+    let dynamicButtons = buttons.map(btn => ({
+        name: "quick_reply",
+        buttonParamsJson: JSON.stringify({ display_text: btn.text, id: btn.id })
+    }));
+
+    let msg = generateWAMessageFromContent(jid, {
         viewOnceMessage: {
             message: {
-                messageContextInfo: {
-                    deviceListMetadata: {},
-                    deviceListMetadataVersion: 2
-                },
+                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
                 interactiveMessage: {
-                    contextInfo: contextInfo,
-                    body: { text: text },
-                    footer: { text: footer },
-                    header: { title: title, hasMediaAttachment: false },
+                    body: { text: caption },
+                    footer: { text: "🍟 Pinterest Downloader" },
+                    header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
+                    nativeFlowMessage: { buttons: dynamicButtons }
+                }
+            }
+        }
+    }, { quoted: quoted, userJid: conn.user?.id || conn.user?.jid });
+
+    await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
+}
+
+// =========================================================================
+// HELPER: Mengirim Gambar + List Menu (Anti-Blokir WA)
+// =========================================================================
+async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sections, quoted) {
+    let media = await conn.getFile(imageUrl);
+    let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
+
+    let msg = generateWAMessageFromContent(jid, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                interactiveMessage: {
+                    body: { text: caption },
+                    footer: { text: "🎵 Spotify Downloader" },
+                    header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
                     nativeFlowMessage: {
-                        buttons: [
-                            {
-                                name: "single_select",
-                                buttonParamsJson: JSON.stringify({
-                                    title: btnText,
-                                    sections: sections
-                                })
-                            }
-                        ]
+                        buttons: [{
+                            name: "single_select",
+                            buttonParamsJson: JSON.stringify({ title: listTitle, sections: sections })
+                        }]
                     }
                 }
             }
         }
-    };
-    
-    await conn.relayMessage(jid, msg, { 
-        messageId: crypto.randomBytes(16).toString('hex').toUpperCase() 
-    });
-};
+    }, { quoted: quoted, userJid: conn.user?.id || conn.user?.jid });
+
+    await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
+}
 
 let handler = async (m, { conn, args, text, usedPrefix, command }) => {
   switch (command) {
@@ -80,7 +91,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           
           if (!data.result || data.result.length === 0) throw 'Gambar tidak ditemukan.';
 
-          // Ambil maksimal 8 foto
           let images = data.result.slice(0, 8); 
           
           // Simpan sesi pencarian di memori bot
@@ -94,23 +104,15 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let firstImage = images[0];
           let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}`;
 
-          // Kirim Foto Pertama
-          await conn.sendMessage(m.chat, { 
-            image: { url: firstImage }, 
-            caption: captionText 
-          }, { quoted: m });
-
-          // Kirim List Button V2
-          let sections = [{
-            title: 'Aksi Pinterest',
-            rows: [{
-              title: '➡️ Next Foto',
-              description: 'Lihat foto selanjutnya dari pencarian ini',
-              id: 'next' // ID ini akan dibaca oleh handler.before
-            }]
-          }];
-
-          await sendListInteractive(conn, m.chat, '🍟 Pinterest Menu', 'Klik tombol di bawah untuk melihat foto selanjutnya.', 'Pinterest Downloader', 'Pilih Aksi', sections, m);
+          // MENGIRIM GAMBAR & TOMBOL SEKALIGUS DALAM 1 PESAN!
+          await sendButtonWithImage(
+              conn, 
+              m.chat, 
+              firstImage, 
+              captionText, 
+              [{ text: "➡️ Next Foto", id: "next" }], 
+              m
+          );
           
         } catch (e) {
           throw eror;
@@ -152,13 +154,17 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let sections = [{
             title: `Hasil Pencarian Spotify`,
             rows: res.map((v) => ({
-              title: v.title,
+              title: v.title.slice(0, 24), // Potong judul agak pendek agar tak error di WA
               description: `Durasi: ${v.duration} | Populer: ${v.popularity}`,
-              id: `dl-spotify|${v.url}` // Menyisipkan link di dalam ID Tombol
+              id: `dl-spotify|${v.url}` 
             }))
           }];
 
-          await sendListInteractive(conn, m.chat, '🎵 Spotify Search', `Hasil Pencarian untuk: *${query}*\n\nSilakan klik tombol di bawah untuk memilih lagu.`, 'Spotify Downloader', 'Daftar Lagu', sections, m);
+          // MENGIRIM DUMMY GAMBAR SPOTIFY BERSAMAAN DENGAN LIST MENU
+          let spotifyThumb = 'https://i.ibb.co/GFVf3h3/spotify.png';
+          let caption = `🎵 *Hasil Pencarian: ${query}*\n\nSilakan klik tombol di bawah untuk memilih lagu.`;
+          
+          await sendListWithImage(conn, m.chat, spotifyThumb, caption, 'Pilih Lagu', sections, m);
 
         } catch (e) {
           throw `🚩 ${eror}`;
@@ -262,7 +268,7 @@ handler.before = async (m, { conn }) => {
   
   let teks = m.text || '';
 
-  // Tangkap ID dari tombol Native Flow V2 jika ditekan oleh user
+  // Menangkap ID Tombol dari WhatsApp terbaru
   if (m.msg && m.msg.nativeFlowResponseMessage) {
     try {
       let params = JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson);
@@ -289,28 +295,26 @@ handler.before = async (m, { conn }) => {
     let isLast = pinData.currentIndex === pinData.urls.length - 1;
     let captionText = `🍟 *Pinterest Search:* ${pinData.query}\n📷 *Foto:* ${pinData.currentIndex + 1}/${pinData.urls.length}`;
 
-    // Kirim Foto Berikutnya
-    await conn.sendMessage(m.chat, { 
-      image: { url: nextImageUrl }, 
-      caption: captionText 
-    }, { quoted: m });
-
-    // Jika Belum Habis, Munculkan Tombol List Lagi
+    // Jika Belum Habis, Munculkan Tombol + Gambar Lagi
     if (!isLast) {
-      let sections = [{
-        title: 'Aksi Pinterest',
-        rows: [{ title: '➡️ Next Foto', description: 'Lihat foto selanjutnya dari pencarian ini', id: 'next' }]
-      }];
-      await sendListInteractive(conn, m.chat, '🍟 Pinterest Menu', 'Klik tombol di bawah untuk melihat foto selanjutnya.', 'Pinterest Downloader', 'Pilih Aksi', sections, m);
+      await sendButtonWithImage(
+          conn, 
+          m.chat, 
+          nextImageUrl, 
+          captionText, 
+          [{ text: "➡️ Next Foto", id: "next" }], 
+          m
+      );
     } else {
-      m.reply('✅ _Ini adalah foto terakhir dari pencarian._');
+      // Jika Habis, kirim gambar biasa tanpa tombol
+      captionText += `\n\n✅ _Ini adalah foto terakhir dari pencarian._`;
+      await conn.sendMessage(m.chat, { image: { url: nextImageUrl }, caption: captionText }, { quoted: m });
       delete conn.pinterestSearch[m.sender];
     }
     return true;
   }
 
   // --- LISTENER SPOTIFY ---
-  // Menangkap ID Tombol dari Spotify (Format: dl-spotify|link_lagu)
   if (teks.startsWith('dl-spotify|')) {
     let url = teks.split('|')[1];
     m.reply('⏳ *Mendownload lagu, harap tunggu...*');
