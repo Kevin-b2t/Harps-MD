@@ -1,28 +1,16 @@
 const fetch = require('node-fetch');
 const yts = require('yt-search');
+const crypto = require('crypto');
 
-const wait = '⏳ _Tunggu sedang di proses..._';
-const eror = '❌ _Terjadi kesalahan saat mengambil data dari server._';
-
-// =========================================================================
-// ILMU HITAM: Konfigurasi Fake Newsletter agar Tombol lolos sensor WA 🗿
-// =========================================================================
-const fakeNewsletter = {
-    isForwarded: true,
-    forwardingScore: 999,
-    forwardedNewsletterMessageInfo: {
-        newsletterJid: "120363400911374213@newsletter", // ID Saluran (Jangan diganti agar work)
-        newsletterName: "🍟 Downloader Center", // Nama yang muncul di atas pesan
-        serverMessageId: 143
-    }
-};
+const wait = '⏳ _Sedang memproses permintaan Anda..._';
+const eror = '❌ _Gagal mengambil data, silakan coba lagi nanti._';
 
 // =========================================================================
-// HELPER: Mengirim Gambar + Tombol Biasa (Dengan Trik Spoofing)
+// RAW PAYLOAD: Mengirim Gambar + Tombol (Khusus WA Business & Native Flow)
 // =========================================================================
 async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted) {
     try {
-        const { prepareWAMessageMedia, generateWAMessageFromContent } = require('@adiwajshing/baileys');
+        const { prepareWAMessageMedia } = require('@adiwajshing/baileys');
         
         let media = await conn.getFile(imageUrl);
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
@@ -32,50 +20,67 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted
             buttonParamsJson: JSON.stringify({ display_text: btn.text, id: btn.id })
         }));
 
-        let msg = generateWAMessageFromContent(jid, {
+        // Merakit Raw Payload persis seperti struktur asli WA
+        let messageContent = {
             viewOnceMessage: {
                 message: {
-                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
                     interactiveMessage: {
-                        contextInfo: fakeNewsletter, // <-- SUNTIKAN ILMU HITAM DI SINI
+                        header: {
+                            hasMediaAttachment: true,
+                            imageMessage: mediaMsg.imageMessage
+                        },
                         body: { text: caption },
                         footer: { text: "🍟 Pinterest Downloader" },
-                        header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
+                        contextInfo: {
+                            participant: quoted.sender,
+                            quotedMessage: quoted.message || {}
+                        },
                         nativeFlowMessage: { buttons: dynamicButtons }
                     }
                 }
             }
-        }, { quoted: quoted, userJid: conn.user?.id || conn.user?.jid });
+        };
 
-        await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
+        let msgId = crypto.randomBytes(16).toString('hex').toUpperCase();
+        await conn.relayMessage(jid, messageContent, { messageId: msgId });
     } catch (e) {
-        console.error("Gagal mengirim tombol UI:", e);
-        await conn.sendMessage(jid, { 
-            image: { url: imageUrl }, 
-            caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._' 
-        }, { quoted });
+        console.error("Error UI Button:", e);
+        await conn.sendMessage(jid, { image: { url: imageUrl }, caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._' }, { quoted });
     }
 }
 
 // =========================================================================
-// HELPER: Mengirim Gambar + List Menu (Dengan Trik Spoofing)
+// RAW PAYLOAD: Mengirim Gambar + List Menu (Khusus WA Business & Native Flow)
 // =========================================================================
 async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sections, quoted) {
     try {
-        const { prepareWAMessageMedia, generateWAMessageFromContent } = require('@adiwajshing/baileys');
+        const { prepareWAMessageMedia } = require('@adiwajshing/baileys');
 
         let media = await conn.getFile(imageUrl);
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
 
-        let msg = generateWAMessageFromContent(jid, {
+        let messageContent = {
             viewOnceMessage: {
                 message: {
-                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
                     interactiveMessage: {
-                        contextInfo: fakeNewsletter, // <-- SUNTIKAN ILMU HITAM DI SINI
+                        header: {
+                            hasMediaAttachment: true,
+                            imageMessage: mediaMsg.imageMessage
+                        },
                         body: { text: caption },
                         footer: { text: "🎵 Spotify Downloader" },
-                        header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
+                        contextInfo: {
+                            participant: quoted.sender,
+                            quotedMessage: quoted.message || {}
+                        },
                         nativeFlowMessage: {
                             buttons: [{
                                 name: "single_select",
@@ -85,15 +90,13 @@ async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sectio
                     }
                 }
             }
-        }, { quoted: quoted, userJid: conn.user?.id || conn.user?.jid });
+        };
 
-        await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
+        let msgId = crypto.randomBytes(16).toString('hex').toUpperCase();
+        await conn.relayMessage(jid, messageContent, { messageId: msgId });
     } catch (e) {
-        console.error("Gagal mengirim list UI:", e);
-        await conn.sendMessage(jid, { 
-            image: { url: imageUrl }, 
-            caption: caption + '\n\n💡 _Ketik *lagu 1* untuk mendownload._' 
-        }, { quoted });
+        console.error("Error UI List:", e);
+        await conn.sendMessage(jid, { image: { url: imageUrl }, caption: caption + '\n\n💡 _Ketik *lagu 1* untuk mendownload._' }, { quoted });
     }
 }
 
@@ -142,7 +145,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let firstImage = images[0];
           let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}`;
 
-          // EKSEKUSI TOMBOL DENGAN TRIK SPOOFING
+          // MENGIRIM RAW PAYLOAD TOMBOL
           await sendButtonWithImage(
               conn, 
               m.chat, 
@@ -201,7 +204,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let spotifyThumb = 'https://i.ibb.co/GFVf3h3/spotify.png';
           let caption = `🎵 *Hasil Pencarian: ${query}*\n\nSilakan klik tombol di bawah untuk memilih lagu.`;
           
-          // EKSEKUSI LIST MENU DENGAN TRIK SPOOFING
+          // MENGIRIM RAW PAYLOAD LIST MENU
           await sendListWithImage(conn, m.chat, spotifyThumb, caption, '🎶 Pilih Lagu', sections, m);
 
         } catch (e) {
@@ -306,6 +309,7 @@ handler.before = async (m, { conn }) => {
   
   let teks = m.text || '';
 
+  // Penangkapan ID tombol yang diklik dari HP User
   if (m.msg && m.msg.nativeFlowResponseMessage) {
     try {
       let params = JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson);
@@ -368,6 +372,7 @@ handler.before = async (m, { conn }) => {
     return true; 
   }
 
+  // Tangkap teks manual "lagu 1" jika fallback teks terpakai
   let matchSpotify = teks.match(/^lagu\s+([1-5])$/);
   if (matchSpotify && conn.spotifySearch && conn.spotifySearch[m.sender]) {
     let index = parseInt(matchSpotify[1]) - 1;
