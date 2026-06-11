@@ -10,6 +10,7 @@ const eror = '❌ _Gagal mengambil data, silakan coba lagi nanti._';
 // RAW PAYLOAD: Mengirim Gambar + Tombol (Native Flow + Spoofing Saluran)
 // =========================================================================
 async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted) {
+    // Coba Native Flow dulu (WhatsApp Business / spoof channel)
     try {
         let media = await conn.getFile(imageUrl);
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
@@ -46,16 +47,43 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted
 
         let msg = generateWAMessageFromContent(jid, messageContent, { quoted, userJid: conn.user?.id || conn.user?.jid });
         await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
+        return; // Berhasil, keluar dari fungsi
     } catch (e) {
-        console.error("Gagal Native Flow:", e);
-        await conn.sendMessage(jid, { image: { url: imageUrl }, caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._' }, { quoted });
+        console.error("Gagal Native Flow, mencoba fallback buttons biasa:", e.message);
     }
+
+    // Fallback 1: Kirim pakai buttons biasa (Baileys standard)
+    try {
+        let btnList = buttons.map(btn => ({
+            buttonId: btn.id,
+            buttonText: { displayText: btn.text },
+            type: 1
+        }));
+
+        await conn.sendMessage(jid, {
+            image: { url: imageUrl },
+            caption: caption,
+            footer: '🍟 Pinterest Downloader',
+            buttons: btnList,
+            headerType: 4
+        }, { quoted });
+        return;
+    } catch (e2) {
+        console.error("Gagal fallback buttons biasa, pakai teks:", e2.message);
+    }
+
+    // Fallback 2: Teks saja jika semua gagal
+    await conn.sendMessage(jid, {
+        image: { url: imageUrl },
+        caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._'
+    }, { quoted });
 }
 
 // =========================================================================
 // RAW PAYLOAD: Mengirim Gambar + List Menu (Native Flow + Spoofing Saluran)
 // =========================================================================
 async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sections, quoted) {
+    // Coba Native Flow dulu
     try {
         let media = await conn.getFile(imageUrl);
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
@@ -92,10 +120,31 @@ async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sectio
 
         let msg = generateWAMessageFromContent(jid, messageContent, { quoted, userJid: conn.user?.id || conn.user?.jid });
         await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
+        return; // Berhasil
     } catch (e) {
-        console.error("Gagal Native List:", e);
-        await conn.sendMessage(jid, { image: { url: imageUrl }, caption: caption + '\n\n💡 _Ketik *lagu 1* untuk mendownload._' }, { quoted });
+        console.error("Gagal Native List, mencoba fallback list biasa:", e.message);
     }
+
+    // Fallback 1: Kirim pakai listMessage biasa (Baileys standard)
+    try {
+        await conn.sendMessage(jid, {
+            text: caption,
+            footer: '🎵 Spotify Downloader',
+            title: listTitle,
+            buttonText: listTitle,
+            sections: sections,
+            listType: 1
+        }, { quoted });
+        return;
+    } catch (e2) {
+        console.error("Gagal fallback list biasa, pakai teks:", e2.message);
+    }
+
+    // Fallback 2: Teks saja jika semua gagal
+    await conn.sendMessage(jid, {
+        image: { url: imageUrl },
+        caption: caption + '\n\n💡 _Ketik *lagu 1* untuk mendownload._'
+    }, { quoted });
 }
 
 let handler = async (m, { conn, args, text, usedPrefix, command }) => {
