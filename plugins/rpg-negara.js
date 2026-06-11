@@ -357,7 +357,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         + `┃ ◦ *info* ➔ Info status & kondisi finansial negara\n`
                         + `┃ ◦ *infobumn* ➔ Pantau kinerja & aset kas BUMN\n`
                         + `┃ ◦ *bansos* ➔ Klaim jaminan bantuan sosial harian\n`
-                        + `┃ ◦ *setorbansos <jml>* ➔ Donasi mengisi kas bansos\n`
                         + `┃ ◦ *daftarcalon* ➔ Registrasi capres (Biaya: 10M)\n`
                         + `┃ ◦ *vote @tag* ➔ Coblos hak suara kandidat di TPS\n`
                         + `┃ ◦ *pinjam <jml>* ➔ Ajukan utang kredit ke Kas Negara\n`
@@ -376,6 +375,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         + `┃ ◦ *sahkan* ➔ Resmikan pelantikan pemenang capres\n`
                         + `┃ ◦ *bangunbank* ➔ Dirikan prasarana Bank Central (50M)\n`
                         + `┃ ◦ *upgradegudang <jml_lv>* ➔ Ekspansi Gudang Negara\n`
+                        + `┃ ◦ *suntikbansos <jml>* ➔ Tambah anggaran kas Bansos\n`
                         + `┃ ◦ *bangunpln* / *bangunpdam* ➔ Konstruksi BUMN (865M)\n`
                         + `┃ ◦ *rekrut <pln/pdam> <jml>* ➔ Tambah tenaga kerja\n`
                         + `┃ ◦ *tagihpln* / *tagihpdam* ➔ Tarik dividen ke Kas Utama\n`
@@ -450,6 +450,23 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 case 'b2b': {
                     let subAction = args[1] ? args[1].toLowerCase() : 'list';
                     
+                    // ---------------------------------------------------------
+                    // LOGIKA AUTO-REFUND PHP (10 MENIT) SAAT DIAKSES
+                    // ---------------------------------------------------------
+                    for (let id in negara.b2b) {
+                        let k = negara.b2b[id];
+                        if (now - k.timestamp > 600000) { // 600.000ms = 10 menit
+                            let sellerUser = users[k.seller];
+                            if (sellerUser) {
+                                sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+                                conn.sendMessage(k.seller, { text: `🚫 *KONTRAK B2B (ID: ${id}) DIBATALKAN OTOMATIS*\n\nPembeli PHP (melewati batas 10 menit). Barang sejumlah ${k.qty.toLocaleString('id-ID')} ${k.item} telah ditarik dari Gudang Negara dan dikembalikan utuh ke tas Anda.` }).catch(() => {});
+                            }
+                            // Tarik dari gudang negara
+                            negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
+                            delete negara.b2b[id];
+                        }
+                    }
+
                     if (subAction === 'list') {
                         let txt = `🤝 *KONTRAK B2B NEGARA (REKBER)* 🤝\n\n`;
                         let hasContract = false;
@@ -458,12 +475,15 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                             let isMe = k.seller === sender || k.buyer === sender;
                             if (isMe) {
                                 hasContract = true;
+                                let sisaWaktu = Math.floor((600000 - (now - k.timestamp)) / 1000);
+                                let menit = Math.floor(sisaWaktu / 60);
+                                let detik = sisaWaktu % 60;
                                 txt += `📝 *ID Kontrak: ${id}*\n`
                                     + `📦 Item: ${k.qty.toLocaleString('id-ID')} ${k.item}\n`
                                     + `💰 Harga Total: ${formatRp(k.price)}\n`
                                     + `📤 Penjual: @${k.seller.split('@')[0]}\n`
                                     + `📥 Pembeli: @${k.buyer.split('@')[0]}\n`
-                                    + `⏳ Status: Menunggu Pembayaran dari Pembeli\n\n`;
+                                    + `⏳ Sisa Waktu Bayar: ${menit}m ${detik}s\n\n`;
                             }
                         }
                         if (!hasContract) txt += `_Tidak ada kontrak aktif yang melibatkan Anda di Gudang Negara._`;
@@ -472,23 +492,11 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     }
                     
                     if (subAction === 'buat') {
-                    negara.b2b[contractId].timeout = setTimeout(() => {
-        let k = negara.b2b[contractId];
-        if (k) {
-            let sellerUser = users[k.seller];
-            if (sellerUser) {
-                sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
-                negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
-                delete negara.b2b[contractId];
-                conn.sendMessage(k.seller, { text: `🚫 *KONTRAK B2B (ID: ${contractId}) DIBATALKAN OTOMATIS*\n\nPembeli PHP selama 10 menit. Barang telah dikembalikan ke tas Anda.` });
-            }
-        }
-    }, 600000); // 10 menit
                         let targetMention = args[2];
                         let item = args[3] ? args[3].toLowerCase() : '';
                         let qty = parseInt(args[4]);
                         let price = parseInt(args[5]);
-                        let ptSumber = parseInt(args[6]); // Opsional, dikosongkan jika dari tas Petani/User biasa
+                        let ptSumber = parseInt(args[6]); // Opsional, dikosongkan jika dari tas pribadi
                         
                         if (!targetMention || !item || isNaN(qty) || isNaN(price)) {
                             return m.reply(`⚠️ *Format Salah!*\n\n*${usedPrefix}negara b2b buat <@tag_pembeli> <item> <jumlah> <harga_total> [id_pt_sumber]*\n\n_Catatan: Jika item diambil dari tas pribadi (Petani), kosongkan id_pt_sumber._`);
@@ -537,7 +545,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                             + `Barang sebesar *${qty.toLocaleString('id-ID')} ${item}* telah ditarik dan diamankan ke dalam *Gudang Negara* (Rekber).\n\n`
                             + `Silakan @${buyer.split('@')[0]} untuk melunasi pembayaran sebesar *${formatRp(price)}* menggunakan perintah:\n`
                             + `*${usedPrefix}negara b2b bayar ${contractId} [id_pt_tujuan_opsional]*\n\n`
-                            + `_Peringatan: Jika pembayaran batal, penjual dapat membatalkan kontrak ini untuk menarik barangnya kembali._`;
+                            + `_⏳ Batas Waktu Bayar: 10 Menit sebelum dibatalkan otomatis._`;
                             
                         return m.reply(txt, null, { mentions: [buyer] });
                     }
@@ -548,7 +556,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         
                         if (isNaN(contractId)) return m.reply(`⚠️ Gunakan format: *${usedPrefix}negara b2b bayar <id_kontrak> [id_pt_tujuan]*`);
                         let k = negara.b2b[contractId];
-                        if (!k) return m.reply(`❌ Kontrak B2B dengan ID ${contractId} tidak ditemukan.`);
+                        if (!k) return m.reply(`❌ Kontrak B2B dengan ID ${contractId} tidak ditemukan atau sudah dibatalkan.`);
                         if (k.buyer !== sender) return m.reply(`❌ Kontrak ini tidak ditujukan untuk Anda! Anda bukan pembeli pada kontrak ini.`);
                         
                         if (user.money < k.price) return m.reply(`❌ Uang Anda tidak cukup untuk membayar tagihan sebesar *${formatRp(k.price)}*. Uang Anda: ${formatRp(user.money)}`);
@@ -598,12 +606,12 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let k = negara.b2b[contractId];
                         if (!k) return m.reply(`❌ Kontrak B2B dengan ID ${contractId} tidak ditemukan.`);
                         
-                        if (k.seller !== sender && !isPresiden) return m.reply(`❌ Hanya penjual atau Presiden yang dapat membatalkan kontrak sepihak!`);
+                        if (k.seller !== sender && !isPresiden) return m.reply(`❌ Hanya penjual atau Presiden yang dapat membatalkan kontrak secara sepihak!`);
                         
                         let sellerUser = users[k.seller];
                         if (!sellerUser) return m.reply(`❌ Data penjual hilang dari database, pembatalan diblokir.`);
                         
-                        // Mengembalikan barang ke tas pribadi (Meskipun awalnya dari PT, masuk tas untuk safety jika PT nya sedang dihapus/dibekukan)
+                        // Mengembalikan barang ke tas pribadi
                         sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
                         negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
                         delete negara.b2b[contractId];
@@ -677,24 +685,31 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     break;
                 }
 
-                case 'suntikbansos': {
-    if (!isPresiden) return m.reply('❌ Hanya Presiden yang berhak mengatur anggaran Bansos.');
-    let nominal = parseInt(args[1]);
-    if (isNaN(nominal) || nominal < 1000000) return m.reply('⚠️ Minimum suntik anggaran Rp 1.000.000');
-    if (negara.kas < nominal) return m.reply(`❌ Kas Negara tidak cukup! Kas saat ini: ${formatRp(negara.kas)}`);
+                // ==========================================
+                // BANSOS BARU (Hanya Presiden yg Suntik Dana)
+                // ==========================================
+                case 'bansos': {
+                    if (now - user.lastBansos < 24 * 60 * 60 * 1000) return m.reply(`⏳ Subsidi Anda sudah diklaim untuk hari ini.`);
+                    if (negara.danaBansos <= 0) return m.reply('❌ Kas Bansos Negara kosong. Minta Presiden untuk mengisi anggaran.');
 
-    negara.kas -= nominal;
-    negara.danaBansos += nominal;
-    m.reply(`✅ *ANGGARAN BANSOS DITAMBAH*\n\nPresiden telah menyetujui penambahan dana sebesar ${formatRp(nominal)} ke kas Bansos.`);
+                    let isMiskin = user.money < 500000000;
+                    let nominalDapat = isMiskin ? Math.floor(Math.random() * 35000000) + 25000000 : Math.floor(Math.random() * 5000000) + 2000000;
+                    if (nominalDapat > negara.danaBansos) nominalDapat = negara.danaBansos;
+
+                    negara.danaBansos -= nominalDapat; user.money += nominalDapat; user.lastBansos = now;
+                    m.reply(`🎁 *SUBSIDI DIKIRIM* 🎁\n\nAnda menerima dana bantuan *${formatRp(nominalDapat)}*.`);
                     break;
                 }
-                case 'setorbansos': {
-                    let nominal = parseInt(args[1]);
-                    if (isNaN(nominal) || nominal < 1000000) return m.reply('⚠️ Minimum sumbangan adalah Rp 1.000.000');
-                    if (user.money < nominal) return m.reply(`❌ Uang Anda tidak mencukupi untuk mendonasikan sejumlah itu.`);
 
-                    user.money -= nominal; negara.danaBansos += nominal;
-                    m.reply(`✅ *DONASI DISAHKAN*\n\nAnda menyuntik dana bantuan sosial sebesar *${formatRp(nominal)}*. Terima kasih atas partisipasi Anda!`);
+                case 'suntikbansos': {
+                    if (!isPresiden) return m.reply('❌ Hanya Presiden yang berhak mengatur anggaran Bansos.');
+                    let nominal = parseInt(args[1]);
+                    if (isNaN(nominal) || nominal < 1000000) return m.reply('⚠️ Minimum suntik anggaran Rp 1.000.000');
+                    if (negara.kas < nominal) return m.reply(`❌ Kas Negara tidak cukup! Kas saat ini: ${formatRp(negara.kas)}`);
+
+                    negara.kas -= nominal;
+                    negara.danaBansos += nominal;
+                    m.reply(`✅ *ANGGARAN BANSOS DITAMBAH*\n\nPresiden telah menyetujui penambahan dana sebesar ${formatRp(nominal)} ke kas Bansos.`);
                     break;
                 }
 
@@ -705,7 +720,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         negara.isPemilu = false;
                         m.reply(`🗳️ *TPS DITUTUP!* Gunakan perintah *${usedPrefix+command} sahkan* untuk pelantikan.`);
                     } else {
-                        negara.isPemilu = true; negara.waktuMulaiPemilu = now; clanInfo = negara.kandidat = {}; negara.voters = [];
+                        negara.isPemilu = true; negara.waktuMulaiPemilu = now; negara.kandidat = {}; negara.voters = [];
                         m.reply(`🗳️ *TPS DIBUKA (Masa Aktif 1 Jam)*\nDaftarkan diri Anda lewat perintah *${usedPrefix+command} daftarcalon*`);
                     }
                     break;

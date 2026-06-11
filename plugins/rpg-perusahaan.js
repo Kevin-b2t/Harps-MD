@@ -368,10 +368,15 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             global.db.data.negara = {
                 presiden: null, waktuLantik: 0, kas: 100000000000, bank: false, bumn: [],
                 kandidat: {}, isPemilu: false, waktuMulaiPemilu: 0, pln: null, pdam: null,
-                investBankOpen: true, investPTOpen: true, danaBansos: 0
+                investBankOpen: true, investPTOpen: true, danaBansos: 0,
+                gudangLevel: 1, gudang: {}, b2b: {}, b2bCounter: 1
             };
         }
         let negara = global.db.data.negara;
+        if (!negara.gudangLevel) negara.gudangLevel = 1;
+        if (!negara.gudang) negara.gudang = {};
+        if (!negara.b2b) negara.b2b = {};
+        if (!negara.b2bCounter) negara.b2bCounter = 1;
         
         if (!Array.isArray(user.perusahaan)) user.perusahaan = [];
         user.perusahaan = user.perusahaan.filter(pt => pt !== null && pt !== undefined);
@@ -620,6 +625,203 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 break;
             }
 
+            // ==========================================
+            // B2B PERUSAHAAN (VIA REKBER NEGARA)
+            // ==========================================
+            case 'b2b': {
+                let subAction = args[1] ? args[1].toLowerCase() : 'list';
+                
+                // Logika Auto-Refund PHP 10 Menit saat menu b2b diakses
+                for (let id in negara.b2b) {
+                    let k = negara.b2b[id];
+                    if (now - k.timestamp > 600000) { 
+                        let sellerUser = global.db.data.users[k.seller];
+                        if (sellerUser) {
+                            if (k.ptSource !== null && k.ptSource !== undefined) {
+                                let ptId = k.ptSource - 1;
+                                if (sellerUser.perusahaan && sellerUser.perusahaan[ptId]) {
+                                    let pt = sellerUser.perusahaan[ptId];
+                                    if (!pt.gudang) pt.gudang = {};
+                                    pt.gudang[k.item] = (pt.gudang[k.item] || 0) + k.qty;
+                                } else {
+                                    sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+                                }
+                            } else {
+                                sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+                            }
+                            conn.sendMessage(k.seller, { text: `🚫 *KONTRAK B2B (ID: ${id}) DIBATALKAN OTOMATIS*\n\nPembeli PHP (melewati batas 10 menit). Barang sejumlah ${k.qty.toLocaleString('id-ID')} ${k.item} telah ditarik dari Gudang Negara dan dikembalikan utuh ke Gudang/Tas Anda.` }).catch(() => {});
+                        }
+                        negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
+                        delete negara.b2b[id];
+                    }
+                }
+
+                if (subAction === 'list') {
+                    let txt = `🤝 *BURSA B2B KORPORASI & REKBER NEGARA* 🤝\n\n`;
+                    let hasContract = false;
+                    for (let id in negara.b2b) {
+                        let k = negara.b2b[id];
+                        if (k.seller === sender || k.buyer === sender) {
+                            hasContract = true;
+                            let sisaWaktu = Math.floor((600000 - (now - k.timestamp)) / 1000);
+                            let menit = Math.floor(sisaWaktu / 60);
+                            let detik = sisaWaktu % 60;
+                            txt += `📝 *ID Kontrak: ${id}*\n`
+                                + `📦 Item: ${k.qty.toLocaleString('id-ID')} ${k.item}\n`
+                                + `💰 Harga Total: ${formatRp(k.price)}\n`
+                                + `📤 Penjual: @${k.seller.split('@')[0]} ${k.ptSource !== null ? '(PT)' : '(Sipil/Petani)'}\n`
+                                + `📥 Pembeli: @${k.buyer.split('@')[0]}\n`
+                                + `⏳ Sisa Waktu Bayar: ${menit}m ${detik}s\n\n`;
+                        }
+                    }
+                    if (!hasContract) txt += `_Belum ada transaksi B2B yang melibatkan Anda._\n`;
+                    txt += `\n*Akses Menu PT:* \n• ${usedPrefix}pt b2b buat <@pembeli> <item> <jml> <harga> <id_pt_sumber>\n• ${usedPrefix}pt b2b bayar <id_kontrak> <id_pt_tujuan>\n• ${usedPrefix}pt b2b batal <id_kontrak>`;
+                    return m.reply(txt, null, { mentions: [sender, ...Object.values(negara.b2b).flatMap(k => [k.seller, k.buyer])]});
+                }
+
+                if (subAction === 'buat') {
+                    let targetMention = args[2];
+                    let item = args[3] ? args[3].toLowerCase() : '';
+                    let qty = parseInt(args[4]);
+                    let price = parseInt(args[5]);
+                    let ptSumber = parseInt(args[6]);
+                    
+                    if (!targetMention || !item || isNaN(qty) || isNaN(price) || isNaN(ptSumber)) {
+                        return m.reply(`⚠️ *Format B2B Perusahaan Salah!*\n\n*${usedPrefix}pt b2b buat <@tag_pembeli> <item> <jumlah> <harga_total> <id_pt_sumber>*\n\n_Contoh:_ ${usedPrefix}pt b2b buat @628... botol 1000 50000 1`);
+                    }
+                    
+                    let buyer = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : targetMention.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+                    if (buyer === sender) return m.reply(`❌ Tidak bisa membuat kontrak B2B dengan diri sendiri.`);
+                    if (!global.db.data.users[buyer]) return m.reply(`❌ Pembeli tidak terdaftar di sistem.`);
+                    if (qty < 1 || price < 1) return m.reply(`❌ Jumlah dan Harga minimal adalah 1.`);
+                    
+                    let capNegara = negara.gudangLevel * 180;
+                    let usedNegara = Object.values(negara.gudang).reduce((a, b) => a + b, 0);
+                    if (usedNegara + qty > capNegara) return m.reply(`❌ *Gudang Negara Penuh!*\nSisa kapasitas: ${(capNegara - usedNegara).toLocaleString('id-ID')} Slot.\n_Minta Presiden upgrade Gudang Negara._`);
+                    
+                    let ptId = ptSumber - 1;
+                    let pt = user.perusahaan[ptId];
+                    if (!pt) return m.reply(`❌ ID PT Anda tidak valid!`);
+                    if (pt.type === 'listrik') return m.reply(`❌ PT Listrik tidak memiliki logistik fisik.`);
+                    if ((pt.gudang[item] || 0) < qty) return m.reply(`❌ Stok *${item}* di gudang PT *${pt.name}* tidak cukup! Sisa: ${(pt.gudang[item] || 0).toLocaleString('id-ID')}`);
+                    
+                    pt.gudang[item] -= qty;
+                    negara.gudang[item] = (negara.gudang[item] || 0) + qty;
+                    
+                    let contractId = negara.b2bCounter++;
+                    negara.b2b[contractId] = {
+                        id: contractId,
+                        seller: sender,
+                        buyer: buyer,
+                        item: item,
+                        qty: qty,
+                        price: price,
+                        ptSource: ptSumber,
+                        timestamp: now
+                    };
+                    
+                    let txt = `🤝 *KONTRAK B2B BERHASIL DIBUAT (ID: ${contractId})* 🤝\n\n`
+                        + `Barang sebesar *${qty.toLocaleString('id-ID')} ${item}* telah ditarik dari Gudang 🏢 *${pt.name}* dan diamankan ke dalam *Gudang Negara* (Rekber).\n\n`
+                        + `Silakan @${buyer.split('@')[0]} untuk melunasi pembayaran sebesar *${formatRp(price)}* menggunakan perintah:\n`
+                        + `*${usedPrefix}pt b2b bayar ${contractId} <id_pt_tujuan>*\n`
+                        + `Atau (Bila Pembeli bukan PT): *${usedPrefix}negara b2b bayar ${contractId}*\n\n`
+                        + `_⏳ Batas Waktu Bayar: 10 Menit sebelum dibatalkan otomatis._`;
+                        
+                    return m.reply(txt, null, { mentions: [buyer] });
+                }
+
+                if (subAction === 'bayar') {
+                    let contractId = parseInt(args[2]);
+                    let ptTujuan = parseInt(args[3]);
+                    
+                    if (isNaN(contractId) || isNaN(ptTujuan)) return m.reply(`⚠️ Gunakan format: *${usedPrefix}pt b2b bayar <id_kontrak> <id_pt_mu>*`);
+                    let k = negara.b2b[contractId];
+                    if (!k) return m.reply(`❌ Kontrak B2B dengan ID ${contractId} tidak ditemukan.`);
+                    if (k.buyer !== sender) return m.reply(`❌ Anda bukan pembeli pada kontrak ini.`);
+                    
+                    let ptId = ptTujuan - 1;
+                    let pt = user.perusahaan[ptId];
+                    if (!pt) return m.reply(`❌ ID PT Anda tidak valid!`);
+                    if (pt.type === 'listrik') return m.reply(`❌ PT Listrik tidak memiliki gudang penerima barang.`);
+                    
+                    if ((pt.saldo || 0) < k.price) return m.reply(`❌ Kas PT *${pt.name}* tidak cukup untuk membayar tagihan sebesar *${formatRp(k.price)}*. Saldo Kas PT: ${formatRp(pt.saldo)}`);
+                    
+                    let sisaSlot = ((pt.gudangLevel || 1) * 120) - Object.values(pt.gudang || {}).reduce((s, v) => s + (v || 0), 0);
+                    if (k.qty > sisaSlot) return m.reply(`❌ Gudang PT *${pt.name}* penuh! Hanya muat ${sisaSlot.toLocaleString('id-ID')} slot lagi.`);
+                    
+                    // Proses Pembayaran dan Masuk Barang
+                    pt.saldo -= k.price;
+                    if (!pt.gudang) pt.gudang = {};
+                    pt.gudang[k.item] = (pt.gudang[k.item] || 0) + k.qty;
+                    
+                    // Tarik barang dari Negara
+                    negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
+                    delete negara.b2b[contractId];
+                    
+                    // Distribusi Uang (Pajak Rekber 1%)
+                    let taxB2B = Math.floor(k.price * 0.01);
+                    let bersihMasuk = k.price - taxB2B;
+                    negara.kas += taxB2B;
+                    
+                    let sellerUser = global.db.data.users[k.seller];
+                    if (sellerUser) {
+                        if (k.ptSource !== null && k.ptSource !== undefined) {
+                            let ptSellerId = k.ptSource - 1;
+                            if (sellerUser.perusahaan && sellerUser.perusahaan[ptSellerId]) {
+                                sellerUser.perusahaan[ptSellerId].saldo += bersihMasuk;
+                            } else {
+                                sellerUser.money += bersihMasuk; // Fallback jika PT dihapus
+                            }
+                        } else {
+                            sellerUser.money += bersihMasuk;
+                        }
+                    }
+                    
+                    let txt = `✅ *PEMBAYARAN KONTRAK B2B (ID: ${contractId}) SUKSES* ✅\n\n`
+                        + `📥 *${k.qty.toLocaleString('id-ID')} ${k.item}* telah mendarat di Gudang 🏢 *${pt.name}*.\n`
+                        + `💸 Kas PT Anda dipotong sebesar *${formatRp(k.price)}*.\n`
+                        + `💰 Penjual (@${k.seller.split('@')[0]}) menerima pembayaran *${formatRp(bersihMasuk)}* ke rekening (Telah dipotong Pajak 1%).\n`
+                        + `🏛️ Pajak Rekber (1%): *${formatRp(taxB2B)}* disetor ke Kas Utama Negara.`;
+                        
+                    return m.reply(txt, null, { mentions: [k.seller] });
+                }
+
+                if (subAction === 'batal') {
+                    let contractId = parseInt(args[2]);
+                    if (isNaN(contractId)) return m.reply(`⚠️ Gunakan format: *${usedPrefix}pt b2b batal <id_kontrak>*`);
+                    let k = negara.b2b[contractId];
+                    if (!k) return m.reply(`❌ Kontrak B2B dengan ID ${contractId} tidak ditemukan.`);
+                    if (k.seller !== sender && negara.presiden !== sender) return m.reply(`❌ Hanya penjual atau Presiden yang dapat membatalkan kontrak secara sepihak.`);
+                    
+                    let sellerUser = global.db.data.users[k.seller];
+                    if (!sellerUser) return m.reply(`❌ Data penjual tidak ditemukan.`);
+                    
+                    if (k.ptSource !== null && k.ptSource !== undefined) {
+                        let ptSellerId = k.ptSource - 1;
+                        if (sellerUser.perusahaan && sellerUser.perusahaan[ptSellerId]) {
+                            let pt = sellerUser.perusahaan[ptSellerId];
+                            if (!pt.gudang) pt.gudang = {};
+                            pt.gudang[k.item] = (pt.gudang[k.item] || 0) + k.qty;
+                        } else {
+                            sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+                        }
+                    } else {
+                        sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+                    }
+                    
+                    negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
+                    delete negara.b2b[contractId];
+                    
+                    return m.reply(`🚫 *KONTRAK B2B (ID: ${contractId}) DIBATALKAN*\n\nSeluruh barang sejumlah *${k.qty.toLocaleString('id-ID')} ${k.item}* telah ditarik dari Gudang Negara dan dikembalikan utuh ke Gudang PT / Tas Pribadi Penjual (@${k.seller.split('@')[0]}).`, null, {mentions: [k.seller]});
+                }
+                
+                return m.reply(`❌ Sub-perintah B2B tidak valid. Gunakan: *buat, bayar, batal, list*.`);
+            }
+
+            // ==========================================
+            // AKHIR FITUR B2B PERUSAHAAN
+            // ==========================================
+
             case 'kirim':
             case 'transfer': {
                 let jumlah = parseInt(args[1]);
@@ -630,10 +832,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
                 if (isNaN(jumlah) || !tipe || isNaN(idPengirim) || !targetMention || isNaN(idTujuan)) {
                     return m.reply(
-                        `⚠️ *Format B2B Salah!*\n\n` +
+                        `⚠️ *Format Transfer Instan Salah!*\n\n` +
                         `*${usedPrefix+command} kirim <jumlah> <uang/item> <id_pt_mu> <@tag_partner> <id_pt_partner>*\n\n` +
-                        `_Contoh Kirim Dana:_ ${usedPrefix+command} kirim 5000000 uang 1 @62812xxx 2\n` +
-                        `_Contoh Kirim Barang:_ ${usedPrefix+command} kirim 1000 botol 1 @62812xxx 1`
+                        `_Catatan: Jika transfer beda entitas, disarankan pakai sistem *${usedPrefix}pt b2b* demi keamanan bersama._`
                     );
                 }
 
@@ -654,7 +855,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     ptSender.saldo -= jumlah;
                     ptReceiver.saldo = (ptReceiver.saldo || 0) + jumlah;
                     
-                    m.reply(`🤝 *KERJASAMA B2B BERHASIL*\n\nBerhasil mengirim dana *${formatRp(jumlah)}*\nDari: 🏢 *${ptSender.name}*\nKe: 🏢 *${ptReceiver.name}* (Milik @${target.split('@')[0]})`, null, {mentions: [target]});
+                    m.reply(`🤝 *TRANSFER DANA INSTAN BERHASIL*\n\nBerhasil mengirim dana *${formatRp(jumlah)}*\nDari: 🏢 *${ptSender.name}*\nKe: 🏢 *${ptReceiver.name}* (Milik @${target.split('@')[0]})`, null, {mentions: [target]});
                 } else {
                     if (ptSender.type === 'listrik' || ptReceiver.type === 'listrik') return m.reply(`❌ Transfer barang hanya bisa dilakukan antar PT Produksi (Non-Listrik)!`);
                     
@@ -667,7 +868,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     if (!ptReceiver.gudang) ptReceiver.gudang = {};
                     ptReceiver.gudang[tipe] = (ptReceiver.gudang[tipe] || 0) + jumlah;
 
-                    m.reply(`🤝 *KERJASAMA B2B BERHASIL (LOGISTIK)*\n\nBerhasil mengirim barang *${jumlah.toLocaleString('id-ID')} ${tipe}*\nDari: 🏢 *${ptSender.name}*\nKe: 🏢 *${ptReceiver.name}* (Milik @${target.split('@')[0]})`, null, {mentions: [target]});
+                    m.reply(`🤝 *LOGISTIK INSTAN BERHASIL*\n\nBerhasil mengirim barang *${jumlah.toLocaleString('id-ID')} ${tipe}*\nDari: 🏢 *${ptSender.name}*\nKe: 🏢 *${ptReceiver.name}* (Milik @${target.split('@')[0]})`, null, {mentions: [target]});
                 }
                 break;
             }
@@ -1322,7 +1523,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 m.reply(
                     `🏢 *MANAJEMEN PERUSAHAAN & SAHAM*\n\n` +
                     `🏛️ *PT & SAHAM*\n• *${usedPrefix+command} buat <tipe> <nama>*\n• *${usedPrefix+command} info [@tag]*\n• *${usedPrefix+command} tutup/bukainvest <id_pt>*\n\n` +
-                    `🤝 *B2B KERJASAMA*\n• *${usedPrefix+command} kirim <jumlah> <uang|item> <id_pt_mu> <@tag_partner> <id_pt_partner>*\n\n` +
+                    `🤝 *B2B KORPORASI (VIA REKBER NEGARA)*\n• *${usedPrefix+command} b2b buat <@pembeli> <item> <jml> <harga> <id_pt_sumber>*\n• *${usedPrefix+command} b2b bayar <id_kontrak> <id_pt_tujuan>*\n• *${usedPrefix+command} b2b batal <id_kontrak>*\n• *${usedPrefix+command} b2b list*\n\n` +
                     `🏦 *BANK KORPORASI*\n• *${usedPrefix+command} bank / pinjam / bayarbank*\n\n` +
                     `⚡ *LISTRIK & ENERGI*\n• *${usedPrefix+command} ceklistrik* _(Pasar Listrik Global)_\n• *${usedPrefix+command} setlistrik <id_pt> <negara|@tag_org> <id_pt_org>*\n• *${usedPrefix+command} buatpembangkit <id> <jenis>*\n• *${usedPrefix+command} upgrade listrik <id> <jml_lv>*\n• *${usedPrefix+command} settarif <id_listrik> <tarif>*\n\n` +
                     `🏭 *PRODUKSI & PABRIK*\n• *${usedPrefix+command} infopabrik* _(📖 Tutorial & Resep Barang)_\n• *${usedPrefix+command} pabrik <id_pt> <tipe> <nama>*\n• *${usedPrefix+command} upgrade gudang <id_pt> <jml_lv>*\n• *${usedPrefix+command} rekrut/pecat <jml> <id_pt>* _(Pekerja mempercepat produksi)_\n• *${usedPrefix+command} produksi <jml> <item> <id_pt>*\n\n` +

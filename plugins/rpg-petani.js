@@ -111,6 +111,7 @@ function calculateYield(jumlahBibit, isPetani) {
 }
 
 let handler = async (m, { conn, args, usedPrefix, command }) => {
+    let now = Date.now();
     let user = global.db.data.users[m.sender];
 
     if (!user.tanah)      user.tanah = 0;
@@ -123,6 +124,15 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         if (!user[item])              user[item] = 0;
         if (!user['bibit' + item])    user['bibit' + item] = 0;
     }
+
+    // --- INISIALISASI DATABASE NEGARA & B2B ---
+    if (!global.db.data.negara) global.db.data.negara = {};
+    let negara = global.db.data.negara;
+    if (!negara.kas) negara.kas = 100000000000;
+    if (!negara.gudangLevel) negara.gudangLevel = 1;
+    if (!negara.gudang) negara.gudang = {};
+    if (!negara.b2b) negara.b2b = {};
+    if (!negara.b2bCounter) negara.b2bCounter = 1;
 
     let cmd    = command.toLowerCase();
     let action = args[0] ? args[0].toLowerCase() : '';
@@ -154,7 +164,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             let trend = currentPrice > marketItems[item].base ? '📈' : '📉';
             text += `${marketItems[item].icon} ${marketItems[item].name}: Rp ${currentPrice.toLocaleString('id-ID')} ${trend}\n`;
         }
-        text += `\n*Gunakan Perintah:*\n• \`${usedPrefix}pertanian jual <item> <jumlah>\`\n• \`${usedPrefix}pertanian belitanah <jumlah>\`\n• \`${usedPrefix}pertanian setorpt <item> <jml> <id_pt> <@tag>\``;
+        text += `\n*Gunakan Perintah:*\n• \`${usedPrefix}pertanian jual <item> <jumlah>\`\n• \`${usedPrefix}pertanian belitanah <jumlah>\`\n• \`${usedPrefix}pertanian b2b\` (Rekber Negara)`;
         return conn.reply(m.chat, text, m);
     }
 
@@ -193,55 +203,183 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         return m.reply(`✅ *TERJUAL!*\nKamu berhasil menjual ${jumlah.toLocaleString('id-ID')} ${marketItems[item].icon} seharga Rp ${totalPendapatan.toLocaleString('id-ID')}.`);
     }
 
-    // ── B2B LOGISTIK (SETOR KE PT) ──
-    if (action === 'setorpt') {
-        let item = args[1] ? args[1].toLowerCase() : '';
-        let jumlah = parseInt(args[2]);
-        let idPtTujuan = parseInt(args[3]) - 1;
-        let targetMention = args[4];
+    // ── B2B LOGISTIK (REKBER NEGARA) ──
+    if (action === 'b2b') {
+        let subAction = args[1] ? args[1].toLowerCase() : 'list';
+        
+        // Logika Auto-Refund PHP 10 Menit saat menu b2b diakses
+        for (let id in negara.b2b) {
+            let k = negara.b2b[id];
+            if (now - k.timestamp > 600000) { 
+                let sellerUser = global.db.data.users[k.seller];
+                if (sellerUser) {
+                    if (k.ptSource !== null && k.ptSource !== undefined) {
+                        let ptId = k.ptSource - 1;
+                        if (sellerUser.perusahaan && sellerUser.perusahaan[ptId]) {
+                            let pt = sellerUser.perusahaan[ptId];
+                            if (!pt.gudang) pt.gudang = {};
+                            pt.gudang[k.item] = (pt.gudang[k.item] || 0) + k.qty;
+                        } else {
+                            sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+                        }
+                    } else {
+                        sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+                    }
+                    conn.sendMessage(k.seller, { text: `🚫 *KONTRAK B2B (ID: ${id}) DIBATALKAN OTOMATIS*\n\nPembeli PHP (melewati batas 10 menit). Barang sejumlah ${k.qty.toLocaleString('id-ID')} ${k.item} telah ditarik dari Gudang Negara dan dikembalikan utuh ke Tas/Gudang Anda.` }).catch(() => {});
+                }
+                negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
+                delete negara.b2b[id];
+            }
+        }
 
-        if (!item || !jumlah || isNaN(idPtTujuan) || !targetMention) {
-            return m.reply(
-                `⚠️ *Format B2B Logistik Salah!*\n\n` +
-                `*${usedPrefix}pertanian setorpt <item> <jumlah> <id_pt_tujuan> <@tag_pemilik_pt>*\n\n` +
-                `_Contoh:_ *${usedPrefix}pertanian setorpt tebu 500 1 @62812xxx*\n\n` +
-                `_Fitur ini akan memindahkan hasil panenmu langsung ke Gudang Perusahaan orang lain (untuk menyuplai PT Minuman/dll). Pastikan pemilik PT mentransfer bayaranmu melalui .pt kirim uang!_`
-            );
+        if (subAction === 'list') {
+            let txt = `🤝 *BURSA B2B PETANI & REKBER NEGARA* 🤝\n\n`;
+            let hasContract = false;
+            for (let id in negara.b2b) {
+                let k = negara.b2b[id];
+                if (k.seller === m.sender || k.buyer === m.sender) {
+                    hasContract = true;
+                    let sisaWaktu = Math.floor((600000 - (now - k.timestamp)) / 1000);
+                    let menit = Math.floor(sisaWaktu / 60);
+                    let detik = sisaWaktu % 60;
+                    txt += `📝 *ID Kontrak: ${id}*\n`
+                        + `📦 Item: ${k.qty.toLocaleString('id-ID')} ${k.item}\n`
+                        + `💰 Harga Total: Rp ${k.price.toLocaleString('id-ID')}\n`
+                        + `📤 Penjual: @${k.seller.split('@')[0]} ${k.ptSource !== null ? '(PT)' : '(Petani)'}\n`
+                        + `📥 Pembeli: @${k.buyer.split('@')[0]}\n`
+                        + `⏳ Sisa Waktu Bayar: ${menit}m ${detik}s\n\n`;
+                }
+            }
+            if (!hasContract) txt += `_Belum ada transaksi B2B yang melibatkan Anda._\n`;
+            txt += `\n*Akses Menu Petani:* \n• ${usedPrefix}pertanian b2b buat <@pembeli> <item> <jml> <harga>\n• ${usedPrefix}pertanian b2b bayar <id_kontrak>\n• ${usedPrefix}pertanian b2b batal <id_kontrak>`;
+            return m.reply(txt, null, { mentions: [m.sender, ...Object.values(negara.b2b).flatMap(k => [k.seller, k.buyer])]});
+        }
+
+        if (subAction === 'buat') {
+            let targetMention = args[2];
+            let item = args[3] ? args[3].toLowerCase() : '';
+            let qty = parseInt(args[4]);
+            let price = parseInt(args[5]);
+            
+            if (!targetMention || !item || isNaN(qty) || isNaN(price)) {
+                return m.reply(`⚠️ *Format B2B Petani Salah!*\n\n*${usedPrefix}pertanian b2b buat <@tag_pembeli> <item> <jumlah> <harga_total>*\n\n_Contoh:_ ${usedPrefix}pertanian b2b buat @628... apel 1000 50000\n\n_Catatan: Hasil panen akan dikirim ke Gudang Negara sebagai Rekber._`);
+            }
+            
+            if (!marketItems[item] || item === 'tanah') return m.reply(`❌ Item *${item}* tidak valid! Cek daftar panenmu di *${usedPrefix}gudang*`);
+            
+            let buyer = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : targetMention.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+            if (buyer === m.sender) return m.reply(`❌ Tidak bisa membuat kontrak B2B dengan diri sendiri.`);
+            if (!global.db.data.users[buyer]) return m.reply(`❌ Pembeli tidak terdaftar di sistem.`);
+            if (qty < 1 || price < 1) return m.reply(`❌ Jumlah dan Harga minimal adalah 1.`);
+            
+            let capNegara = (negara.gudangLevel || 1) * 180;
+            let usedNegara = Object.values(negara.gudang || {}).reduce((a, b) => a + b, 0);
+            if (usedNegara + qty > capNegara) return m.reply(`❌ *Gudang Negara Penuh!*\nSisa kapasitas: ${(capNegara - usedNegara).toLocaleString('id-ID')} Slot.\n_Minta Presiden upgrade Gudang Negara._`);
+            
+            if ((user[item] || 0) < qty) return m.reply(`❌ Stok *${marketItems[item].name}* di tas pribadimu tidak cukup! Sisa: ${(user[item] || 0).toLocaleString('id-ID')}`);
+            
+            user[item] -= qty;
+            if (!negara.gudang) negara.gudang = {};
+            negara.gudang[item] = (negara.gudang[item] || 0) + qty;
+            
+            let contractId = negara.b2bCounter++;
+            negara.b2b[contractId] = {
+                id: contractId,
+                seller: m.sender,
+                buyer: buyer,
+                item: item,
+                qty: qty,
+                price: price,
+                ptSource: null,
+                timestamp: now
+            };
+            
+            let txt = `🤝 *KONTRAK B2B BERHASIL DIBUAT (ID: ${contractId})* 🤝\n\n`
+                + `Barang sebesar *${qty.toLocaleString('id-ID')} ${marketItems[item].name}* telah ditarik dari Tas Petani dan diamankan ke dalam *Gudang Negara* (Rekber).\n\n`
+                + `Silakan @${buyer.split('@')[0]} untuk melunasi pembayaran sebesar *Rp ${price.toLocaleString('id-ID')}* menggunakan perintah:\n`
+                + `Jika Pembeli adalah PT: *${usedPrefix}pt b2b bayar ${contractId} <id_pt_tujuan>*\n`
+                + `Jika Pembeli orang biasa: *${usedPrefix}pertanian b2b bayar ${contractId}*\n\n`
+                + `_⏳ Batas Waktu Bayar: 10 Menit sebelum dibatalkan otomatis._`;
+                
+            return m.reply(txt, null, { mentions: [buyer] });
+        }
+
+        if (subAction === 'bayar') {
+            let contractId = parseInt(args[2]);
+            
+            if (isNaN(contractId)) return m.reply(`⚠️ Gunakan format: *${usedPrefix}pertanian b2b bayar <id_kontrak>*`);
+            let k = negara.b2b[contractId];
+            if (!k) return m.reply(`❌ Kontrak B2B dengan ID ${contractId} tidak ditemukan.`);
+            if (k.buyer !== m.sender) return m.reply(`❌ Anda bukan pembeli pada kontrak ini.`);
+            
+            if (user.money < k.price) return m.reply(`❌ Uang tunai Anda tidak cukup untuk membayar tagihan sebesar *Rp ${k.price.toLocaleString('id-ID')}*. Uang Anda: Rp ${user.money.toLocaleString('id-ID')}`);
+            
+            // Proses Pembayaran dan Masuk Barang ke Tas Pribadi
+            user.money -= k.price;
+            user[k.item] = (user[k.item] || 0) + k.qty;
+            
+            // Tarik barang dari Negara
+            negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
+            delete negara.b2b[contractId];
+            
+            // Distribusi Uang (Pajak Rekber 1%)
+            let taxB2B = Math.floor(k.price * 0.01);
+            let bersihMasuk = k.price - taxB2B;
+            negara.kas = (negara.kas || 0) + taxB2B;
+            
+            let sellerUser = global.db.data.users[k.seller];
+            if (sellerUser) {
+                if (k.ptSource !== null && k.ptSource !== undefined) {
+                    let ptSellerId = k.ptSource - 1;
+                    if (sellerUser.perusahaan && sellerUser.perusahaan[ptSellerId]) {
+                        sellerUser.perusahaan[ptSellerId].saldo += bersihMasuk;
+                    } else {
+                        sellerUser.money += bersihMasuk; // Fallback jika PT dihapus
+                    }
+                } else {
+                    sellerUser.money += bersihMasuk;
+                }
+            }
+            
+            let txt = `✅ *PEMBAYARAN KONTRAK B2B (ID: ${contractId}) SUKSES* ✅\n\n`
+                + `📥 *${k.qty.toLocaleString('id-ID')} ${k.item}* telah mendarat di Tas Pribadi Anda.\n`
+                + `💸 Dompet Anda dipotong sebesar *Rp ${k.price.toLocaleString('id-ID')}*.\n`
+                + `💰 Penjual (@${k.seller.split('@')[0]}) menerima pembayaran *Rp ${bersihMasuk.toLocaleString('id-ID')}* ke rekening (Telah dipotong Pajak 1%).\n`
+                + `🏛️ Pajak Rekber (1%): *Rp ${taxB2B.toLocaleString('id-ID')}* disetor ke Kas Utama Negara.`;
+                
+            return m.reply(txt, null, { mentions: [k.seller] });
+        }
+
+        if (subAction === 'batal') {
+            let contractId = parseInt(args[2]);
+            if (isNaN(contractId)) return m.reply(`⚠️ Gunakan format: *${usedPrefix}pertanian b2b batal <id_kontrak>*`);
+            let k = negara.b2b[contractId];
+            if (!k) return m.reply(`❌ Kontrak B2B dengan ID ${contractId} tidak ditemukan.`);
+            if (k.seller !== m.sender && negara.presiden !== m.sender) return m.reply(`❌ Hanya penjual atau Presiden yang dapat membatalkan kontrak secara sepihak.`);
+            
+            let sellerUser = global.db.data.users[k.seller];
+            if (!sellerUser) return m.reply(`❌ Data penjual tidak ditemukan.`);
+            
+            if (k.ptSource !== null && k.ptSource !== undefined) {
+                let ptSellerId = k.ptSource - 1;
+                if (sellerUser.perusahaan && sellerUser.perusahaan[ptSellerId]) {
+                    let pt = sellerUser.perusahaan[ptSellerId];
+                    if (!pt.gudang) pt.gudang = {};
+                    pt.gudang[k.item] = (pt.gudang[k.item] || 0) + k.qty;
+                } else {
+                    sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+                }
+            } else {
+                sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
+            }
+            
+            negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
+            delete negara.b2b[contractId];
+            
+            return m.reply(`🚫 *KONTRAK B2B (ID: ${contractId}) DIBATALKAN*\n\nSeluruh barang sejumlah *${k.qty.toLocaleString('id-ID')} ${k.item}* telah ditarik dari Gudang Negara dan dikembalikan utuh ke Penjual (@${k.seller.split('@')[0]}).`, null, {mentions: [k.seller]});
         }
         
-        if (!marketItems[item] || item === 'tanah') return m.reply(`❌ Item *${item}* tidak valid! Cek daftar panenmu di *${usedPrefix}gudang*`);
-        if ((user[item] || 0) < jumlah) return m.reply(`❌ Stok *${marketItems[item].name}* kamu tidak cukup! Sisa: ${(user[item] || 0).toLocaleString('id-ID')}`);
-
-        let target = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : targetMention.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-        let targetUser = global.db.data.users[target];
-
-        if (!targetUser || !targetUser.perusahaan) return m.reply('❌ Partner (Penerima) tidak memiliki Perusahaan di database!');
-
-        let ptReceiver = targetUser.perusahaan[idPtTujuan];
-        if (!ptReceiver) return m.reply('❌ ID Perusahaan Penerima tidak valid!');
-        if (ptReceiver.type === 'listrik') return m.reply(`❌ PT Listrik tidak memiliki gudang logistik fisik!`);
-
-        // Cek Kapasitas Gudang Target PT
-        let slotPerLevel = 120; // Default capacity increment per PT level
-        let maxKapasitas = (ptReceiver.gudangLevel || 1) * slotPerLevel;
-        let terpakai = Object.values(ptReceiver.gudang || {}).reduce((s, v) => s + (v || 0), 0);
-        let sisaSlot = maxKapasitas - terpakai;
-
-        if (jumlah > sisaSlot) return m.reply(`❌ Gudang PT *${ptReceiver.name}* tidak muat!\nSisa slot mereka hanya: ${sisaSlot.toLocaleString('id-ID')} unit.`);
-
-        // Eksekusi Logistik
-        user[item] -= jumlah;
-        if (!ptReceiver.gudang) ptReceiver.gudang = {};
-        ptReceiver.gudang[item] = (ptReceiver.gudang[item] || 0) + jumlah;
-
-        return m.reply(
-            `🤝 *B2B LOGISTIK SUKSES* 🚚\n\n` +
-            `📦 Mengirimkan: *${jumlah.toLocaleString('id-ID')} ${marketItems[item].name}*\n` +
-            `🏢 Ke Gudang PT: *${ptReceiver.name}*\n` +
-            `👤 Pemilik: @${target.split('@')[0]}\n\n` +
-            `_Item telah sukses mendarat di Gudang. Jangan lupa tagih uang bayarannya ke Bos PT tersebut!_`,
-            null, { mentions: [target] }
-        );
+        return m.reply(`❌ Sub-perintah B2B tidak valid. Gunakan: *buat, bayar, batal, list*.`);
     }
 
     // ── TANAM ──
@@ -340,7 +478,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         `• \`${usedPrefix}gudang\` - Cek stok panen & bibit\n` +
         `• \`${usedPrefix}pertanian pasar\` - Cek harga pasar global\n` +
         `• \`${usedPrefix}pertanian jual <item> <jumlah>\` - Jual hasil panen (Global)\n` +
-        `• \`${usedPrefix}pertanian setorpt <item> <jml> <id_pt> <@tag>\` - B2B Suplai PT\n` +
+        `• \`${usedPrefix}pertanian b2b\` - Akses Bursa Rekber Negara\n` +
         `• \`${usedPrefix}pertanian belitanah <jumlah>\` - Beli hektar tanah\n` +
         `• \`${usedPrefix}pertanian jualtanah <jumlah>\` - Jual hektar tanah\n\n` +
         `*Tips:* Pekerjaan (Job) Petani menghasilkan panen berlipat ganda & drop bibit yang sangat melimpah dibanding player biasa!`
