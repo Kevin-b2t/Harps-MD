@@ -148,8 +148,11 @@ async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sectio
 }
 
 let handler = async (m, { conn, args, text, usedPrefix, command }) => {
-  // Fix potensi ReferenceError pada variabel btc yang bisa bikin bot mati total
-  const apiKey = global.btc || 'YOUR_APIKEY';
+  // API Key - cek berbagai nama variabel global yang umum dipakai bot MD
+  const apiKey = global.btc || global.APIKey || global.apikey || global.api_key || '';
+  if (!apiKey) {
+    return m.reply('❌ *API Key belum diset!*\nSilakan set `global.btc` di config bot kamu.');
+  }
 
   switch (command) {
 
@@ -176,10 +179,14 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       else {
         m.reply(wait);
         try {
-          let response = await fetch(`https://api.botcahx.eu.org/api/search/pinterest?text1=${encodeURIComponent(text)}&apikey=${apiKey}`);
-          let data = await response.json();   
+          let response = await fetch(`https://api.botcahx.eu.org/api/search/pinterest?query=${encodeURIComponent(text)}&apikey=${apiKey}`);
+          let data = await response.json();
           
-          if (!data.result || data.result.length === 0) return m.reply('❌ Gambar tidak ditemukan.');
+          // Debug: log response jika gagal
+          if (!data.result || data.result.length === 0) {
+            console.log('[Pinterest Debug] Response:', JSON.stringify(data).slice(0, 300));
+            return m.reply('❌ Gambar tidak ditemukan.');
+          }
 
           let images = data.result.slice(0, 8); 
           
@@ -204,7 +211,8 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           );
           
         } catch (e) {
-          m.reply(eror);
+          console.error('[Pinterest Search Error]', e);
+          m.reply(`❌ Error: ${e.message || 'Gagal mengambil data.'}`);
         }
       }
       break;
@@ -402,9 +410,7 @@ handler.before = async (m, { conn }) => {
   }
 
   // --- LISTENER SPOTIFY ---
-  const apiKey = global.btc || 'YOUR_APIKEY';
-
-  // Jika Lagu dipanggil lewat Tombol List
+  const apiKey = global.btc || global.APIKey || global.apikey || global.api_key || '';
   if (teks.startsWith('dl-spotify|')) {
     let url = teks.split('|')[1];
     m.reply('⏳ *Mendownload lagu, harap tunggu...*');
