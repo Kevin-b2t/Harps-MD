@@ -1,18 +1,30 @@
 const fetch = require('node-fetch');
 const yts = require('yt-search');
-const crypto = require('crypto');
 
 const wait = '⏳ _Sedang memproses permintaan Anda..._';
 const eror = '❌ _Gagal mengambil data, silakan coba lagi nanti._';
 
 // =========================================================================
-// RAW PAYLOAD: Mengirim Gambar + Tombol (Khusus WA Business & Native Flow)
+// HELPER: Bypass Module ESM Baileys agar tidak crash (ERR_REQUIRE_ESM)
+// =========================================================================
+async function getBaileys() {
+    try {
+        return require('@adiwajshing/baileys');
+    } catch (e) {
+        return await import('@adiwajshing/baileys'); // Bypass untuk Baileys v7+
+    }
+}
+
+// =========================================================================
+// RAW PAYLOAD: Mengirim Gambar + Tombol (Native Flow + Spoofing Saluran)
 // =========================================================================
 async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted) {
     try {
-        const { prepareWAMessageMedia } = require('@adiwajshing/baileys');
+        const baileys = await getBaileys();
+        const { prepareWAMessageMedia, generateWAMessageFromContent } = baileys;
         
         let media = await conn.getFile(imageUrl);
+        // Upload media ke server WA agar aman dikirim dalam Interactive Message
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
 
         let dynamicButtons = buttons.map(btn => ({
@@ -20,24 +32,24 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted
             buttonParamsJson: JSON.stringify({ display_text: btn.text, id: btn.id })
         }));
 
-        // Merakit Raw Payload persis seperti struktur asli WA
         let messageContent = {
             viewOnceMessage: {
                 message: {
-                    messageContextInfo: {
-                        deviceListMetadata: {},
-                        deviceListMetadataVersion: 2
-                    },
+                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
                     interactiveMessage: {
-                        header: {
-                            hasMediaAttachment: true,
-                            imageMessage: mediaMsg.imageMessage
-                        },
+                        header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
                         body: { text: caption },
                         footer: { text: "🍟 Pinterest Downloader" },
                         contextInfo: {
                             participant: quoted.sender,
-                            quotedMessage: quoted.message || {}
+                            quotedMessage: quoted.message || {},
+                            isForwarded: true,
+                            forwardingScore: 999,
+                            forwardedNewsletterMessageInfo: {
+                                newsletterJid: "120363400911374213@newsletter",
+                                newsletterName: "🍟 Downloader Center",
+                                serverMessageId: 143
+                            }
                         },
                         nativeFlowMessage: { buttons: dynamicButtons }
                     }
@@ -45,20 +57,22 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted
             }
         };
 
-        let msgId = crypto.randomBytes(16).toString('hex').toUpperCase();
+        let msgId = baileys.generateMessageID ? baileys.generateMessageID() : require('crypto').randomBytes(16).toString('hex').toUpperCase();
         await conn.relayMessage(jid, messageContent, { messageId: msgId });
     } catch (e) {
-        console.error("Error UI Button:", e);
+        console.error("Error UI Button (ESM Bypass):", e);
+        // Fallback jika tetap gagal
         await conn.sendMessage(jid, { image: { url: imageUrl }, caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._' }, { quoted });
     }
 }
 
 // =========================================================================
-// RAW PAYLOAD: Mengirim Gambar + List Menu (Khusus WA Business & Native Flow)
+// RAW PAYLOAD: Mengirim Gambar + List Menu (Native Flow + Spoofing Saluran)
 // =========================================================================
 async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sections, quoted) {
     try {
-        const { prepareWAMessageMedia } = require('@adiwajshing/baileys');
+        const baileys = await getBaileys();
+        const { prepareWAMessageMedia, generateWAMessageFromContent } = baileys;
 
         let media = await conn.getFile(imageUrl);
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
@@ -66,20 +80,21 @@ async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sectio
         let messageContent = {
             viewOnceMessage: {
                 message: {
-                    messageContextInfo: {
-                        deviceListMetadata: {},
-                        deviceListMetadataVersion: 2
-                    },
+                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
                     interactiveMessage: {
-                        header: {
-                            hasMediaAttachment: true,
-                            imageMessage: mediaMsg.imageMessage
-                        },
+                        header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
                         body: { text: caption },
                         footer: { text: "🎵 Spotify Downloader" },
                         contextInfo: {
                             participant: quoted.sender,
-                            quotedMessage: quoted.message || {}
+                            quotedMessage: quoted.message || {},
+                            isForwarded: true,
+                            forwardingScore: 999,
+                            forwardedNewsletterMessageInfo: {
+                                newsletterJid: "120363400911374213@newsletter",
+                                newsletterName: "🎵 Downloader Center",
+                                serverMessageId: 143
+                            }
                         },
                         nativeFlowMessage: {
                             buttons: [{
@@ -92,10 +107,10 @@ async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sectio
             }
         };
 
-        let msgId = crypto.randomBytes(16).toString('hex').toUpperCase();
+        let msgId = baileys.generateMessageID ? baileys.generateMessageID() : require('crypto').randomBytes(16).toString('hex').toUpperCase();
         await conn.relayMessage(jid, messageContent, { messageId: msgId });
     } catch (e) {
-        console.error("Error UI List:", e);
+        console.error("Error UI List (ESM Bypass):", e);
         await conn.sendMessage(jid, { image: { url: imageUrl }, caption: caption + '\n\n💡 _Ketik *lagu 1* untuk mendownload._' }, { quoted });
     }
 }
@@ -145,7 +160,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let firstImage = images[0];
           let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}`;
 
-          // MENGIRIM RAW PAYLOAD TOMBOL
           await sendButtonWithImage(
               conn, 
               m.chat, 
@@ -204,7 +218,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let spotifyThumb = 'https://i.ibb.co/GFVf3h3/spotify.png';
           let caption = `🎵 *Hasil Pencarian: ${query}*\n\nSilakan klik tombol di bawah untuk memilih lagu.`;
           
-          // MENGIRIM RAW PAYLOAD LIST MENU
           await sendListWithImage(conn, m.chat, spotifyThumb, caption, '🎶 Pilih Lagu', sections, m);
 
         } catch (e) {
@@ -309,7 +322,6 @@ handler.before = async (m, { conn }) => {
   
   let teks = m.text || '';
 
-  // Penangkapan ID tombol yang diklik dari HP User
   if (m.msg && m.msg.nativeFlowResponseMessage) {
     try {
       let params = JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson);
@@ -320,7 +332,7 @@ handler.before = async (m, { conn }) => {
   teks = teks.toLowerCase();
   if (!teks) return;
 
-  // --- LISTENER PINTEREST ("next") ---
+  // --- LISTENER PINTEREST ---
   conn.pinterestSearch = conn.pinterestSearch || {};
   if (teks === 'next' && conn.pinterestSearch[m.sender]) {
     let pinData = conn.pinterestSearch[m.sender];
@@ -372,7 +384,6 @@ handler.before = async (m, { conn }) => {
     return true; 
   }
 
-  // Tangkap teks manual "lagu 1" jika fallback teks terpakai
   let matchSpotify = teks.match(/^lagu\s+([1-5])$/);
   if (matchSpotify && conn.spotifySearch && conn.spotifySearch[m.sender]) {
     let index = parseInt(matchSpotify[1]) - 1;
