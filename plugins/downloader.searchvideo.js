@@ -1,17 +1,22 @@
 const fetch = require('node-fetch');
 const yts = require('yt-search');
-const { prepareWAMessageMedia, generateWAMessageFromContent } = require('@adiwajshing/baileys');
 const crypto = require('crypto');
 
 const wait = '⏳ _Sedang memproses permintaan Anda..._';
 const eror = '❌ _Gagal mengambil data, silakan coba lagi nanti._';
 
 // =========================================================================
-// RAW PAYLOAD: Mengirim Gambar + Tombol (Native Flow + Spoofing Saluran)
+// RAW PAYLOAD: Mengirim Gambar + Tombol (Aman dari Crash ESM / Module)
 // =========================================================================
 async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted) {
-    // Coba Native Flow dulu (WhatsApp Business / spoof channel)
     try {
+        // DYNAMIC IMPORT: Dipanggil di dalam fungsi agar bot tidak mati/crash saat loading plugin
+        let baileys;
+        try { baileys = await import('baileys'); } 
+        catch (e) { baileys = await import('@adiwajshing/baileys'); }
+        
+        const { prepareWAMessageMedia, generateWAMessageFromContent } = baileys;
+
         let media = await conn.getFile(imageUrl);
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
 
@@ -33,6 +38,7 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted
                             quotedMessage: quoted.message || {},
                             isForwarded: true,
                             forwardingScore: 999,
+                            // Trik Ilmu Hitam Saluran WA
                             forwardedNewsletterMessageInfo: {
                                 newsletterJid: "120363400911374213@newsletter",
                                 newsletterName: "🍟 Downloader Center",
@@ -47,44 +53,24 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted
 
         let msg = generateWAMessageFromContent(jid, messageContent, { quoted, userJid: conn.user?.id || conn.user?.jid });
         await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
-        return; // Berhasil, keluar dari fungsi
     } catch (e) {
-        console.error("Gagal Native Flow, mencoba fallback buttons biasa:", e.message);
+        console.error("Gagal Native Flow:", e);
+        // JIKA TETAP GAGAL, BOT TIDAK AKAN DIAM, MELAINKAN MENGIRIM TEKS BIASA
+        await conn.sendMessage(jid, { image: { url: imageUrl }, caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._' }, { quoted });
     }
-
-    // Fallback 1: Kirim pakai buttons biasa (Baileys standard)
-    try {
-        let btnList = buttons.map(btn => ({
-            buttonId: btn.id,
-            buttonText: { displayText: btn.text },
-            type: 1
-        }));
-
-        await conn.sendMessage(jid, {
-            image: { url: imageUrl },
-            caption: caption,
-            footer: '🍟 Pinterest Downloader',
-            buttons: btnList,
-            headerType: 4
-        }, { quoted });
-        return;
-    } catch (e2) {
-        console.error("Gagal fallback buttons biasa, pakai teks:", e2.message);
-    }
-
-    // Fallback 2: Teks saja jika semua gagal
-    await conn.sendMessage(jid, {
-        image: { url: imageUrl },
-        caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._'
-    }, { quoted });
 }
 
 // =========================================================================
-// RAW PAYLOAD: Mengirim Gambar + List Menu (Native Flow + Spoofing Saluran)
+// RAW PAYLOAD: Mengirim Gambar + List Menu (Aman dari Crash ESM / Module)
 // =========================================================================
 async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sections, quoted) {
-    // Coba Native Flow dulu
     try {
+        let baileys;
+        try { baileys = await import('baileys'); } 
+        catch (e) { baileys = await import('@adiwajshing/baileys'); }
+        
+        const { prepareWAMessageMedia, generateWAMessageFromContent } = baileys;
+
         let media = await conn.getFile(imageUrl);
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
 
@@ -120,39 +106,15 @@ async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sectio
 
         let msg = generateWAMessageFromContent(jid, messageContent, { quoted, userJid: conn.user?.id || conn.user?.jid });
         await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
-        return; // Berhasil
     } catch (e) {
-        console.error("Gagal Native List, mencoba fallback list biasa:", e.message);
+        console.error("Gagal Native List:", e);
+        await conn.sendMessage(jid, { image: { url: imageUrl }, caption: caption + '\n\n💡 _Ketik *lagu 1* untuk mendownload._' }, { quoted });
     }
-
-    // Fallback 1: Kirim pakai listMessage biasa (Baileys standard)
-    try {
-        await conn.sendMessage(jid, {
-            text: caption,
-            footer: '🎵 Spotify Downloader',
-            title: listTitle,
-            buttonText: listTitle,
-            sections: sections,
-            listType: 1
-        }, { quoted });
-        return;
-    } catch (e2) {
-        console.error("Gagal fallback list biasa, pakai teks:", e2.message);
-    }
-
-    // Fallback 2: Teks saja jika semua gagal
-    await conn.sendMessage(jid, {
-        image: { url: imageUrl },
-        caption: caption + '\n\n💡 _Ketik *lagu 1* untuk mendownload._'
-    }, { quoted });
 }
 
 let handler = async (m, { conn, args, text, usedPrefix, command }) => {
-  // API Key - cek berbagai nama variabel global yang umum dipakai bot MD
-  const apiKey = global.btc || global.APIKey || global.apikey || global.api_key || '';
-  if (!apiKey) {
-    return m.reply('❌ *API Key belum diset!*\nSilakan set `global.btc` di config bot kamu.');
-  }
+  // Variabel API Key super aman
+  const apiKey = global.btc || global.APIKey || global.apikey || 'YOUR_APIKEY';
 
   switch (command) {
 
@@ -179,14 +141,10 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       else {
         m.reply(wait);
         try {
-          let response = await fetch(`https://api.botcahx.eu.org/api/search/pinterest?query=${encodeURIComponent(text)}&apikey=${apiKey}`);
-          let data = await response.json();
+          let response = await fetch(`https://api.botcahx.eu.org/api/search/pinterest?text1=${encodeURIComponent(text)}&apikey=${apiKey}`);
+          let data = await response.json();   
           
-          // Debug: log response jika gagal
-          if (!data.result || data.result.length === 0) {
-            console.log('[Pinterest Debug] Response:', JSON.stringify(data).slice(0, 300));
-            return m.reply('❌ Gambar tidak ditemukan.');
-          }
+          if (!data.result || data.result.length === 0) return m.reply('❌ Gambar tidak ditemukan.');
 
           let images = data.result.slice(0, 8); 
           
@@ -200,7 +158,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let firstImage = images[0];
           let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}`;
 
-          // MEMANGGIL FUNGSI TOMBOL
+          // MENGIRIM TOMBOL
           await sendButtonWithImage(
               conn, 
               m.chat, 
@@ -211,8 +169,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           );
           
         } catch (e) {
-          console.error('[Pinterest Search Error]', e);
-          m.reply(`❌ Error: ${e.message || 'Gagal mengambil data.'}`);
+          m.reply(eror);
         }
       }
       break;
@@ -260,7 +217,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let spotifyThumb = 'https://i.ibb.co/GFVf3h3/spotify.png';
           let caption = `🎵 *Hasil Pencarian: ${query}*\n\nSilakan klik tombol di bawah untuk memilih lagu.`;
           
-          // MEMANGGIL FUNGSI LIST
+          // MENGIRIM LIST MENU
           await sendListWithImage(conn, m.chat, spotifyThumb, caption, '🎶 Pilih Lagu', sections, m);
 
         } catch (e) {
@@ -365,7 +322,6 @@ handler.before = async (m, { conn }) => {
   
   let teks = m.text || '';
 
-  // Menangkap Interaksi Tombol Native Flow V2
   if (m.msg && m.msg.nativeFlowResponseMessage) {
     try {
       let params = JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson);
@@ -410,7 +366,8 @@ handler.before = async (m, { conn }) => {
   }
 
   // --- LISTENER SPOTIFY ---
-  const apiKey = global.btc || global.APIKey || global.apikey || global.api_key || '';
+  const apiKey = global.btc || global.APIKey || global.apikey || 'YOUR_APIKEY';
+
   if (teks.startsWith('dl-spotify|')) {
     let url = teks.split('|')[1];
     m.reply('⏳ *Mendownload lagu, harap tunggu...*');
@@ -427,7 +384,6 @@ handler.before = async (m, { conn }) => {
     return true; 
   }
 
-  // Jika lagu dipanggil manual ketik (Fallback jika tombol tidak dipencet)
   let matchSpotify = teks.match(/^lagu\s+([1-5])$/);
   if (matchSpotify && conn.spotifySearch && conn.spotifySearch[m.sender]) {
     let index = parseInt(matchSpotify[1]) - 1;
