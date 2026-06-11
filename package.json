@@ -1,6 +1,6 @@
 {
-    "name": "rtxzy",
-    "version": "8.0.4",
+    "name": "harpsmd",
+    "version": "12.6.7",
     "description": "Lightweight WhatsApp Bot",
     "depecrated": false,
     "main": "index.js",
@@ -26,16 +26,16 @@
         "botcahx",
         "baileys"
     ],
-    "homepage": "https://github.com/BOTCAHX/RTXZY-MD",
+    "homepage": "https://github.com/Kevin-b2t/Harps-MD",
     "author": {
-        "name": "BOTCAHX"
+        "name": "HARPS_MD"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/BOTCAHX/RTXZY-MD.git"
+        "url": "git+https://github.com/Kevin-b2t/Harps-MD.git"
     },
     "bugs": {
-        "url": "https://github.com/BOTCAHX/RTXZY-MD/issues"
+        "url": "https://github.com/Kevin-b2t/Harps-MD/issues"
     },
     "license": "MIT",
     "dependencies": {
