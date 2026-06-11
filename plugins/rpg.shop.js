@@ -80,6 +80,15 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dataSingkong = getMarketPrice('bibitsingkong', 350, 70, 80000, 120000); let Bsingkong = dataSingkong.beli; let Ssingkong = dataSingkong.jual; let statusSingkong = dataSingkong.status;
     let dataUbiJalar = getMarketPrice('bibitubijalar', 375, 75, 80000, 120000); let Bubijalar = dataUbiJalar.beli; let Subijalar = dataUbiJalar.jual; let statusUbiJalar = dataUbiJalar.status;
     let dataTebu = getMarketPrice('bibittebu', 550, 130, 80000, 120000); let Btebu = dataTebu.beli; let Stebu = dataTebu.jual; let statusTebu = dataTebu.status;
+    // New Bibit
+    let dataBibitCabai = getMarketPrice('bibitcabai', 600, 120, 80000, 120000); let Bbibitcabai = dataBibitCabai.beli; let Sbibitcabai = dataBibitCabai.jual; let statusBibitCabai = dataBibitCabai.status;
+    let dataBibitTomat = getMarketPrice('bibittomat', 550, 110, 80000, 120000); let Bbibittomat = dataBibitTomat.beli; let Sbibittomat = dataBibitTomat.jual; let statusBibitTomat = dataBibitTomat.status;
+    let dataBibitBawang = getMarketPrice('bibitbawang', 500, 100, 80000, 120000); let Bbibitbawang = dataBibitBawang.beli; let Sbibitbawang = dataBibitBawang.jual; let statusBibitBawang = dataBibitBawang.status;
+    let dataBibitTerong = getMarketPrice('bibitterong', 450, 90, 80000, 120000); let Bbibitterong = dataBibitTerong.beli; let Sbibitterong = dataBibitTerong.jual; let statusBibitTerong = dataBibitTerong.status;
+    let dataBibitJagung = getMarketPrice('bibitjagung', 700, 140, 80000, 120000); let Bbibitjagung = dataBibitJagung.beli; let Sbibitjagung = dataBibitJagung.jual; let statusBibitJagung = dataBibitJagung.status;
+    let dataBibitKedelai = getMarketPrice('bibitkedelai', 650, 130, 80000, 120000); let Bbibitkedelai = dataBibitKedelai.beli; let Sbibitkedelai = dataBibitKedelai.jual; let statusBibitKedelai = dataBibitKedelai.status;
+    let dataBibitSemangka = getMarketPrice('bibitsemangka', 800, 160, 80000, 120000); let Bbibitsemangka = dataBibitSemangka.beli; let Sbibitsemangka = dataBibitSemangka.jual; let statusBibitSemangka = dataBibitSemangka.status;
+    let dataBibitMelon = getMarketPrice('bibitmelon', 850, 170, 80000, 120000); let Bbibitmelon = dataBibitMelon.beli; let Sbibitmelon = dataBibitMelon.jual; let statusBibitMelon = dataBibitMelon.status;
 
     let dataPotion = getMarketPrice('potion', 20000, 100, 40000, 60000); let potion = dataPotion.beli; let Spotion = dataPotion.jual; let statusPotion = dataPotion.status;
     let dataSampah = getMarketPrice('sampah', 120, 5, 400000, 600000); let Bsampah = dataSampah.beli; let Ssampah = dataSampah.jual; let statusSampah = dataSampah.status;
@@ -88,6 +97,15 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dataKaleng = getMarketPrice('kaleng', 400, 100, 120000, 180000); let Bkaleng = dataKaleng.beli; let Skaleng = dataKaleng.jual; let statusKaleng = dataKaleng.status;
     let dataKardus = getMarketPrice('kardus', 400, 50, 120000, 180000); let Bkardus = dataKardus.beli; let Skardus = dataKardus.jual; let statusKardus = dataKardus.status;
     let dataSword = getMarketPrice('sword', 150000, 15000, 4000, 6000); let Bsword = dataSword.beli; let Ssword = dataSword.jual; let statusSword = dataSword.status;
+    // New Barang
+    let dataPlastik = getMarketPrice('plastik', 300, 50, 120000, 180000); let Bplastik = dataPlastik.beli; let Splastik = dataPlastik.jual; let statusPlastik = dataPlastik.status;
+    let dataKain = getMarketPrice('kain', 400, 80, 120000, 180000); let Bkain = dataKain.beli; let Skain = dataKain.jual; let statusKain = dataKain.status;
+    let dataPaku = getMarketPrice('paku', 150, 25, 120000, 180000); let Bpaku = dataPaku.beli; let Spaku = dataPaku.jual; let statusPaku = dataPaku.status;
+    let dataBaterai = getMarketPrice('baterai', 1200, 250, 80000, 120000); let Bbaterai = dataBaterai.beli; let Sbaterai = dataBaterai.jual; let statusBaterai = dataBaterai.status;
+    let dataBanBekas = getMarketPrice('banbekas', 900, 150, 80000, 120000); let Bbanbekas = dataBanBekas.beli; let Sbanbekas = dataBanBekas.jual; let statusBanBekas = dataBanBekas.status;
+    let dataKaret = getMarketPrice('karet', 500, 100, 120000, 180000); let Bkaret = dataKaret.beli; let Skaret = dataKaret.jual; let statusKaret = dataKaret.status;
+    let dataTembaga = getMarketPrice('tembaga', 3500, 700, 60000, 90000); let Btembaga = dataTembaga.beli; let Stembaga = dataTembaga.jual; let statusTembaga = dataTembaga.status;
+    let dataAluminium = getMarketPrice('aluminium', 4500, 900, 60000, 90000); let Baluminium = dataAluminium.beli; let Saluminium = dataAluminium.jual; let statusAluminium = dataAluminium.status;
 
     let dataKayu = getMarketPrice('kayu', 1000, 400, 250000, 350000); let Bkayu = dataKayu.beli; let Skayu = dataKayu.jual; let statusKayu = dataKayu.status;
     let dataBatu = getMarketPrice('batu', 500, 100, 250000, 350000); let Bbatu = dataBatu.beli; let Sbatu = dataBatu.jual; let statusBatu = dataBatu.status;
@@ -98,6 +116,15 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dataEmasMentah = getMarketPrice('emasmentah', 866490, 700000, 15000, 22000); let Bemasmentah = dataEmasMentah.beli; let Semasmentah = dataEmasMentah.jual; let statusEmasMentah = dataEmasMentah.status;
     let dataPasir = getMarketPrice('pasir', 250000, 180000, 18000, 26000); let Bpasir = dataPasir.beli; let Spasir = dataPasir.jual; let statusPasir = dataPasir.status;
     let dataUranium = getMarketPrice('uranium', 35000, 25000, 13000, 20000); let Buranium = dataUranium.beli; let Suranium = dataUranium.jual; let statusUranium = dataUranium.status;
+    // New Alam
+    let dataTembagaOre = getMarketPrice('tembagaore', 8000, 2000, 60000, 90000); let Btembagaore = dataTembagaOre.beli; let Stembagaore = dataTembagaOre.jual; let statusTembagaOre = dataTembagaOre.status;
+    let dataPerakOre = getMarketPrice('perakore', 12000, 3000, 50000, 80000); let Bperakore = dataPerakOre.beli; let Sperakore = dataPerakOre.jual; let statusPerakOre = dataPerakOre.status;
+    let dataTimah = getMarketPrice('timah', 6000, 1500, 70000, 100000); let Btimah = dataTimah.beli; let Stimah = dataTimah.jual; let statusTimah = dataTimah.status;
+    let dataNikel = getMarketPrice('nikel', 15000, 4000, 40000, 70000); let Bnikel = dataNikel.beli; let Snikel = dataNikel.jual; let statusNikel = dataNikel.status;
+    let dataKuarsa = getMarketPrice('kuarsa', 20000, 5000, 30000, 50000); let Bkuarsa = dataKuarsa.beli; let Skuarsa = dataKuarsa.jual; let statusKuarsa = dataKuarsa.status;
+    let dataKristal = getMarketPrice('kristal', 50000, 15000, 10000, 30000); let Bkristal = dataKristal.beli; let Skristal = dataKristal.jual; let statusKristal = dataKristal.status;
+    let dataObsidian = getMarketPrice('obsidian', 35000, 9000, 20000, 40000); let Bobsidian = dataObsidian.beli; let Sobsidian = dataObsidian.jual; let statusObsidian = dataObsidian.status;
+    let dataBelerang = getMarketPrice('belerang', 5000, 1000, 60000, 90000); let Bbelerang = dataBelerang.beli; let Sbelerang = dataBelerang.jual; let statusBelerang = dataBelerang.status;
 
     let dataPisang = getMarketPrice('pisang', 5500, 100, 65000, 95000); let Bpisang = dataPisang.beli; let Spisang = dataPisang.jual; let statusPisang = dataPisang.status;
     let dataAnggur = getMarketPrice('anggur', 5500, 150, 65000, 95000); let Banggur = dataAnggur.beli; let Sanggur = dataAnggur.jual; let statusAnggur = dataAnggur.status;
@@ -287,6 +314,54 @@ HARGA JUAL : ${Stebu}
 Status Harga : ${statusTebu}
 Info Stock : ${dataTebu.stockStatus}
 
+🌶️Bibit Cabai:
+HARGA BELI : ${Bbibitcabai}
+HARGA JUAL : ${Sbibitcabai}
+Status Harga : ${statusBibitCabai}
+Info Stock : ${dataBibitCabai.stockStatus}
+
+🍅Bibit Tomat:
+HARGA BELI : ${Bbibittomat}
+HARGA JUAL : ${Sbibittomat}
+Status Harga : ${statusBibitTomat}
+Info Stock : ${dataBibitTomat.stockStatus}
+
+🧅Bibit Bawang:
+HARGA BELI : ${Bbibitbawang}
+HARGA JUAL : ${Sbibitbawang}
+Status Harga : ${statusBibitBawang}
+Info Stock : ${dataBibitBawang.stockStatus}
+
+🍆Bibit Terong:
+HARGA BELI : ${Bbibitterong}
+HARGA JUAL : ${Sbibitterong}
+Status Harga : ${statusBibitTerong}
+Info Stock : ${dataBibitTerong.stockStatus}
+
+🌽Bibit Jagung:
+HARGA BELI : ${Bbibitjagung}
+HARGA JUAL : ${Sbibitjagung}
+Status Harga : ${statusBibitJagung}
+Info Stock : ${dataBibitJagung.stockStatus}
+
+🫘Bibit Kedelai:
+HARGA BELI : ${Bbibitkedelai}
+HARGA JUAL : ${Sbibitkedelai}
+Status Harga : ${statusBibitKedelai}
+Info Stock : ${dataBibitKedelai.stockStatus}
+
+🍉Bibit Semangka:
+HARGA BELI : ${Bbibitsemangka}
+HARGA JUAL : ${Sbibitsemangka}
+Status Harga : ${statusBibitSemangka}
+Info Stock : ${dataBibitSemangka.stockStatus}
+
+🍈Bibit Melon:
+HARGA BELI : ${Bbibitmelon}
+HARGA JUAL : ${Sbibitmelon}
+Status Harga : ${statusBibitMelon}
+Info Stock : ${dataBibitMelon.stockStatus}
+
 ╸╸━━━「 *BARANG* 」━━━╺╺
 
 🥤Potion:
@@ -330,6 +405,54 @@ HARGA BELI : ${Bsword}
 HARGA JUAL : ${Ssword}
 Status Harga : ${statusSword}
 Info Stock : ${dataSword.stockStatus}
+
+🛍️Plastik:
+HARGA BELI : ${Bplastik}
+HARGA JUAL : ${Splastik}
+Status Harga : ${statusPlastik}
+Info Stock : ${dataPlastik.stockStatus}
+
+🥻Kain:
+HARGA BELI : ${Bkain}
+HARGA JUAL : ${Skain}
+Status Harga : ${statusKain}
+Info Stock : ${dataKain.stockStatus}
+
+📍Paku:
+HARGA BELI : ${Bpaku}
+HARGA JUAL : ${Spaku}
+Status Harga : ${statusPaku}
+Info Stock : ${dataPaku.stockStatus}
+
+🔋Baterai:
+HARGA BELI : ${Bbaterai}
+HARGA JUAL : ${Sbaterai}
+Status Harga : ${statusBaterai}
+Info Stock : ${dataBaterai.stockStatus}
+
+🛞Ban Bekas:
+HARGA BELI : ${Bbanbekas}
+HARGA JUAL : ${Sbanbekas}
+Status Harga : ${statusBanBekas}
+Info Stock : ${dataBanBekas.stockStatus}
+
+🪀Karet:
+HARGA BELI : ${Bkaret}
+HARGA JUAL : ${Skaret}
+Status Harga : ${statusKaret}
+Info Stock : ${dataKaret.stockStatus}
+
+🥉Tembaga:
+HARGA BELI : ${Btembaga}
+HARGA JUAL : ${Stembaga}
+Status Harga : ${statusTembaga}
+Info Stock : ${dataTembaga.stockStatus}
+
+🌫️Aluminium:
+HARGA BELI : ${Baluminium}
+HARGA JUAL : ${Saluminium}
+Status Harga : ${statusAluminium}
+Info Stock : ${dataAluminium.stockStatus}
 
 ╸╸━━━「 *ALAM* 」━━━╺╺
 
@@ -386,6 +509,54 @@ HARGA BELI : ${Buranium} /gram
 HARGA JUAL : ${Suranium} /gram
 Status Harga : ${statusUranium}
 Info Stock : ${dataUranium.stockStatus}
+
+🪨Tembaga Ore:
+HARGA BELI : ${Btembagaore}
+HARGA JUAL : ${Stembagaore}
+Status Harga : ${statusTembagaOre}
+Info Stock : ${dataTembagaOre.stockStatus}
+
+🪨Perak Ore:
+HARGA BELI : ${Bperakore}
+HARGA JUAL : ${Sperakore}
+Status Harga : ${statusPerakOre}
+Info Stock : ${dataPerakOre.stockStatus}
+
+🪨Timah:
+HARGA BELI : ${Btimah}
+HARGA JUAL : ${Stimah}
+Status Harga : ${statusTimah}
+Info Stock : ${dataTimah.stockStatus}
+
+🪨Nikel:
+HARGA BELI : ${Bnikel}
+HARGA JUAL : ${Snikel}
+Status Harga : ${statusNikel}
+Info Stock : ${dataNikel.stockStatus}
+
+🔮Kuarsa:
+HARGA BELI : ${Bkuarsa}
+HARGA JUAL : ${Skuarsa}
+Status Harga : ${statusKuarsa}
+Info Stock : ${dataKuarsa.stockStatus}
+
+💠Kristal:
+HARGA BELI : ${Bkristal}
+HARGA JUAL : ${Skristal}
+Status Harga : ${statusKristal}
+Info Stock : ${dataKristal.stockStatus}
+
+⬛Obsidian:
+HARGA BELI : ${Bobsidian}
+HARGA JUAL : ${Sobsidian}
+Status Harga : ${statusObsidian}
+Info Stock : ${dataObsidian.stockStatus}
+
+🟨Belerang:
+HARGA BELI : ${Bbelerang}
+HARGA JUAL : ${Sbelerang}
+Status Harga : ${statusBelerang}
+Info Stock : ${dataBelerang.stockStatus}
 
 ╸╸━━━「 *PERHIASAN* 」━━━╺╺
 
@@ -652,6 +823,15 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
         'bibitsingkong': { costType: 'money', B: Bsingkong, S: Ssingkong, data: dataSingkong, db: 'bibitsingkong', name: 'Bibit Singkong' },
         'bibitubijalar': { costType: 'money', B: Bubijalar, S: Subijalar, data: dataUbiJalar, db: 'bibitubijalar', name: 'Bibit Ubi Jalar' },
         'bibittebu': { costType: 'money', B: Btebu, S: Stebu, data: dataTebu, db: 'bibittebu', name: 'Bibit Tebu' },
+        
+        'bibitcabai': { costType: 'money', B: Bbibitcabai, S: Sbibitcabai, data: dataBibitCabai, db: 'bibitcabai', name: 'Bibit Cabai' },
+        'bibittomat': { costType: 'money', B: Bbibittomat, S: Sbibittomat, data: dataBibitTomat, db: 'bibittomat', name: 'Bibit Tomat' },
+        'bibitbawang': { costType: 'money', B: Bbibitbawang, S: Sbibitbawang, data: dataBibitBawang, db: 'bibitbawang', name: 'Bibit Bawang' },
+        'bibitterong': { costType: 'money', B: Bbibitterong, S: Sbibitterong, data: dataBibitTerong, db: 'bibitterong', name: 'Bibit Terong' },
+        'bibitjagung': { costType: 'money', B: Bbibitjagung, S: Sbibitjagung, data: dataBibitJagung, db: 'bibitjagung', name: 'Bibit Jagung' },
+        'bibitkedelai': { costType: 'money', B: Bbibitkedelai, S: Sbibitkedelai, data: dataBibitKedelai, db: 'bibitkedelai', name: 'Bibit Kedelai' },
+        'bibitsemangka': { costType: 'money', B: Bbibitsemangka, S: Sbibitsemangka, data: dataBibitSemangka, db: 'bibitsemangka', name: 'Bibit Semangka' },
+        'bibitmelon': { costType: 'money', B: Bbibitmelon, S: Sbibitmelon, data: dataBibitMelon, db: 'bibitmelon', name: 'Bibit Melon' },
 
         'potion': { costType: 'money', B: potion, S: Spotion, data: dataPotion, db: 'potion', name: 'Potion' },
         'sampah': { costType: 'money', B: Bsampah, S: Ssampah, data: dataSampah, db: 'sampah', name: 'Sampah' },
@@ -660,6 +840,15 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
         'kaleng': { costType: 'money', B: Bkaleng, S: Skaleng, data: dataKaleng, db: 'kaleng', name: 'Kaleng' },
         'kardus': { costType: 'money', B: Bkardus, S: Skardus, data: dataKardus, db: 'kardus', name: 'Kardus' },
         'sword': { costType: 'money', B: Bsword, S: Ssword, data: dataSword, db: 'sword', name: 'Sword' },
+
+        'plastik': { costType: 'money', B: Bplastik, S: Splastik, data: dataPlastik, db: 'plastik', name: 'Plastik' },
+        'kain': { costType: 'money', B: Bkain, S: Skain, data: dataKain, db: 'kain', name: 'Kain' },
+        'paku': { costType: 'money', B: Bpaku, S: Spaku, data: dataPaku, db: 'paku', name: 'Paku' },
+        'baterai': { costType: 'money', B: Bbaterai, S: Sbaterai, data: dataBaterai, db: 'baterai', name: 'Baterai' },
+        'banbekas': { costType: 'money', B: Bbanbekas, S: Sbanbekas, data: dataBanBekas, db: 'banbekas', name: 'Ban Bekas' },
+        'karet': { costType: 'money', B: Bkaret, S: Skaret, data: dataKaret, db: 'karet', name: 'Karet' },
+        'tembaga': { costType: 'money', B: Btembaga, S: Stembaga, data: dataTembaga, db: 'tembaga', name: 'Tembaga' },
+        'aluminium': { costType: 'money', B: Baluminium, S: Saluminium, data: dataAluminium, db: 'aluminium', name: 'Aluminium' },
 
         'kayu': { costType: 'money', B: Bkayu, S: Skayu, data: dataKayu, db: 'kayu', name: 'Kayu' },
         'batu': { costType: 'money', B: Bbatu, S: Sbatu, data: dataBatu, db: 'batu', name: 'Batu' },
@@ -670,6 +859,15 @@ Contoh penggunaan: *${usedPrefix}shop buy susu 1*
         'emasmentah': { costType: 'money', B: Bemasmentah, S: Semasmentah, data: dataEmasMentah, db: 'emasmentah', name: 'Emas Mentah' },
         'pasir': { costType: 'money', B: Bpasir, S: Spasir, data: dataPasir, db: 'pasir', name: 'Pasir' },
         'uranium': { costType: 'money', B: Buranium, S: Suranium, data: dataUranium, db: 'uranium', name: 'Uranium' },
+
+        'tembagaore': { costType: 'money', B: Btembagaore, S: Stembagaore, data: dataTembagaOre, db: 'tembagaore', name: 'Tembaga Ore' },
+        'perakore': { costType: 'money', B: Bperakore, S: Sperakore, data: dataPerakOre, db: 'perakore', name: 'Perak Ore' },
+        'timah': { costType: 'money', B: Btimah, S: Stimah, data: dataTimah, db: 'timah', name: 'Timah' },
+        'nikel': { costType: 'money', B: Bnikel, S: Snikel, data: dataNikel, db: 'nikel', name: 'Nikel' },
+        'kuarsa': { costType: 'money', B: Bkuarsa, S: Skuarsa, data: dataKuarsa, db: 'kuarsa', name: 'Kuarsa' },
+        'kristal': { costType: 'money', B: Bkristal, S: Skristal, data: dataKristal, db: 'kristal', name: 'Kristal' },
+        'obsidian': { costType: 'money', B: Bobsidian, S: Sobsidian, data: dataObsidian, db: 'obsidian', name: 'Obsidian' },
+        'belerang': { costType: 'money', B: Bbelerang, S: Sbelerang, data: dataBelerang, db: 'belerang', name: 'Belerang' },
 
         'diamond': { costType: 'money', B: Bdiamond, S: Sdiamond, data: null, db: 'diamond', name: 'Diamond' },
         'perak': { costType: 'money', B: Bperak, S: Sperak, data: null, db: 'perak', name: 'Perak' },
@@ -845,6 +1043,55 @@ HARGA BELI : ${Btebu}
 HARGA JUAL : ${Stebu}
 Status Harga : ${statusTebu}
 Info Stock : ${dataTebu.stockStatus}
+
+🌶️Bibit Cabai:
+HARGA BELI : ${Bbibitcabai}
+HARGA JUAL : ${Sbibitcabai}
+Status Harga : ${statusBibitCabai}
+Info Stock : ${dataBibitCabai.stockStatus}
+
+🍅Bibit Tomat:
+HARGA BELI : ${Bbibittomat}
+HARGA JUAL : ${Sbibittomat}
+Status Harga : ${statusBibitTomat}
+Info Stock : ${dataBibitTomat.stockStatus}
+
+🧅Bibit Bawang:
+HARGA BELI : ${Bbibitbawang}
+HARGA JUAL : ${Sbibitbawang}
+Status Harga : ${statusBibitBawang}
+Info Stock : ${dataBibitBawang.stockStatus}
+
+🍆Bibit Terong:
+HARGA BELI : ${Bbibitterong}
+HARGA JUAL : ${Sbibitterong}
+Status Harga : ${statusBibitTerong}
+Info Stock : ${dataBibitTerong.stockStatus}
+
+🌽Bibit Jagung:
+HARGA BELI : ${Bbibitjagung}
+HARGA JUAL : ${Sbibitjagung}
+Status Harga : ${statusBibitJagung}
+Info Stock : ${dataBibitJagung.stockStatus}
+
+🫘Bibit Kedelai:
+HARGA BELI : ${Bbibitkedelai}
+HARGA JUAL : ${Sbibitkedelai}
+Status Harga : ${statusBibitKedelai}
+Info Stock : ${dataBibitKedelai.stockStatus}
+
+🍉Bibit Semangka:
+HARGA BELI : ${Bbibitsemangka}
+HARGA JUAL : ${Sbibitsemangka}
+Status Harga : ${statusBibitSemangka}
+Info Stock : ${dataBibitSemangka.stockStatus}
+
+🍈Bibit Melon:
+HARGA BELI : ${Bbibitmelon}
+HARGA JUAL : ${Sbibitmelon}
+Status Harga : ${statusBibitMelon}
+Info Stock : ${dataBibitMelon.stockStatus}
+
 =======================
 Beli: ${usedPrefix}shop buy bibitpisang 1`;
 
@@ -891,6 +1138,54 @@ HARGA BELI : ${Bsword}
 HARGA JUAL : ${Ssword}
 Status Harga : ${statusSword}
 Info Stock : ${dataSword.stockStatus}
+
+🛍️Plastik:
+HARGA BELI : ${Bplastik}
+HARGA JUAL : ${Splastik}
+Status Harga : ${statusPlastik}
+Info Stock : ${dataPlastik.stockStatus}
+
+🥻Kain:
+HARGA BELI : ${Bkain}
+HARGA JUAL : ${Skain}
+Status Harga : ${statusKain}
+Info Stock : ${dataKain.stockStatus}
+
+📍Paku:
+HARGA BELI : ${Bpaku}
+HARGA JUAL : ${Spaku}
+Status Harga : ${statusPaku}
+Info Stock : ${dataPaku.stockStatus}
+
+🔋Baterai:
+HARGA BELI : ${Bbaterai}
+HARGA JUAL : ${Sbaterai}
+Status Harga : ${statusBaterai}
+Info Stock : ${dataBaterai.stockStatus}
+
+🛞Ban Bekas:
+HARGA BELI : ${Bbanbekas}
+HARGA JUAL : ${Sbanbekas}
+Status Harga : ${statusBanBekas}
+Info Stock : ${dataBanBekas.stockStatus}
+
+🪀Karet:
+HARGA BELI : ${Bkaret}
+HARGA JUAL : ${Skaret}
+Status Harga : ${statusKaret}
+Info Stock : ${dataKaret.stockStatus}
+
+🥉Tembaga:
+HARGA BELI : ${Btembaga}
+HARGA JUAL : ${Stembaga}
+Status Harga : ${statusTembaga}
+Info Stock : ${dataTembaga.stockStatus}
+
+🌫️Aluminium:
+HARGA BELI : ${Baluminium}
+HARGA JUAL : ${Saluminium}
+Status Harga : ${statusAluminium}
+Info Stock : ${dataAluminium.stockStatus}
 
 =======================
 Beli: ${usedPrefix}shop buy botol 1`;
@@ -950,6 +1245,54 @@ HARGA BELI : ${Buranium} /gram
 HARGA JUAL : ${Suranium} /gram
 Status Harga : ${statusUranium}
 Info Stock : ${dataUranium.stockStatus}
+
+🪨Tembaga Ore:
+HARGA BELI : ${Btembagaore}
+HARGA JUAL : ${Stembagaore}
+Status Harga : ${statusTembagaOre}
+Info Stock : ${dataTembagaOre.stockStatus}
+
+🪨Perak Ore:
+HARGA BELI : ${Bperakore}
+HARGA JUAL : ${Sperakore}
+Status Harga : ${statusPerakOre}
+Info Stock : ${dataPerakOre.stockStatus}
+
+🪨Timah:
+HARGA BELI : ${Btimah}
+HARGA JUAL : ${Stimah}
+Status Harga : ${statusTimah}
+Info Stock : ${dataTimah.stockStatus}
+
+🪨Nikel:
+HARGA BELI : ${Bnikel}
+HARGA JUAL : ${Snikel}
+Status Harga : ${statusNikel}
+Info Stock : ${dataNikel.stockStatus}
+
+🔮Kuarsa:
+HARGA BELI : ${Bkuarsa}
+HARGA JUAL : ${Skuarsa}
+Status Harga : ${statusKuarsa}
+Info Stock : ${dataKuarsa.stockStatus}
+
+💠Kristal:
+HARGA BELI : ${Bkristal}
+HARGA JUAL : ${Skristal}
+Status Harga : ${statusKristal}
+Info Stock : ${dataKristal.stockStatus}
+
+⬛Obsidian:
+HARGA BELI : ${Bobsidian}
+HARGA JUAL : ${Sobsidian}
+Status Harga : ${statusObsidian}
+Info Stock : ${dataObsidian.stockStatus}
+
+🟨Belerang:
+HARGA BELI : ${Bbelerang}
+HARGA JUAL : ${Sbelerang}
+Status Harga : ${statusBelerang}
+Info Stock : ${dataBelerang.stockStatus}
 
 =======================
 Beli: ${usedPrefix}shop buy kayu 1`;
