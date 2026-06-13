@@ -165,11 +165,27 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         try {
           const api = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(query)}&apikey=${apiKey}`);
           let json = await api.json();
-          let res = json.result.data.slice(0, 10); 
+          let res = json.result.data.slice(0, 5); 
 
-          let session = startSession(conn, m.sender, 'spotify', query, res);
-          await sendInteractiveItem(conn, m.chat, session, m);
+          conn.spotifySearch = conn.spotifySearch || {};
+          conn.spotifySearch[m.sender] = res;
+          
+          let sections = [{
+            title: `Hasil Pencarian Spotify`,
+            rows: res.map((v) => ({
+              title: v.title.slice(0, 24), 
+              description: `Durasi: ${v.duration} | Populer: ${v.popularity}`,
+              id: `dl-spotify|${v.url}` 
+            }))
+          }];
+
+          let spotifyThumb = 'https://i.ibb.co/GFVf3h3/spotify.png';
+          let caption = `🎵 *Hasil Pencarian: ${query}*\n\nSilakan klik tombol di bawah untuk memilih lagu.`;
+          
+          await sendListWithImage(conn, m.chat, spotifyThumb, caption, '🎶 Pilih Lagu', sections, m);
+
         } catch (e) {
+          console.error("Spotify Error:", e);
           m.reply(`❌ Gagal mengambil data: ${e.message}`);
         }
       }
