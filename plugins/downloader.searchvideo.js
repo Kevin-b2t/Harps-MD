@@ -70,59 +70,60 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
     case 'spotify': {
       if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} payung teduh`;
       
+      // Jika yang dimasukkan adalah URL / Link langsung
       if (args[0].match(/https:\/\/open\.spotify\.com/i)) {
         m.reply(wait);
         try {
           const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${args[0]}&apikey=${global.btc || btc}`);
           let jsons = await res.json();
           const { title, duration, url } = jsons.result.data;
-          const { id, type } = jsons.result.data.artist;
+          const { id, type } = jsons.result.data.artist || { id: '-', type: '-' };
           
-          let captionvid = ` ∘ Title: ${title}\n∘ Id: ${id}\n∘ Duration: ${duration}\n∘ Type: ${type}`;
+          let captionvid = `🎵 *Spotify Downloader*\n\n∘ Title: ${title}\n∘ Id: ${id}\n∘ Duration: ${duration}\n∘ Type: ${type}`;
           await conn.reply(m.chat, captionvid, m);
           await conn.sendMessage(m.chat, { audio: { url: url }, mimetype: 'audio/mpeg' }, { quoted: m });
         } catch (e) {
           throw `🚩 ${eror}`;
         }
       } 
+      // Jika yang dimasukkan adalah Teks Pencarian (contoh: "separuh aku")
       else { 
         m.reply(wait);
         const query = args.join(" ");
         try {
+          // Cari lagunya terlebih dahulu
           const api = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(query)}&apikey=${global.btc || btc}`);
           let json = await api.json();
-          let res = json.result.data.slice(0, 5); 
           
-          // Simpan hasil pencarian beserta limit & flag download
-          conn.spotifySearch = conn.spotifySearch || {};
-          conn.spotifySearch[m.sender] = {
-            results: res,
-            hasDownloaded: false,
-            timeout: Date.now() + 300000
-          };
-
-          let teks = `🎵 *Hasil Pencarian Spotify: ${query}*\n\n`;
-          let buttons = [];
-
-          for (let i = 0; i < res.length; i++) {
-            teks += `*${i + 1}.* ${res[i].title}\n`;
-            teks += `   ∘ Duration: ${res[i].duration}\n`;
-            teks += `   ∘ Popularity: ${res[i].popularity}\n\n`;
-            
-            // Generate tombol lagu
-            buttons.push({ buttonId: `lagu_${i+1}`, buttonText: { displayText: `Lagu ${i+1}` }, type: 1 });
+          if (!json.status || !json.result || !json.result.data || json.result.data.length === 0) {
+             throw 'Lagu tidak ditemukan.';
           }
-          teks += `💡 *Silakan ketik "lagu 1" sampai "lagu ${res.length}" atau pilih tombol untuk mendownload audionya.*`;
           
-          await conn.sendMessage(m.chat, { 
-            text: teks,
-            footer: "Batas 1 Lagu per pencarian",
-            buttons: buttons,
-            headerType: 1
-          }, { quoted: m });
+          // Langsung ambil hasil urutan pertama (paling atas)
+          let firstSong = json.result.data[0]; 
+          
+          m.reply(`⏳ _Menemukan *${firstSong.title}*, sedang mengunduh audio..._`);
+          
+          // Langsung melakukan download otomatis ke url lagu pertama
+          const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${firstSong.url}&apikey=${global.btc || btc}`);
+          let jsons = await res.json();
+          
+          if (!jsons.status || !jsons.result || !jsons.result.data) {
+             throw 'Gagal mengambil audio dari server.';
+          }
+          
+          const { title, duration, url: audioUrl } = jsons.result.data;
+          const { id, type } = jsons.result.data.artist || { id: '-', type: '-' };
+          
+          // Kirim caption/info lagunya
+          let captionvid = `🎵 *Spotify Search & Download*\n\n∘ Title: ${title}\n∘ Id: ${id}\n∘ Duration: ${duration}\n∘ Type: ${type}`;
+          await conn.reply(m.chat, captionvid, m);
+          
+          // Kirim lagu audionya
+          await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mpeg' }, { quoted: m });
 
         } catch (e) {
-          throw `🚩 ${eror}`;
+          throw `🚩 Gagal mencari/mendownload lagu. API sedang bermasalah.`;
         }
       }
       break;
@@ -365,7 +366,7 @@ handler.before = async (m, { conn }) => {
         }
       } catch (e) {
         m.reply('❌ Gagal mengunduh file media. API sedang bermasalah.');
-        // Buka flag lagi kalau beneran error dari API, biar limit limit user ga rugi dicancel permanen
+        // Buka flag lagi kalau beneran error dari API, biar limit user ga rugi dicancel permanen
         ytsData.hasDownloaded = false; 
       }
       
@@ -373,58 +374,7 @@ handler.before = async (m, { conn }) => {
     }
   }
 
-  // --- LISTENER SPOTIFY ---
-  conn.spotifySearch = conn.spotifySearch || {};
-  let matchSpotify = teks.match(/^lagu[\s_]*([1-5])$/i);
-  
-  if (matchSpotify && conn.spotifySearch[m.sender]) {
-    let spotifyData = conn.spotifySearch[m.sender];
-    
-    if (spotifyData.hasDownloaded) {
-      m.reply('⚠️ Mohon Cari Pencarian Lain Karna Kau Sudah Download Lagu Tersebut');
-      delete conn.spotifySearch[m.sender]; 
-      return true;
-    }
-
-    if (Date.now() > spotifyData.timeout) {
-      m.reply('⏱️ *Sesi Spotify kamu telah berakhir.* Silakan cari ulang.');
-      delete conn.spotifySearch[m.sender];
-      return true;
-    }
-
-    let index = parseInt(matchSpotify[1]) - 1;
-    let data = spotifyData.results;
-    
-    if (!data[index]) {
-       m.reply('Pilihan lagu tidak ada di daftar. Silakan cari ulang.');
-       return true;
-    }
-    
-    let url = data[index].url;
-    m.reply(`⏳ *Mendownload ${data[index].title}...*`);
-    
-    // Langsung kunci sesinya pas ditekan, biar ga bocor ngulang command
-    spotifyData.hasDownloaded = true;
-    
-    try {
-      // ==== LOGIKA 100% PERSIS SEPERTI SCRIPT LAMA LU ====
-      const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${global.btc || btc}`);
-      let jsons = await res.json();
-      const { title, url: audioUrl } = jsons.result.data;
-      
-      await conn.sendMessage(m.chat, { 
-        audio: { url: audioUrl }, 
-        mimetype: 'audio/mpeg' 
-      }, { quoted: m });
-      // ====================================================
-      
-    } catch (e) {
-       m.reply('❌ Gagal mendownload lagu. API sedang bermasalah.');
-       // Buka kembali limit kalau ternyata server API yang down
-       spotifyData.hasDownloaded = false;
-    }
-    return true;
-  }
+  // (Pendengar / Listener Spotify dihilangkan karena prosesnya otomatis langsung selesai)
 };
 
 // ================== KONFIGURASI PLUGIN ==================
