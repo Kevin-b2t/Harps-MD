@@ -2,7 +2,7 @@ const fetch = require('node-fetch');
 const yts = require('yt-search');
 
 let handler = async (m, { conn, args, text, usedPrefix, command }) => {
-  const timeoutMs = 5 * 60 * 1000; // 5 Menit
+  const timeoutMs = 5 * 60 * 1000; // Sesi 5 Menit
 
   switch (command) {
 
@@ -38,8 +38,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let images = data.result.slice(0, 10); 
           
           conn.pinterestSearch = conn.pinterestSearch || {};
-          
-          // Bersihkan timer lama jika ada
           if (conn.pinterestSearch[m.sender]) clearTimeout(conn.pinterestSearch[m.sender].timer);
 
           // Buat Sesi Baru
@@ -55,11 +53,17 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           };
 
           let firstImage = images[0];
-          let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}\n⏳ Sesi berlaku 5 menit\n\n💡 *Ketik "Next Foto" untuk melihat foto selanjutnya.*`;
+          let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}\n⏳ Sesi berlaku 5 menit`;
 
+          // Format Pesan dengan Button WhatsApp
           await conn.sendMessage(m.chat, { 
             image: { url: firstImage }, 
-            caption: captionText 
+            caption: captionText,
+            footer: 'Pinterest Search',
+            buttons: [
+              { buttonId: 'next_foto', buttonText: { displayText: 'Next Foto' }, type: 1 }
+            ],
+            headerType: 4
           }, { quoted: m });
           
         } catch (e) {
@@ -69,56 +73,9 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       break;
     }
 
-    // ================== SPOTIFY ==================
-    case 'spotify': {
-      // [Kode Spotify Tetap Sama seperti original kamu]
-      if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} payung teduh`;
-      
-      if (args[0].match(/https:\/\/open\.spotify\.com/i)) {
-        m.reply(wait);
-        try {
-          const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${args[0]}&apikey=${global.btc || btc}`);
-          let jsons = await res.json();
-          const { title, duration, url } = jsons.result.data;
-          const { id, type } = jsons.result.data.artist;
-          
-          let captionvid = ` ∘ Title: ${title}\n∘ Id: ${id}\n∘ Duration: ${duration}\n∘ Type: ${type}`;
-          await conn.reply(m.chat, captionvid, m);
-          await conn.sendMessage(m.chat, { audio: { url: url }, mimetype: 'audio/mpeg' }, { quoted: m });
-        } catch (e) {
-          throw `🚩 ${eror}`;
-        }
-      } 
-      else { 
-        m.reply(wait);
-        const query = args.join(" ");
-        try {
-          const api = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(query)}&apikey=${global.btc || btc}`);
-          let json = await api.json();
-          let res = json.result.data.slice(0, 5); 
-          
-          conn.spotifySearch = conn.spotifySearch || {};
-          conn.spotifySearch[m.sender] = res; 
-
-          let teks = `🎵 *Hasil Pencarian Spotify: ${query}*\n\n`;
-          for (let i = 0; i < res.length; i++) {
-            teks += `*${i + 1}.* ${res[i].title}\n`;
-            teks += `   ∘ Duration: ${res[i].duration}\n`;
-            teks += `   ∘ Popularity: ${res[i].popularity}\n\n`;
-          }
-          teks += `💡 *Silakan ketik "lagu 1" sampai "lagu ${res.length}" untuk mendownload audionya.*`;
-          await conn.reply(m.chat, teks, m);
-        } catch (e) {
-          throw `🚩 ${eror}`;
-        }
-      }
-      break;
-    }
-
     // ================== YOUTUBE AUDIO (MP3) ==================
     case 'ytmp3':
     case 'yta': {
-      // [Kode YT MP3 Tetap Sama]
       if (!text) throw `*Example:* ${usedPrefix + command} https://www.youtube.com/watch?v=dQw4w9WgXcQ`;
       m.reply(wait);
       try {
@@ -139,7 +96,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       break;
     }
 
-    // ================== YOUTUBE SEARCH & SLIDESHOW ==================
+    // ================== YOUTUBE SEARCH ==================
     case 'yts':
     case 'ytsearch': {
       if (!text) throw 'Cari apa?';
@@ -154,15 +111,13 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         let topVideos = videos.slice(0, 10);
         
         conn.ytsSearch = conn.ytsSearch || {};
-        
-        // Bersihkan timer lama jika ada
         if (conn.ytsSearch[m.sender]) clearTimeout(conn.ytsSearch[m.sender].timer);
 
         conn.ytsSearch[m.sender] = {
           query: text,
           videos: topVideos,
           currentIndex: 0,
-          downloaded: false, // Menandai apakah player sudah download
+          downloaded: false, 
           timer: setTimeout(() => {
             if (conn.ytsSearch && conn.ytsSearch[m.sender]) {
               delete conn.ytsSearch[m.sender];
@@ -177,14 +132,18 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
                        `👤 Oleh: ${v.author.name}\n` +
                        `⏱️ Durasi: ${v.timestamp}\n` +
                        `🎬 Video: 1/${topVideos.length}\n` +
-                       `⏳ Sesi berlaku 5 menit • Item 1/${topVideos.length}\n\n` +
-                       `💡 *Balas/Ketik perintah berikut:*\n` +
-                       `> *Next Video* (Melihat video selanjutnya)\n` +
-                       `> *Download* (Mengunduh video ini)`;
+                       `⏳ Sesi berlaku 5 menit • Item 1/${topVideos.length}`;
         
+        // Format Pesan dengan Button WhatsApp
         await conn.sendMessage(m.chat, { 
           image: { url: v.thumbnail }, 
-          caption: infoTeks 
+          caption: infoTeks,
+          footer: 'YTS Downloader',
+          buttons: [
+            { buttonId: 'next_video', buttonText: { displayText: 'Next Video' }, type: 1 },
+            { buttonId: 'download_video', buttonText: { displayText: 'Download' }, type: 1 }
+          ],
+          headerType: 4
         }, { quoted: m });
 
       } catch (e) {
@@ -196,7 +155,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
     // ================== YOUTUBE VIDEO (MP4) ==================
     case 'ytmp4':
     case 'ytv': {
-      // [Kode YT MP4 Tetap Sama]
       if (!text) throw `*Example:* ${usedPrefix + command} https://www.youtube.com/watch?v=dQw4w9WgXcQ`;
       m.reply(wait);
       try {
@@ -220,20 +178,20 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
   }
 };
 
-// ================== LISTENER (HANDLER.BEFORE) ==================
+// ================== LISTENER BUTTON (HANDLER.BEFORE) ==================
 handler.before = async (m, { conn }) => {
   if (m.isBaileys || !m.text) return;
   
+  // Tangkap respon dari tombol atau ketikan user
   let teks = m.text.toLowerCase().trim();
-  const timeoutMs = 5 * 60 * 1000; // 5 Menit
+  const timeoutMs = 5 * 60 * 1000; 
 
-  // --- LISTENER PINTEREST ("next foto") ---
+  // --- LISTENER PINTEREST ("Next Foto") ---
   conn.pinterestSearch = conn.pinterestSearch || {};
   if (teks === 'next foto' && conn.pinterestSearch[m.sender]) {
     let pinData = conn.pinterestSearch[m.sender];
     pinData.currentIndex += 1;
 
-    // Reset Timer
     clearTimeout(pinData.timer);
     pinData.timer = setTimeout(() => {
       if (conn.pinterestSearch && conn.pinterestSearch[m.sender]) delete conn.pinterestSearch[m.sender];
@@ -249,27 +207,31 @@ handler.before = async (m, { conn }) => {
     let isLast = pinData.currentIndex === pinData.urls.length - 1;
     let captionText = `🍟 *Pinterest Search:* ${pinData.query}\n📷 *Foto:* ${pinData.currentIndex + 1}/${pinData.urls.length}\n⏳ Sesi berlaku 5 menit`;
     
+    let msgConfig = {
+      image: { url: nextImageUrl }, 
+      caption: captionText,
+      footer: 'Pinterest Search',
+      headerType: 4
+    };
+
     if (!isLast) {
-      captionText += `\n\n💡 *Ketik "Next Foto" untuk melihat foto selanjutnya.*`;
+      msgConfig.buttons = [
+        { buttonId: 'next_foto', buttonText: { displayText: 'Next Foto' }, type: 1 }
+      ];
     } else {
-      captionText += `\n\n✅ _Ini adalah foto terakhir._`;
+      msgConfig.caption += `\n\n✅ _Ini adalah foto terakhir._`;
       delete conn.pinterestSearch[m.sender]; 
     }
 
-    await conn.sendMessage(m.chat, { 
-      image: { url: nextImageUrl }, 
-      caption: captionText 
-    }, { quoted: m });
-
+    await conn.sendMessage(m.chat, msgConfig, { quoted: m });
     return true;
   }
 
-  // --- LISTENER YTS ("next video" & "download") ---
+  // --- LISTENER YTS ("Next Video" & "Download") ---
   conn.ytsSearch = conn.ytsSearch || {};
   if ((teks === 'next video' || teks === 'download') && conn.ytsSearch[m.sender]) {
     let ytData = conn.ytsSearch[m.sender];
 
-    // Jika sudah download sebelumnya
     if (ytData.downloaded) {
       m.reply('⚠️ *Ketik Perintah Lagi Untuk Mencari Pencarian Lainnya*');
       return true;
@@ -278,7 +240,6 @@ handler.before = async (m, { conn }) => {
     if (teks === 'next video') {
       ytData.currentIndex += 1;
 
-      // Reset Timer
       clearTimeout(ytData.timer);
       ytData.timer = setTimeout(() => {
         if (conn.ytsSearch && conn.ytsSearch[m.sender]) delete conn.ytsSearch[m.sender];
@@ -297,14 +258,17 @@ handler.before = async (m, { conn }) => {
                      `👤 Oleh: ${v.author.name}\n` +
                      `⏱️ Durasi: ${v.timestamp}\n` +
                      `🎬 Video: ${ytData.currentIndex + 1}/${ytData.videos.length}\n` +
-                     `⏳ Sesi berlaku 5 menit • Item ${ytData.currentIndex + 1}/${ytData.videos.length}\n\n` +
-                     `💡 *Balas/Ketik perintah berikut:*\n` +
-                     `> *Next Video* (Melihat video selanjutnya)\n` +
-                     `> *Download* (Mengunduh video ini)`;
+                     `⏳ Sesi berlaku 5 menit • Item ${ytData.currentIndex + 1}/${ytData.videos.length}`;
 
       await conn.sendMessage(m.chat, { 
         image: { url: v.thumbnail }, 
-        caption: infoTeks 
+        caption: infoTeks,
+        footer: 'YTS Downloader',
+        buttons: [
+          { buttonId: 'next_video', buttonText: { displayText: 'Next Video' }, type: 1 },
+          { buttonId: 'download_video', buttonText: { displayText: 'Download' }, type: 1 }
+        ],
+        headerType: 4
       }, { quoted: m });
 
       return true;
@@ -314,7 +278,6 @@ handler.before = async (m, { conn }) => {
       let v = ytData.videos[ytData.currentIndex];
       m.reply(`⏳ _Sedang mengunduh video: *${v.title}*, mohon tunggu..._`);
       
-      // Kunci sesi agar tidak bisa digunakan lagi
       ytData.downloaded = true;
       clearTimeout(ytData.timer); 
 
@@ -337,51 +300,17 @@ handler.before = async (m, { conn }) => {
       return true;
     }
   }
-
-  // --- LISTENER SPOTIFY ("lagu 1", "lagu 2", dst) ---
-  conn.spotifySearch = conn.spotifySearch || {};
-  let matchSpotify = teks.match(/^lagu\s+([1-5])$/);
-  
-  if (matchSpotify && conn.spotifySearch[m.sender]) {
-    let index = parseInt(matchSpotify[1]) - 1;
-    let data = conn.spotifySearch[m.sender];
-    
-    if (!data[index]) {
-       m.reply('Pilihan lagu tidak ada di daftar. Silakan cari ulang.');
-       return true;
-    }
-    
-    let url = data[index].url;
-    m.reply(`⏳ *Mendownload ${data[index].title}...*`);
-    
-    try {
-      const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${global.btc || btc}`);
-      let jsons = await res.json();
-      const { title, url: audioUrl } = jsons.result.data;
-      
-      await conn.sendMessage(m.chat, { 
-        audio: { url: audioUrl }, 
-        mimetype: 'audio/mpeg' 
-      }, { quoted: m });
-      
-      delete conn.spotifySearch[m.sender];
-    } catch (e) {
-       m.reply('Gagal mendownload lagu. API sedang bermasalah.');
-    }
-    return true; 
-  }
 };
 
 // ================== KONFIGURASI PLUGIN ==================
 handler.help = [
   'pinterest <keyword/url>', 
-  'spotify <query/url>', 
   'ytmp3 <url>', 
   'ytmp4 <url>', 
   'yts <query>'
 ];
 handler.tags = ['downloader', 'internet', 'tools'];
-handler.command = /^(pinterest|spotify|ytmp3|yta|yts(earch)?|ytmp4|ytv)$/i;
+handler.command = /^(pinterest|ytmp3|yta|yts(earch)?|ytmp4|ytv)$/i; // Spotify sudah dihapus dari command list
 
 handler.limit = true;
 handler.exp = 0;
