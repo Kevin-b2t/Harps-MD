@@ -28,12 +28,14 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         m.reply(wait);
         try {
           let response = await fetch(`https://api.botcahx.eu.org/api/search/pinterest?text1=${encodeURIComponent(text)}&apikey=${global.btc || btc}`);
-          let data = await response.json();
+          let data = await response.json();   
           
           if (!data.result || data.result.length === 0) throw 'Gambar tidak ditemukan.';
 
-          let images = data.result.slice(0, 8);
+          // Ambil maksimal 8 foto sesuai permintaan
+          let images = data.result.slice(0, 8); 
           
+          // Simpan data pencarian di memori bot untuk user ini
           conn.pinterestSearch = conn.pinterestSearch || {};
           conn.pinterestSearch[m.sender] = {
             query: text,
@@ -43,7 +45,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           };
 
           let firstImage = images[0];
-          let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}\n\n💡 _Gunakan tombol di bawah atau ketik *Next Foto* untuk melihat foto selanjutnya._`;
+          let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}\n\n💡 _Ketik "next" atau klik tombol untuk melihat foto selanjutnya._`;
 
           let buttons = [
             { buttonId: 'next_foto', buttonText: { displayText: 'Next Foto' }, type: 1 }
@@ -89,13 +91,14 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         try {
           const api = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(query)}&apikey=${global.btc || btc}`);
           let json = await api.json();
-          let res = json.result.data.slice(0, 5);
+          let res = json.result.data.slice(0, 5); 
           
+          // Simpan hasil pencarian beserta limit & flag download
           conn.spotifySearch = conn.spotifySearch || {};
           conn.spotifySearch[m.sender] = {
             results: res,
             hasDownloaded: false,
-            timeout: Date.now() + 300000 
+            timeout: Date.now() + 300000
           };
 
           let teks = `🎵 *Hasil Pencarian Spotify: ${query}*\n\n`;
@@ -106,16 +109,18 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
             teks += `   ∘ Duration: ${res[i].duration}\n`;
             teks += `   ∘ Popularity: ${res[i].popularity}\n\n`;
             
+            // Generate tombol lagu
             buttons.push({ buttonId: `lagu_${i+1}`, buttonText: { displayText: `Lagu ${i+1}` }, type: 1 });
           }
+          teks += `💡 *Silakan ketik "lagu 1" sampai "lagu ${res.length}" atau pilih tombol untuk mendownload audionya.*`;
           
           await conn.sendMessage(m.chat, { 
             text: teks,
-            footer: "💡 Pilih lagu untuk didownload (Batas 1 Lagu)",
+            footer: "Batas 1 Lagu per pencarian",
             buttons: buttons,
             headerType: 1
           }, { quoted: m });
-          
+
         } catch (e) {
           throw `🚩 ${eror}`;
         }
@@ -134,8 +139,8 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
 
         if (result.status && result.result && result.result.mp3) {
           await conn.sendMessage(m.chat, { 
-            audio: { url: result.result.mp3 },
-            mimetype: 'audio/mpeg'
+            audio: { url: result.result.mp3 }, 
+            mimetype: 'audio/mpeg' 
           }, { quoted: m });
         } else {
           throw 'Error: Unable to fetch audio';
@@ -208,8 +213,8 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
 
         if (result.status && result.result && result.result.mp4) {
           await conn.sendMessage(m.chat, { 
-            video: { url: result.result.mp4 },
-            mimetype: 'video/mp4'
+            video: { url: result.result.mp4 }, 
+            mimetype: 'video/mp4' 
           }, { quoted: m });
         } else {
           throw 'Error: Unable to fetch video';
@@ -243,7 +248,7 @@ handler.before = async (m, { conn }) => {
     pinData.currentIndex += 1;
 
     if (pinData.currentIndex >= pinData.urls.length) {
-      m.reply('✅ *Sudah mencapai 8 foto maksimal dari pencarian ini.*');
+      m.reply('✅ *Sudah mencapai foto terakhir dari pencarian ini.*');
       delete conn.pinterestSearch[m.sender];
       return true;
     }
@@ -255,10 +260,10 @@ handler.before = async (m, { conn }) => {
     let buttons = [];
 
     if (!isLast) {
-      captionText += `\n\n💡 _Gunakan tombol di bawah atau ketik *Next Foto* untuk melihat foto selanjutnya._`;
+      captionText += `\n\n💡 _Ketik "next" atau klik tombol untuk melihat foto selanjutnya._`;
       buttons.push({ buttonId: 'next_foto', buttonText: { displayText: 'Next Foto' }, type: 1 });
     } else {
-      captionText += `\n\n✅ _Ini adalah foto terakhir (Batas 8 foto)._`;
+      captionText += `\n\n✅ _Ini adalah foto terakhir._`;
       delete conn.pinterestSearch[m.sender];
     }
 
@@ -341,6 +346,9 @@ handler.before = async (m, { conn }) => {
       let selectedVid = ytsData.videos[ytsData.currentIndex];
       m.reply(`⏳ _Sedang mengunduh video: *${selectedVid.title}*, mohon tunggu..._`);
 
+      // Pasang flag agar user ga spam tombol
+      ytsData.hasDownloaded = true; 
+
       try {
         const response = await fetch(`https://api.botcahx.eu.org/api/dowloader/yt?url=${encodeURIComponent(selectedVid.url)}&apikey=${global.btc || btc}`);
         const result = await response.json();
@@ -352,13 +360,13 @@ handler.before = async (m, { conn }) => {
             caption: `🍟 *YT Search Downloader*\n🎬 ${selectedVid.title}`
           }, { quoted: m });
           
-          ytsData.hasDownloaded = true; // Kunci sesi
-          
         } else {
           throw new Error('API gagal mengambil file media');
         }
       } catch (e) {
         m.reply('❌ Gagal mengunduh file media. API sedang bermasalah.');
+        // Buka flag lagi kalau beneran error dari API, biar limit limit user ga rugi dicancel permanen
+        ytsData.hasDownloaded = false; 
       }
       
       return true;
@@ -379,7 +387,7 @@ handler.before = async (m, { conn }) => {
     }
 
     if (Date.now() > spotifyData.timeout) {
-      m.reply('⏱️ *Sesi Spotify kamu telah berakhir (Batas 5 menit).* Silakan cari ulang.');
+      m.reply('⏱️ *Sesi Spotify kamu telah berakhir.* Silakan cari ulang.');
       delete conn.spotifySearch[m.sender];
       return true;
     }
@@ -395,25 +403,25 @@ handler.before = async (m, { conn }) => {
     let url = data[index].url;
     m.reply(`⏳ *Mendownload ${data[index].title}...*`);
     
+    // Langsung kunci sesinya pas ditekan, biar ga bocor ngulang command
+    spotifyData.hasDownloaded = true;
+    
     try {
-      // PERBAIKAN: Disamakan persis struktur kodenya dengan block "case 'spotify'"
+      // ==== LOGIKA 100% PERSIS SEPERTI SCRIPT LAMA LU ====
       const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${global.btc || btc}`);
       let jsons = await res.json();
+      const { title, url: audioUrl } = jsons.result.data;
       
-      const { title, duration, url: audioUrl } = jsons.result.data;
-      const { id, type } = jsons.result.data.artist;
-      
-      // Mengirim caption detail lagu layaknya mode pencarian langsung
-      let captionvid = ` ∘ Title: ${title}\n∘ Id: ${id}\n∘ Duration: ${duration}\n∘ Type: ${type}`;
-      await conn.reply(m.chat, captionvid, m);
-      
-      // Mengirimkan audio
-      await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mpeg' }, { quoted: m });
-      
-      spotifyData.hasDownloaded = true; // Kunci setelah berhasil
+      await conn.sendMessage(m.chat, { 
+        audio: { url: audioUrl }, 
+        mimetype: 'audio/mpeg' 
+      }, { quoted: m });
+      // ====================================================
       
     } catch (e) {
        m.reply('❌ Gagal mendownload lagu. API sedang bermasalah.');
+       // Buka kembali limit kalau ternyata server API yang down
+       spotifyData.hasDownloaded = false;
     }
     return true;
   }
