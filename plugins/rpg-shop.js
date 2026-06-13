@@ -1,5 +1,3 @@
-const { generateWAMessageFromContent } = require('lily-baileys');
-
 let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     
     if (!global.db.data.market) global.db.data.market = {};
@@ -617,71 +615,29 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     };
 
     // ================= DAFTAR MENU TEMPLATE =================
-    const shopListText = `┌─⊷ *TOKO RPG*
+    const menuHelp = `┌─⊷ *TOKO RPG*
 ┃
 ┃ Hi @${m.sender.split('@')[0]} 👋
+┃ Gunakan perintah di bawah untuk
+┃ melihat list & harga tiap kategori:
 ┃
-┃ Pilih kategori toko di bawah ini
-┃ untuk melihat daftar item & harga.
+┃ 🛒 ${usedPrefix}shop kebutuhan
+┃ 🌱 ${usedPrefix}shop bibit
+┃ 📦 ${usedPrefix}shop barang
+┃ 🌿 ${usedPrefix}shop alam
+┃ 🛡️ ${usedPrefix}shop perlengkapan
+┃ 🔫 ${usedPrefix}shop senjata
+┃ 💎 ${usedPrefix}shop perhiasan
+┃ 🎁 ${usedPrefix}shop crate
+┃ 🍱 ${usedPrefix}shop makanan
+┃ 🥤 ${usedPrefix}shop minuman
+┃ 📋 ${usedPrefix}shop semua
 ┃
 ┃ 💡 Cara beli/jual:
 ┃ • ${usedPrefix}shop buy <item> <jml>
 ┃ • ${usedPrefix}shop sell <item> <jml>
+┃
 └──────────────`;
-
-    const shopCategories = [
-        { title: '🛒 Kebutuhan',    desc: 'Limit, Pet, Bensin, Obat, dll',     id: `${usedPrefix}shop kebutuhan` },
-        { title: '🌱 Bibit',        desc: 'Bibit tanaman untuk kebun',          id: `${usedPrefix}shop bibit` },
-        { title: '📦 Barang',       desc: 'Potion, material, bahan craft',      id: `${usedPrefix}shop barang` },
-        { title: '🌿 Alam',         desc: 'Ore, kayu, batu, mineral',           id: `${usedPrefix}shop alam` },
-        { title: '🛡️ Perlengkapan', desc: 'Armor, helm, pickaxe, fishing rod', id: `${usedPrefix}shop perlengkapan` },
-        { title: '🔫 Senjata',      desc: 'Pistol, rifle, SMG, dll',            id: `${usedPrefix}shop senjata` },
-        { title: '💎 Perhiasan',    desc: 'Gemstone & perhiasan langka',        id: `${usedPrefix}shop perhiasan` },
-        { title: '🎁 Crate',        desc: 'Berbagai crate & loot box',          id: `${usedPrefix}shop crate` },
-        { title: '🍱 Makanan',      desc: 'Buah, makanan pet, dll',             id: `${usedPrefix}shop makanan` },
-        { title: '🥤 Minuman',      desc: 'Jus, kopi, teh, sirup, dll',        id: `${usedPrefix}shop minuman` },
-        { title: '📋 Semua Item',   desc: 'Tampilkan seluruh item toko',        id: `${usedPrefix}shop semua` },
-    ];
-
-    async function sendShopList() {
-        await conn.sendList(
-            m.chat,
-            "🏪 TOKO RPG",
-            shopListText,
-            "📋 Pilih Kategori",
-            [{ title: "Kategori Toko", rows: shopCategories.map(c => ({ title: c.title, description: c.desc, rowId: c.id })) }],
-            m,
-            { mentions: [m.sender] }
-        );
-    }
-
-    async function sendCategoryMsg(menuText) {
-        let msg = generateWAMessageFromContent(m.chat, {
-            viewOnceMessage: {
-                message: {
-                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                    interactiveMessage: {
-                        body: { text: menuText },
-                        footer: { text: "🏪 Toko RPG • Harga berubah tiap jam" },
-                        header: { hasMediaAttachment: false },
-                        nativeFlowMessage: {
-                            buttons: [
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({ display_text: "🔙 Kembali ke Kategori", id: `${usedPrefix}shop` })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({ display_text: "📋 Semua Item", id: `${usedPrefix}shop semua` })
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        }, { quoted: m });
-        await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
-    }
 
     const menuList = `┌─⊷ *List Kategori Toko*
 ┃
@@ -698,1496 +654,1539 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
 ┃
 └──────────────`;
 
-    const menuKebutuhan = `━━━「 *HARGA BELI/JUAL* 」━━━
-> Kebutuhan
-🏷️Limit: 
-Harga Beli : ${Blimit} Diamond
-Harga Jual : ${Slimit} Money
-Status Harga : ${statusLimit}
-Info Stock : ${dataLimit.stockStatus}
-
-🐉 Pet:  
-Harga Beli : ${Bpet}
-Harga Jual : ${Spet}
-Status Harga : ${statusPet}
-Info Stock : ${dataPet.stockStatus}
-
-📦 Gardenboxs:
-Harga Beli : ${Bgardenboxs}
-Harga Jual : ${Sgardenboxs}
-Status Harga : ${statusGarden}
-Info Stock : ${dataGarden.stockStatus}
-
-⛽ Bensin:
-Harga Beli : ${BBensin}
-Harga Jual : ${SBensin}
-Status Harga : ${statusBensin}
-Info Stock : ${dataBensin.stockStatus}
-
-⚔️ Weapon:
-Harga Beli : ${BWeap}
-Harga Jual : ${SWeap}
-Status Harga : ${statusWeap}
-Info Stock : ${dataWeap.stockStatus}
-
-💊 Obat:
-Harga Beli : ${BObat}
-Harga Jual : ${SObat}
-Status Harga : ${statusObat}
-Info Stock : ${dataObat.stockStatus}
-
-🎟️ TiketCoin:
-Harga Beli : ${Btiketcoin} Tiketcoin
-Harga Jual : ${Stiketcoin} Tiketcoin
-Status Harga : ${statusTiketCoin}
-Info Stock : ${dataTiketCoin.stockStatus}
-
-👹 TiketM:
-Harga Beli : ${Bhealtmonster}
-Harga Jual : ${Shealtmonster}
-Status Harga : ${statusHealtMonster}
-Info Stock : ${dataHealtMonster.stockStatus}
-
-🎣 Pancingan:
-Harga Beli : ${Bpancingan}
-Harga Jual : ${Spancingan}
-Status Harga : ${statusPancingan}
-Info Stock : ${dataPancingan.stockStatus}`;
-
-    const menuBibit = `━━━「 *BIBIT & TANAMAN* 」━━━
-
-🍌Bibit Pisang:
-HARGA BELI : ${Bbibitpisang}
-HARGA JUAL : ${Sbibitpisang}
-Status Harga : ${statusBibitPisang}
-Info Stock : ${dataBibitPisang.stockStatus}
-
-🍇Bibit Anggur:
-HARGA BELI : ${Bbibitanggur}
-HARGA JUAL : ${Sbibitanggur}
-Status Harga : ${statusBibitAnggur}
-Info Stock : ${dataBibitAnggur.stockStatus}
-
-🥭Bibit Mangga:
-HARGA BELI : ${Bbibitmangga}
-HARGA JUAL : ${Sbibitmangga}
-Status Harga : ${statusBibitMangga}
-Info Stock : ${dataBibitMangga.stockStatus}
-
-🍊Bibit Jeruk:
-HARGA BELI : ${Bbibitjeruk}
-HARGA JUAL : ${Sbibitjeruk}
-Status Harga : ${statusBibitJeruk}
-Info Stock : ${dataBibitJeruk.stockStatus}
-
-🍎Bibit Apel:
-HARGA BELI : ${Bbibitapel}
-HARGA JUAL : ${Sbibitapel}
-Status Harga : ${statusBibitApel}
-Info Stock : ${dataBibitApel.stockStatus}
-
-🌾Bibit Padi:
-HARGA BELI : ${Bpadi}
-HARGA JUAL : ${Spadi}
-Status Harga : ${statusPadi}
-Info Stock : ${dataPadi.stockStatus}
-
-🌾Bibit Gandum:
-HARGA BELI : ${Bgandum}
-HARGA JUAL : ${Sgandum}
-Status Harga : ${statusGandum}
-Info Stock : ${dataGandum.stockStatus}
-
-🥕Bibit Wortel:
-HARGA BELI : ${Bwortel}
-HARGA JUAL : ${Swortel}
-Status Harga : ${statusWortel}
-Info Stock : ${dataWortel.stockStatus}
-
-🥔Bibit Kentang:
-HARGA BELI : ${Bkentang}
-HARGA JUAL : ${Skentang}
-Status Harga : ${statusKentang}
-Info Stock : ${dataKentang.stockStatus}
-
-🍠Bibit Singkong:
-HARGA BELI : ${Bsingkong}
-HARGA JUAL : ${Ssingkong}
-Status Harga : ${statusSingkong}
-Info Stock : ${dataSingkong.stockStatus}
-
-🍠Bibit Ubi Jalar:
-HARGA BELI : ${Bubijalar}
-HARGA JUAL : ${Subijalar}
-Status Harga : ${statusUbiJalar}
-Info Stock : ${dataUbiJalar.stockStatus}
-
-🎋Bibit Tebu:
-HARGA BELI : ${Btebu}
-HARGA JUAL : ${Stebu}
-Status Harga : ${statusTebu}
-Info Stock : ${dataTebu.stockStatus}
-
-🌶️Bibit Cabai:
-HARGA BELI : ${Bbibitcabai}
-HARGA JUAL : ${Sbibitcabai}
-Status Harga : ${statusBibitCabai}
-Info Stock : ${dataBibitCabai.stockStatus}
-
-🍅Bibit Tomat:
-HARGA BELI : ${Bbibittomat}
-HARGA JUAL : ${Sbibittomat}
-Status Harga : ${statusBibitTomat}
-Info Stock : ${dataBibitTomat.stockStatus}
-
-🧅Bibit Bawang:
-HARGA BELI : ${Bbibitbawang}
-HARGA JUAL : ${Sbibitbawang}
-Status Harga : ${statusBibitBawang}
-Info Stock : ${dataBibitBawang.stockStatus}
-
-🍆Bibit Terong:
-HARGA BELI : ${Bbibitterong}
-HARGA JUAL : ${Sbibitterong}
-Status Harga : ${statusBibitTerong}
-Info Stock : ${dataBibitTerong.stockStatus}
-
-🌽Bibit Jagung:
-HARGA BELI : ${Bbibitjagung}
-HARGA JUAL : ${Sbibitjagung}
-Status Harga : ${statusBibitJagung}
-Info Stock : ${dataBibitJagung.stockStatus}
-
-🫘Bibit Kedelai:
-HARGA BELI : ${Bbibitkedelai}
-HARGA JUAL : ${Sbibitkedelai}
-Status Harga : ${statusBibitKedelai}
-Info Stock : ${dataBibitKedelai.stockStatus}
-
-🍉Bibit Semangka:
-HARGA BELI : ${Bbibitsemangka}
-HARGA JUAL : ${Sbibitsemangka}
-Status Harga : ${statusBibitSemangka}
-Info Stock : ${dataBibitSemangka.stockStatus}
-
-🍈Bibit Melon:
-HARGA BELI : ${Bbibitmelon}
-HARGA JUAL : ${Sbibitmelon}
-Status Harga : ${statusBibitMelon}
-Info Stock : ${dataBibitMelon.stockStatus}
-
-🍓Bibit Stroberi:
-HARGA BELI : ${Bbibitstroberi}
-HARGA JUAL : ${Sbibitstroberi}
-Status Harga : ${statusBibitStroberi}
-Info Stock : ${dataBibitStroberi.stockStatus}
-
-🍍Bibit Nanas:
-HARGA BELI : ${Bbibitnanas}
-HARGA JUAL : ${Sbibitnanas}
-Status Harga : ${statusBibitNanas}
-Info Stock : ${dataBibitNanas.stockStatus}
-
-🥥Bibit Kelapa:
-HARGA BELI : ${Bbibitkelapa}
-HARGA JUAL : ${Sbibitkelapa}
-Status Harga : ${statusBibitKelapa}
-Info Stock : ${dataBibitKelapa.stockStatus}
-
-🍈Bibit Durian:
-HARGA BELI : ${Bbibitdurian}
-HARGA JUAL : ${Sbibitdurian}
-Status Harga : ${statusBibitDurian}
-Info Stock : ${dataBibitDurian.stockStatus}
-
-🥭Bibit Pepaya:
-HARGA BELI : ${Bbibitpepaya}
-HARGA JUAL : ${Sbibitpepaya}
-Status Harga : ${statusBibitPepaya}
-Info Stock : ${dataBibitPepaya.stockStatus}
-
-🥑Bibit Alpukat:
-HARGA BELI : ${Bbibitalpukat}
-HARGA JUAL : ${Sbibitalpukat}
-Status Harga : ${statusBibitAlpukat}
-Info Stock : ${dataBibitAlpukat.stockStatus}
-
-☕Bibit Kopi:
-HARGA BELI : ${Bbibitkopi}
-HARGA JUAL : ${Sbibitkopi}
-Status Harga : ${statusBibitKopi}
-Info Stock : ${dataBibitKopi.stockStatus}
-
-🍫Bibit Kakao:
-HARGA BELI : ${Bbibitkakao}
-HARGA JUAL : ${Sbibitkakao}
-Status Harga : ${statusBibitKakao}
-Info Stock : ${dataBibitKakao.stockStatus}
-
-🍦Bibit Vanili:
-HARGA BELI : ${Bbibitvanili}
-HARGA JUAL : ${Sbibitvanili}
-Status Harga : ${statusBibitVanili}
-Info Stock : ${dataBibitVanili.stockStatus}
-
-🥬Bibit Kangkung:
-HARGA BELI : ${Bbibitkangkung}
-HARGA JUAL : ${Sbibitkangkung}
-Status Harga : ${statusBibitKangkung}
-Info Stock : ${dataBibitKangkung.stockStatus}
-
-🥬Bibit Sawi:
-HARGA BELI : ${Bbibitsawi}
-HARGA JUAL : ${Sbibitsawi}
-Status Harga : ${statusBibitSawi}
-Info Stock : ${dataBibitSawi.stockStatus}
-
-🥬Bibit Bayam:
-HARGA BELI : ${Bbibitbayam}
-HARGA JUAL : ${Sbibitbayam}
-Status Harga : ${statusBibitBayam}
-Info Stock : ${dataBibitBayam.stockStatus}
-
-🥦Bibit Kol:
-HARGA BELI : ${Bbibitkol}
-HARGA JUAL : ${Sbibitkol}
-Status Harga : ${statusBibitKol}
-Info Stock : ${dataBibitKol.stockStatus}
-
-🥦Bibit Brokoli:
-HARGA BELI : ${Bbibitbrokoli}
-HARGA JUAL : ${Sbibitbrokoli}
-Status Harga : ${statusBibitBrokoli}
-Info Stock : ${dataBibitBrokoli.stockStatus}
-
-🥒Bibit Ketimun:
-HARGA BELI : ${Bbibitketimun}
-HARGA JUAL : ${Sbibitketimun}
-Status Harga : ${statusBibitKetimun}
-Info Stock : ${dataBibitKetimun.stockStatus}
-
-🌶️Bibit Lombok:
-HARGA BELI : ${Bbibitlombok}
-HARGA JUAL : ${Sbibitlombok}
-Status Harga : ${statusBibitLombok}
-Info Stock : ${dataBibitLombok.stockStatus}
-
-🫛Bibit Kacang Panjang:
-HARGA BELI : ${Bbibitkacangpanjang}
-HARGA JUAL : ${Sbibitkacangpanjang}
-Status Harga : ${statusBibitKacangPanjang}
-Info Stock : ${dataBibitKacangPanjang.stockStatus}`;
-
-    const menuBarang = `╸╸━━━「 *BARANG* 」━━━╺╺
-
-🥤Potion:
-HARGA BELI : ${potion}
-HARGA JUAL : ${Spotion}
-Status Harga : ${statusPotion}
-Info Stock : ${dataPotion.stockStatus}
-
-🗑️Sampah:
-HARGA BELI : ${Bsampah}
-HARGA JUAL : ${Ssampah}
-Status Harga : ${statusSampah}
-Info Stock : ${dataSampah.stockStatus}
-
-🧵String:
-HARGA BELI : ${Bstring}
-HARGA JUAL : ${Sstring}
-Status Harga : ${statusString}
-Info Stock : ${dataString.stockStatus}
-
-🍾Botol:
-HARGA BELI : ${Bbotol}
-HARGA JUAL : ${Sbotol}
-Status Harga : ${statusBotol}
-Info Stock : ${dataBotol.stockStatus}
-
-🥫Kaleng:
-HARGA BELI : ${Bkaleng}
-HARGA JUAL : ${Skaleng}
-Status Harga : ${statusKaleng}
-Info Stock : ${dataKaleng.stockStatus}
-
-📦Kardus:
-HARGA BELI : ${Bkardus}
-HARGA JUAL : ${Skardus}
-Status Harga : ${statusKardus}
-Info Stock : ${dataKardus.stockStatus}
-
-⚔️Sword:
-HARGA BELI : ${Bsword}
-HARGA JUAL : ${Ssword}
-Status Harga : ${statusSword}
-Info Stock : ${dataSword.stockStatus}
-
-🛍️Plastik:
-HARGA BELI : ${Bplastik}
-HARGA JUAL : ${Splastik}
-Status Harga : ${statusPlastik}
-Info Stock : ${dataPlastik.stockStatus}
-
-🥻Kain:
-HARGA BELI : ${Bkain}
-HARGA JUAL : ${Skain}
-Status Harga : ${statusKain}
-Info Stock : ${dataKain.stockStatus}
-
-📍Paku:
-HARGA BELI : ${Bpaku}
-HARGA JUAL : ${Spaku}
-Status Harga : ${statusPaku}
-Info Stock : ${dataPaku.stockStatus}
-
-🔋Baterai:
-HARGA BELI : ${Bbaterai}
-HARGA JUAL : ${Sbaterai}
-Status Harga : ${statusBaterai}
-Info Stock : ${dataBaterai.stockStatus}
-
-🛞Ban Bekas:
-HARGA BELI : ${Bbanbekas}
-HARGA JUAL : ${Sbanbekas}
-Status Harga : ${statusBanBekas}
-Info Stock : ${dataBanBekas.stockStatus}
-
-🪀Karet:
-HARGA BELI : ${Bkaret}
-HARGA JUAL : ${Skaret}
-Status Harga : ${statusKaret}
-Info Stock : ${dataKaret.stockStatus}
-
-🥉Tembaga:
-HARGA BELI : ${Btembaga}
-HARGA JUAL : ${Stembaga}
-Status Harga : ${statusTembaga}
-Info Stock : ${dataTembaga.stockStatus}
-
-🌫️Aluminium:
-HARGA BELI : ${Baluminium}
-HARGA JUAL : ${Saluminium}
-Status Harga : ${statusAluminium}
-Info Stock : ${dataAluminium.stockStatus}
-
-🔩Baut:
-HARGA BELI : ${Bbaut}
-HARGA JUAL : ${Sbaut}
-Status Harga : ${statusBaut}
-Info Stock : ${dataBaut.stockStatus}
-
-🔩Mur:
-HARGA BELI : ${Bmur}
-HARGA JUAL : ${Smur}
-Status Harga : ${statusMur}
-Info Stock : ${dataMur.stockStatus}
-
-⚙️Gear:
-HARGA BELI : ${Bgear}
-HARGA JUAL : ${Sgear}
-Status Harga : ${statusGear}
-Info Stock : ${dataGear.stockStatus}
-
-⛓️Rantai:
-HARGA BELI : ${Brantai}
-HARGA JUAL : ${Srantai}
-Status Harga : ${statusRantai}
-Info Stock : ${dataRantai.stockStatus}
-
-🚂Mesin Bekas:
-HARGA BELI : ${Bmesinbekas}
-HARGA JUAL : ${Smesinbekas}
-Status Harga : ${statusMesinBekas}
-Info Stock : ${dataMesinBekas.stockStatus}
-
-🛢️Oli:
-HARGA BELI : ${Boli}
-HARGA JUAL : ${Soli}
-Status Harga : ${statusOli}
-Info Stock : ${dataOli.stockStatus}
-
-🖨️PCB:
-HARGA BELI : ${Bpcb}
-HARGA JUAL : ${Spcb}
-Status Harga : ${statusPcb}
-Info Stock : ${dataPcb.stockStatus}
-
-🔌Kabel:
-HARGA BELI : ${Bkabel}
-HARGA JUAL : ${Skabel}
-Status Harga : ${statusKabel}
-Info Stock : ${dataKabel.stockStatus}
-
-🪟Kaca:
-HARGA BELI : ${Bkaca}
-HARGA JUAL : ${Skaca}
-Status Harga : ${statusKaca}
-Info Stock : ${dataKaca.stockStatus}
-
-🏺Keramik:
-HARGA BELI : ${Bkeramik}
-HARGA JUAL : ${Skeramik}
-Status Harga : ${statusKeramik}
-Info Stock : ${dataKeramik.stockStatus}
-
-🧱Semen:
-HARGA BELI : ${Bsemen}
-HARGA JUAL : ${Ssemen}
-Status Harga : ${statusSemen}
-Info Stock : ${dataSemen.stockStatus}
-
-🎨Cat:
-HARGA BELI : ${Bcat}
-HARGA JUAL : ${Scat}
-Status Harga : ${statusCat}
-Info Stock : ${dataCat.stockStatus}
-
-🪙Koin Kuno:
-HARGA BELI : ${Bkoinkuno}
-HARGA JUAL : ${Skoinkuno}
-Status Harga : ${statusKoinKuno}
-Info Stock : ${dataKoinKuno.stockStatus}
-
-🕰️Jam Rusak:
-HARGA BELI : ${Bjamrusak}
-HARGA JUAL : ${Sjamrusak}
-Status Harga : ${statusJamRusak}
-Info Stock : ${dataJamRusak.stockStatus}
-
-🪝Pegas:
-HARGA BELI : ${Bpegas}
-HARGA JUAL : ${Spegas}
-Status Harga : ${statusPegas}
-Info Stock : ${dataPegas.stockStatus}
-
-🦾Besi Bekas:
-HARGA BELI : ${Bbesibekas}
-HARGA JUAL : ${Sbesibekas}
-Status Harga : ${statusBesiBekas}
-Info Stock : ${dataBesiBekas.stockStatus}
-
-💡Lampu:
-HARGA BELI : ${Blampu}
-HARGA JUAL : ${Slampu}
-Status Harga : ${statusLampu}
-Info Stock : ${dataLampu.stockStatus}`;
-
-    const menuAlam = `╸╸━━━「 *ALAM* 」━━━╺╺
-
-🪙Emas Mentah:
-HARGA BELI : ${Bemasmentah}
-HARGA JUAL : ${Semasmentah}
-Status Harga : ${statusEmasMentah}
-Info Stock : ${dataEmasMentah.stockStatus}
-
-🪵Kayu:        
-HARGA BELI : ${Bkayu}
-HARGA JUAL : ${Skayu}
-Status Harga : ${statusKayu}
-Info Stock : ${dataKayu.stockStatus}
-
-🪨Batu:        
-HARGA BELI : ${Bbatu}
-HARGA JUAL : ${Sbatu}
-Status Harga : ${statusBatu}
-Info Stock : ${dataBatu.stockStatus}
-
-🪨Coal:        
-HARGA BELI : ${Bcoal}
-HARGA JUAL : ${Scoal}
-Status Harga : ${statusCoal}
-Info Stock : ${dataCoal.stockStatus}
-
-⛓️Iron:        
-HARGA BELI : ${Biron}
-HARGA JUAL : ${Siron}
-Status Harga : ${statusIron}
-Info Stock : ${dataIron.stockStatus}
-
-🏖️Pasir:
-HARGA BELI : ${Bpasir} /kg
-HARGA JUAL : ${Spasir} /kg
-Status Harga : ${statusPasir}
-Info Stock : ${dataPasir.stockStatus}
-
-☢️Uranium:
-HARGA BELI : ${Buranium} /gram
-HARGA JUAL : ${Suranium} /gram
-Status Harga : ${statusUranium}
-Info Stock : ${dataUranium.stockStatus}
-
-🪨Tembaga Ore:
-HARGA BELI : ${Btembagaore}
-HARGA JUAL : ${Stembagaore}
-Status Harga : ${statusTembagaOre}
-Info Stock : ${dataTembagaOre.stockStatus}
-
-🪨Perak Ore:
-HARGA BELI : ${Bperakore}
-HARGA JUAL : ${Sperakore}
-Status Harga : ${statusPerakOre}
-Info Stock : ${dataPerakOre.stockStatus}
-
-🪨Timah:
-HARGA BELI : ${Btimah}
-HARGA JUAL : ${Stimah}
-Status Harga : ${statusTimah}
-Info Stock : ${dataTimah.stockStatus}
-
-🪨Nikel:
-HARGA BELI : ${Bnikel}
-HARGA JUAL : ${Snikel}
-Status Harga : ${statusNikel}
-Info Stock : ${dataNikel.stockStatus}
-
-🔮Kuarsa:
-HARGA BELI : ${Bkuarsa}
-HARGA JUAL : ${Skuarsa}
-Status Harga : ${statusKuarsa}
-Info Stock : ${dataKuarsa.stockStatus}
-
-💠Kristal:
-HARGA BELI : ${Bkristal}
-HARGA JUAL : ${Skristal}
-Status Harga : ${statusKristal}
-Info Stock : ${dataKristal.stockStatus}
-
-⬛Obsidian:
-HARGA BELI : ${Bobsidian}
-HARGA JUAL : ${Sobsidian}
-Status Harga : ${statusObsidian}
-Info Stock : ${dataObsidian.stockStatus}
-
-🟨Belerang:
-HARGA BELI : ${Bbelerang}
-HARGA JUAL : ${Sbelerang}
-Status Harga : ${statusBelerang}
-Info Stock : ${dataBelerang.stockStatus}
-
-🏛️Marmer:
-HARGA BELI : ${Bmarmer}
-HARGA JUAL : ${Smarmer}
-Status Harga : ${statusMarmer}
-Info Stock : ${dataMarmer.stockStatus}
-
-🪨Granit:
-HARGA BELI : ${Bgranit}
-HARGA JUAL : ${Sgranit}
-Status Harga : ${statusGranit}
-Info Stock : ${dataGranit.stockStatus}
-
-🧂Garam:
-HARGA BELI : ${Bgaram}
-HARGA JUAL : ${Sgaram}
-Status Harga : ${statusGaram}
-Info Stock : ${dataGaram.stockStatus}
-
-🏺Tanah Liat:
-HARGA BELI : ${Btanahliat}
-HARGA JUAL : ${Stanahliat}
-Status Harga : ${statusTanahLiat}
-Info Stock : ${dataTanahLiat.stockStatus}
-
-🪨Batu Kapur:
-HARGA BELI : ${Bbatukapur}
-HARGA JUAL : ${Sbatukapur}
-Status Harga : ${statusBatuKapur}
-Info Stock : ${dataBatuKapur.stockStatus}
-
-💎Batu Permata:
-HARGA BELI : ${Bbatupermata}
-HARGA JUAL : ${Sbatupermata}
-Status Harga : ${statusBatuPermata}
-Info Stock : ${dataBatuPermata.stockStatus}
-
-🦴Fosil:
-HARGA BELI : ${Bfosil}
-HARGA JUAL : ${Sfosil}
-Status Harga : ${statusFosil}
-Info Stock : ${dataFosil.stockStatus}
-
-⚪Mutiara:
-HARGA BELI : ${Bmutiara}
-HARGA JUAL : ${Smutiara}
-Status Harga : ${statusMutiara}
-Info Stock : ${dataMutiara.stockStatus}
-
-🪸Karang:
-HARGA BELI : ${Bkarang}
-HARGA JUAL : ${Skarang}
-Status Harga : ${statusKarang}
-Info Stock : ${dataKarang.stockStatus}
-
-🧱Gipsum:
-HARGA BELI : ${Bgipsum}
-HARGA JUAL : ${Sgipsum}
-Status Harga : ${statusGipsum}
-Info Stock : ${dataGipsum.stockStatus}
-
-🧲Magnetit:
-HARGA BELI : ${Bmagnetit}
-HARGA JUAL : ${Smagnetit}
-Status Harga : ${statusMagnetit}
-Info Stock : ${dataMagnetit.stockStatus}
-
-🪨Bauksit:
-HARGA BELI : ${Bbauksit}
-HARGA JUAL : ${Sbauksit}
-Status Harga : ${statusBauksit}
-Info Stock : ${dataBauksit.stockStatus}
-
-🪨Platina Ore:
-HARGA BELI : ${Bplatinaore}
-HARGA JUAL : ${Splatinaore}
-Status Harga : ${statusPlatinaOre}
-Info Stock : ${dataPlatinaOre.stockStatus}
-
-🪨Titanium Ore:
-HARGA BELI : ${Btitaniumore}
-HARGA JUAL : ${Stitaniumore}
-Status Harga : ${statusTitaniumOre}
-Info Stock : ${dataTitaniumOre.stockStatus}
-
-🔋Litium:
-HARGA BELI : ${Blitium}
-HARGA JUAL : ${Slitium}
-Status Harga : ${statusLitium}
-Info Stock : ${dataLitium.stockStatus}
-
-🟩Zamrud Mentah:
-HARGA BELI : ${Bzamrudmentah}
-HARGA JUAL : ${Szamrudmentah}
-Status Harga : ${statusZamrudMentah}
-Info Stock : ${dataZamrudMentah.stockStatus}
-
-🟥Rubi Mentah:
-HARGA BELI : ${Brubimentah}
-HARGA JUAL : ${Srubimentah}
-Status Harga : ${statusRubiMentah}
-Info Stock : ${dataRubiMentah.stockStatus}`;
-
-    const menuPerlengkapan = `╸╸━━━「 *PERLENGKAPAN* 」━━━╺╺
-
-⛏️ Pickaxe:
-HARGA BELI : ${Bpickaxe}
-HARGA JUAL : ${Spickaxe}
-Status Harga : ${statusPickaxe}
-Info Stock : ${dataPickaxe.stockStatus}
-
-⚔️ Sword:
-HARGA BELI : ${Bsword}
-HARGA JUAL : ${Ssword}
-Status Harga : ${statusSword}
-Info Stock : ${dataSword.stockStatus}
-
-🦯 Katana:
-HARGA BELI : ${Bkatana}
-HARGA JUAL : ${Skatana}
-Status Harga : ${statusKatana}
-Info Stock : ${dataKatana.stockStatus}
-
-🪓 Axe:
-HARGA BELI : ${Baxe}
-HARGA JUAL : ${Saxe}
-Status Harga : ${statusAxe}
-Info Stock : ${dataAxe.stockStatus}
-
-🔱 Trident:
-HARGA BELI : ${Btrident}
-HARGA JUAL : ${Strident}
-Status Harga : ${statusTrident}
-Info Stock : ${dataTrident.stockStatus}
-
-🏹 Bow:
-HARGA BELI : ${Bbow}
-HARGA JUAL : ${Sbow}
-Status Harga : ${statusBow}
-Info Stock : ${dataBow.stockStatus}
-
-🔪 Pisau:
-HARGA BELI : ${Bpisau}
-HARGA JUAL : ${Spisau}
-Status Harga : ${statusPisau}
-Info Stock : ${dataPisau.stockStatus}
-
-🎣 Fishingrod:
-HARGA BELI : ${Bfishingrod}
-HARGA JUAL : ${Sfishingrod}
-Status Harga : ${statusFishingrod}
-Info Stock : ${dataFishingrod.stockStatus}
-
-🥼 Armor:
-HARGA BELI : ${Barmor}
-HARGA JUAL : ${Sarmor}
-Status Harga : ${statusArmor}
-Info Stock : ${dataArmor.stockStatus}
-
-🛡️ Shield:
-HARGA BELI : ${Bshield}
-HARGA JUAL : ${Sshield}
-Status Harga : ${statusShield}
-Info Stock : ${dataShield.stockStatus}
-
-⛑️ Helmet:
-HARGA BELI : ${Bhelmet}
-HARGA JUAL : ${Shelmet}
-Status Harga : ${statusHelmet}
-Info Stock : ${dataHelmet.stockStatus}`;
-
-    const menuSenjata = `╸╸━━━「 *SENJATA KELAS BERAT & RINGAN* 」━━━╺╺
-
-🪓 Tombak:
-HARGA BELI : ${Btombak}
-HARGA JUAL : ${Stombak}
-Status Harga : ${statusTombak}
-Info Stock : ${dataTombak.stockStatus}
-
-🏹 Busur:
-HARGA BELI : ${Bbusursenjata}
-HARGA JUAL : ${Sbusursenjata}
-Status Harga : ${statusBusurSenjata}
-Info Stock : ${dataBusurSenjata.stockStatus}
-
-🏹 Anak Panah:
-HARGA BELI : ${Banakpanah}
-HARGA JUAL : ${Sanakpanah}
-Status Harga : ${statusAnakPanah}
-Info Stock : ${dataAnakPanah.stockStatus}
-
-📦 Ammo:
-HARGA BELI : ${Bammo}
-HARGA JUAL : ${Sammo}
-Status Harga : ${statusAmmo}
-Info Stock : ${dataAmmo.stockStatus}
-
-🔫 Glock:
-HARGA BELI : ${Bglock}
-HARGA JUAL : ${Sglock}
-Status Harga : ${statusGlock}
-Info Stock : ${dataGlock.stockStatus}
-
-🔫 Beretta:
-HARGA BELI : ${Bberetta}
-HARGA JUAL : ${Sberetta}
-Status Harga : ${statusBeretta}
-Info Stock : ${dataBeretta.stockStatus}
-
-🔫 Revolver:
-HARGA BELI : ${Brevolver}
-HARGA JUAL : ${Srevolver}
-Status Harga : ${statusRevolver}
-Info Stock : ${dataRevolver.stockStatus}
-
-🔫 Deagle:
-HARGA BELI : ${Bdeagle}
-HARGA JUAL : ${Sdeagle}
-Status Harga : ${statusDeagle}
-Info Stock : ${dataDeagle.stockStatus}
-
-🔫 Mac10:
-HARGA BELI : ${Bmac10}
-HARGA JUAL : ${Smac10}
-Status Harga : ${statusMac10}
-Info Stock : ${dataMac10.stockStatus}
-
-🔫 Vector:
-HARGA BELI : ${Bvector}
-HARGA JUAL : ${Svector}
-Status Harga : ${statusVector}
-Info Stock : ${dataVector.stockStatus}
-
-🔫 Ump45:
-HARGA BELI : ${Bump45}
-HARGA JUAL : ${Sump45}
-Status Harga : ${statusUmp45}
-Info Stock : ${dataUmp45.stockStatus}
-
-🔫 Pp19bizon:
-HARGA BELI : ${Bpp19bizon}
-HARGA JUAL : ${Spp19bizon}
-Status Harga : ${statusPp19bizon}
-Info Stock : ${dataPp19bizon.stockStatus}
-
-🔫 Mp5:
-HARGA BELI : ${Bmp5}
-HARGA JUAL : ${Smp5}
-Status Harga : ${statusMp5}
-Info Stock : ${dataMp5.stockStatus}
-
-🔫 Uzi:
-HARGA BELI : ${Buzi}
-HARGA JUAL : ${Suzi}
-Status Harga : ${statusUzi}
-Info Stock : ${dataUzi.stockStatus}
-
-🔫 P90:
-HARGA BELI : ${Bp90}
-HARGA JUAL : ${Sp90}
-Status Harga : ${statusP90}
-Info Stock : ${dataP90.stockStatus}
-
-🔫 Ak47:
-HARGA BELI : ${Bak47}
-HARGA JUAL : ${Sak47}
-Status Harga : ${statusAk47}
-Info Stock : ${dataAk47.stockStatus}
-
-🔫 M4:
-HARGA BELI : ${Bm4}
-HARGA JUAL : ${Sm4}
-Status Harga : ${statusM4}
-Info Stock : ${dataM4.stockStatus}
-
-🔫 Qbz95:
-HARGA BELI : ${Bqbz95}
-HARGA JUAL : ${Sqbz95}
-Status Harga : ${statusQbz95}
-Info Stock : ${dataQbz95.stockStatus}
-
-🔫 Ar15:
-HARGA BELI : ${Bar15}
-HARGA JUAL : ${Sar15}
-Status Harga : ${statusAr15}
-Info Stock : ${dataAr15.stockStatus}
-
-🔫 G36c:
-HARGA BELI : ${Bg36c}
-HARGA JUAL : ${Sg36c}
-Status Harga : ${statusG36c}
-Info Stock : ${dataG36c.stockStatus}
-
-🔫 Aek971:
-HARGA BELI : ${Baek971}
-HARGA JUAL : ${Saek971}
-Status Harga : ${statusAek971}
-Info Stock : ${dataAek971.stockStatus}
-
-🔫 M16:
-HARGA BELI : ${Bm16}
-HARGA JUAL : ${Sm16}
-Status Harga : ${statusM16}
-Info Stock : ${dataM16.stockStatus}
-
-🔫 Hk416:
-HARGA BELI : ${Bhk416}
-HARGA JUAL : ${Shk416}
-Status Harga : ${statusHk416}
-Info Stock : ${dataHk416.stockStatus}
-
-🔫 Scar:
-HARGA BELI : ${Bscar}
-HARGA JUAL : ${Sscar}
-Status Harga : ${statusScar}
-Info Stock : ${dataScar.stockStatus}
-
-🔫 Famas:
-HARGA BELI : ${Bfamas}
-HARGA JUAL : ${Sfamas}
-Status Harga : ${statusFamas}
-Info Stock : ${dataFamas.stockStatus}
-
-🔫 Aug:
-HARGA BELI : ${Baug}
-HARGA JUAL : ${Saug}
-Status Harga : ${statusAug}
-Info Stock : ${dataAug.stockStatus}
-
-🔫 Fnfal:
-HARGA BELI : ${Bfnfal}
-HARGA JUAL : ${Sfnfal}
-Status Harga : ${statusFnfal}
-Info Stock : ${dataFnfal.stockStatus}
-
-💥 Spas12:
-HARGA BELI : ${Bspas12}
-HARGA JUAL : ${Sspas12}
-Status Harga : ${statusSpas12}
-Info Stock : ${dataSpas12.stockStatus}
-
-💥 Benellim4:
-HARGA BELI : ${Bbenellim4}
-HARGA JUAL : ${Sbenellim4}
-Status Harga : ${statusBenellim4}
-Info Stock : ${dataBenellim4.stockStatus}
-
-💥 Saiga12:
-HARGA BELI : ${Bsaiga12}
-HARGA JUAL : ${Ssaiga12}
-Status Harga : ${statusSaiga12}
-Info Stock : ${dataSaiga12.stockStatus}
-
-💥 Aa12:
-HARGA BELI : ${Baa12}
-HARGA JUAL : ${Saa12}
-Status Harga : ${statusAa12}
-Info Stock : ${dataAa12.stockStatus}
-
-🔫 Remington700:
-HARGA BELI : ${Bremington700}
-HARGA JUAL : ${Sremington700}
-Status Harga : ${statusRemington700}
-Info Stock : ${dataRemington700.stockStatus}
-
-🔫 M24:
-HARGA BELI : ${Bm24}
-HARGA JUAL : ${Sm24}
-Status Harga : ${statusM24}
-Info Stock : ${dataM24.stockStatus}
-
-🔫 M40:
-HARGA BELI : ${Bm40}
-HARGA JUAL : ${Sm40}
-Status Harga : ${statusM40}
-Info Stock : ${dataM40.stockStatus}
-
-🔫 L96:
-HARGA BELI : ${Bl96}
-HARGA JUAL : ${Sl96}
-Status Harga : ${statusL96}
-Info Stock : ${dataL96.stockStatus}
-
-🔫 Dragunovsvd:
-HARGA BELI : ${Bdragunovsvd}
-HARGA JUAL : ${Sdragunovsvd}
-Status Harga : ${statusDragunovsvd}
-Info Stock : ${dataDragunovsvd.stockStatus}
-
-🔫 Barrettm82:
-HARGA BELI : ${Bbarrettm82}
-HARGA JUAL : ${Sbarrettm82}
-Status Harga : ${statusBarrettm82}
-Info Stock : ${dataBarrettm82.stockStatus}
-
-🔫 Intervention:
-HARGA BELI : ${Bintervention}
-HARGA JUAL : ${Sintervention}
-Status Harga : ${statusIntervention}
-Info Stock : ${dataIntervention.stockStatus}
-
-🔫 Cheytacm200:
-HARGA BELI : ${Bcheytacm200}
-HARGA JUAL : ${Scheytacm200}
-Status Harga : ${statusCheytacm200}
-Info Stock : ${dataCheytacm200.stockStatus}
-
-🔫 Awm:
-HARGA BELI : ${Bawm}
-HARGA JUAL : ${Sawm}
-Status Harga : ${statusAwm}
-Info Stock : ${dataAwm.stockStatus}
-
-🔥 Pkm:
-HARGA BELI : ${Bpkm}
-HARGA JUAL : ${Spkm}
-Status Harga : ${statusPkm}
-Info Stock : ${dataPkm.stockStatus}
-
-🔥 M249:
-HARGA BELI : ${Bm249}
-HARGA JUAL : ${Sm249}
-Status Harga : ${statusM249}
-Info Stock : ${dataM249.stockStatus}
-
-🔥 Mg42:
-HARGA BELI : ${Bmg42}
-HARGA JUAL : ${Smg42}
-Status Harga : ${statusMg42}
-Info Stock : ${dataMg42.stockStatus}
-
-🚀 Rpg7:
-HARGA BELI : ${Brpg7}
-HARGA JUAL : ${Srpg7}
-Status Harga : ${statusRpg7}
-Info Stock : ${dataRpg7.stockStatus}
-
-🔥 Minigun:
-HARGA BELI : ${Bminigun}
-HARGA JUAL : ${Sminigun}
-Status Harga : ${statusMinigun}
-Info Stock : ${dataMinigun.stockStatus}
-
-🔫 Rubyrevolver:
-HARGA BELI : ${Brubyrevolver}
-HARGA JUAL : ${Srubyrevolver}
-Status Harga : ${statusRubyrevolver}
-Info Stock : ${dataRubyrevolver.stockStatus}
-
-🔫 Diamondrifle:
-HARGA BELI : ${Bdiamondrifle}
-HARGA JUAL : ${Sdiamondrifle}
-Status Harga : ${statusDiamondrifle}
-Info Stock : ${dataDiamondrifle.stockStatus}
-
-🔫 Emeraldsniper:
-HARGA BELI : ${Bemeraldsniper}
-HARGA JUAL : ${Semeraldsniper}
-Status Harga : ${statusEmeraldsniper}
-Info Stock : ${dataEmeraldsniper.stockStatus}
-
-🚀 Sapphirecannon:
-HARGA BELI : ${Bsapphirecannon}
-HARGA JUAL : ${Ssapphirecannon}
-Status Harga : ${statusSapphirecannon}
-Info Stock : ${dataSapphirecannon.stockStatus}`;
-
-    const menuPerhiasan = `╸╸━━━「 *PERHIASAN & GEMSTONE* 」━━━╺╺
-
-💎Diamond :
-Harga Beli : ${Bdiamond}
-Harga Jual : ${Sdiamond}
-Status Harga : ${statusDiamond}
-               
-⬜Perak : 
-Harga Beli : ${Bperak}
-Harga Jual : ${Sperak}         
-Status Harga : ${statusPerak}      
-               
-🪙Emas :       
-Harga Beli : ${Bemasbiasa}
-Harga Jual : ${Semasbiasa}
-Status Harga : ${statusEmas}
-               
-❇️Emerald :     
-Harga Beli : ${Bemerald}
-Harga Jual : ${Semerald}
-Status Harga : ${statusEmerald}
-
-💎Berlian:
-Harga Beli : ${Bberlian}
-Harga Jual : ${Sberlian}
-Status Harga : ${statusBerlian}
-
-🥇Emas Batang:
-Harga Beli : ${Bemasbatang}
-Harga Jual : ${Semasbatang}
-Status Harga : ${statusEmasBatang}
-
-🥈Perak Batang:
-Harga Beli : ${Bperakbatang}
-Harga Jual : ${Sperakbatang}
-Status Harga : ${statusPerakBatang}
-
-🔴Ruby:
-Harga Beli : ${Bruby}
-Harga Jual : ${Sruby}
-Status Harga : ${statusRuby}
-
-🔵Sapphire:
-Harga Beli : ${Bsapphire}
-Harga Jual : ${Ssapphire}
-Status Harga : ${statusSapphire}
-
-🟡Topaz:
-Harga Beli : ${Btopaz}
-Harga Jual : ${Stopaz}
-Status Harga : ${statusTopaz}
-
-🟣Amethyst:
-Harga Beli : ${Bamethyst}
-Harga Jual : ${Samethyst}
-Status Harga : ${statusAmethyst}
-
-🌈Opal:
-Harga Beli : ${Bopal}
-Harga Jual : ${Sopal}
-Status Harga : ${statusOpal}
-
-🧊Aquamarine:
-Harga Beli : ${Baquamarine}
-Harga Jual : ${Saquamarine}
-Status Harga : ${statusAquamarine}
-
-❤️Garnet:
-Harga Beli : ${Bgarnet}
-Harga Jual : ${Sgarnet}
-Status Harga : ${statusGarnet}
-
-🟢Jade:
-Harga Beli : ${Bjade}
-Harga Jual : ${Sjade}
-Status Harga : ${statusJade}
-
-⚫Onyx:
-Harga Beli : ${Bonyx}
-Harga Jual : ${Sonyx}
-Status Harga : ${statusOnyx}
-
-🧿Turquoise:
-Harga Beli : ${Bturquoise}
-Harga Jual : ${Sturquoise}
-Status Harga : ${statusTurquoise}
-
-🔮Alexandrite:
-Harga Beli : ${Balexandrite}
-Harga Jual : ${Salexandrite}
-Status Harga : ${statusAlexandrite}
-
-🌙Moonstone:
-Harga Beli : ${Bmoonstone}
-Harga Jual : ${Smoonstone}
-Status Harga : ${statusMoonstone}
-
-🖤Black Diamond:
-Harga Beli : ${Bblackdiamond}
-Harga Jual : ${Sblackdiamond}
-Status Harga : ${statusBlackDiamond}
-
-🩸Red Diamond:
-Harga Beli : ${Breddiamond}
-Harga Jual : ${Sreddiamond}
-Status Harga : ${statusRedDiamond}
-
-💿Platinum:
-Harga Beli : ${Bplatinum}
-Harga Jual : ${Splatinum}
-Status Harga : ${statusPlatinum}`;
-
-    const menuCrate = `╸╸━━━「 *LIST CRATE* 」━━━╺╺
-
-🎁 Common :
-HARGA BELI : ${Bcommon} Money
-HARGA JUAL : ${Scommon} Money
-Status Harga : ${statusCommon}
-             
-🎁 Uncommon: 
-HARGA BELI : ${Buncommon} Money
-HARGA JUAL : ${Suncommon} Money
-Status Harga : ${statusUncommon}
-
-💎 Rare :
-HARGA BELI : ${Brare} Money
-HARGA JUAL : ${Srare} Money
-Status Harga : ${statusRare}
-               
-🔥 Epic :
-HARGA BELI : ${Bepic} Money
-HARGA JUAL : ${Sepic} Money
-Status Harga : ${statusEpic}
-        
-🌌 Mythic : 
-HARGA BELI : ${Bmythic} Money
-HARGA JUAL : ${Smythic} Money
-Status Harga : ${statusMythic}
-           
-👑 Legendary : 
-HARGA BELI : ${Blegendary} Money
-HARGA JUAL : ${Slegendary} Money
-Status Harga : ${statusLegendary}
-               
-🗝️ Secret : 
-HARGA BELI : ${Bsecret} Money
-HARGA JUAL : ${Ssecret} Money
-Status Harga : ${statusSecret}
-            
-🌑 Dark : 
-HARGA BELI : ${Bdark} Money
-HARGA JUAL : ${Sdark} Money
-Status Harga : ${statusDark}
-          
-⚡ Cheat : 
-HARGA BELI : ${Bcheat} Money
-HARGA JUAL : ${Scheat} Money
-Status Harga : ${statusCheat}`;
-
-    const menuMakanan = `╸╸━━━「 *MAKANAN* 」━━━╺╺
-
-🍌Pisang:
-HARGA BELI : ${Bpisang}
-HARGA JUAL : ${Spisang}
-Status Harga : ${statusPisang}
-Info Stock : ${dataPisang.stockStatus}
-
-🍇Anggur:
-HARGA BELI : ${Banggur}
-HARGA JUAL : ${Sanggur}
-Status Harga : ${statusAnggur}
-Info Stock : ${dataAnggur.stockStatus}
-
-🥭Mangga:
-HARGA BELI : ${Bmangga}
-HARGA JUAL : ${Smangga}
-Status Harga : ${statusMangga}
-Info Stock : ${dataMangga.stockStatus}
-
-🍊Jeruk:
-HARGA BELI : ${Bjeruk}
-HARGA JUAL : ${Sjeruk}
-Status Harga : ${statusJeruk}
-Info Stock : ${dataJeruk.stockStatus}
-
-🍎Apel:
-HARGA BELI : ${Bapel}
-HARGA JUAL : ${Sapel}
-Status Harga : ${statusApel}
-Info Stock : ${dataApel.stockStatus}
-
-🫔MakananPet:
-HARGA BELI : ${Bmakananpet}
-HARGA JUAL : ${Smakananpet}
-Status Harga : ${statusMakananPet}
-Info Stock : ${dataMakananPet.stockStatus}
-
-🥩MakananNaga:
-HARGA BELI : ${Bmakanannaga}
-HARGA JUAL : ${Smakanannaga}
-Status Harga : ${statusMakananNaga}
-Info Stock : ${dataMakananNaga.stockStatus}
-
-🥩MakananKyubi:
-HARGA BELI : ${Bmakanankyubi}
-HARGA JUAL : ${Smakanankyubi}
-Status Harga : ${statusMakananKyubi}
-Info Stock : ${dataMakananKyubi.stockStatus}
-
-🥩MakananGriffin:
-HARGA BELI : ${Bmakanangriffin}
-HARGA JUAL : ${Smakanangriffin}
-Status Harga : ${statusMakananGriffin}
-Info Stock : ${dataMakananGriffin.stockStatus}
-
-🥩MakananPhonix:
-HARGA BELI : ${Bmakananphonix}
-HARGA JUAL : ${Smakananphonix}
-Status Harga : ${statusMakananPhonix}
-Info Stock : ${dataMakananPhonix.stockStatus}
-
-🥩MakananCentaur:
-HARGA BELI : ${Bmakanancentaur}
-HARGA JUAL : ${Smakanancentaur}
-Status Harga : ${statusMakananCentaur}
-Info Stock : ${dataMakananCentaur.stockStatus}`;
-
-    const menuMinuman = `╸╸━━━「 *MINUMAN & JUS* 」━━━╺╺
-
-💧Air Mineral:
-HARGA BELI : ${Bairmineral}
-HARGA JUAL : ${Sairmineral}
-Status Harga : ${statusAirMineral}
-Info Stock : ${dataAirMineral.stockStatus}
-
-🍵Teh Botol:
-HARGA BELI : ${Btehbotol}
-HARGA JUAL : ${Stehbotol}
-Status Harga : ${statusTehBotol}
-Info Stock : ${dataTehBotol.stockStatus}
-
-☕Kopi Nescafe:
-HARGA BELI : ${Bnescafe}
-HARGA JUAL : ${Snescafe}
-Status Harga : ${statusNescafe}
-Info Stock : ${dataNescafe.stockStatus}
-
-🥛Ultra Milk:
-HARGA BELI : ${Bultramilk}
-HARGA JUAL : ${Sultramilk}
-Status Harga : ${statusUltraMilk}
-Info Stock : ${dataUltraMilk.stockStatus}
-
-🫗Aqua:
-HARGA BELI : ${Baqua}
-HARGA JUAL : ${Saqua}
-Status Harga : ${statusAqua}
-Info Stock : ${dataAqua.stockStatus}
-
-🥛Susu:
-HARGA BELI : ${Bsusu}
-HARGA JUAL : ${Ssusu}
-Status Harga : ${statusSusu}
-Info Stock : ${dataSusu.stockStatus}
-
-🍯Madu:
-HARGA BELI : ${Bmadu} /botol
-HARGA JUAL : ${Smadu} /botol
-Status Harga : ${statusMadu}
-Info Stock : ${dataMadu.stockStatus}
-
-🪤Umpan (Fishing):
-HARGA BELI : ${Bumpan}
-HARGA JUAL : ${Sumpan}
-Status Harga : ${statusUmpan}
-Info Stock : ${dataUmpan.stockStatus}
-
-🍇Jus Anggur:
-HARGA BELI : ${Bjusanggur}
-HARGA JUAL : ${Sjusanggur}
-Status Harga : ${statusJusAnggur}
-Info Stock : ${dataJusAnggur.stockStatus}
-
-🍎Jus Apel:
-HARGA BELI : ${Bjusapel}
-HARGA JUAL : ${Sjusapel}
-Status Harga : ${statusJusApel}
-Info Stock : ${dataJusApel.stockStatus}
-
-🍊Jus Jeruk:
-HARGA BELI : ${Bjusjeruk}
-HARGA JUAL : ${Sjusjeruk}
-Status Harga : ${statusJusJeruk}
-Info Stock : ${dataJusJeruk.stockStatus}
-
-🥭Jus Mangga:
-HARGA BELI : ${Bjusmangga}
-HARGA JUAL : ${Sjusmangga}
-Status Harga : ${statusJusMangga}
-Info Stock : ${dataJusMangga.stockStatus}
-
-🍌Jus Pisang:
-HARGA BELI : ${Bjuspisang}
-HARGA JUAL : ${Sjuspisang}
-Status Harga : ${statusJusPisang}
-Info Stock : ${dataJusPisang.stockStatus}
-
-🍓Jus Stroberi:
-HARGA BELI : ${Bjusstroberi}
-HARGA JUAL : ${Sjusstroberi}
-Status Harga : ${statusJusStroberi}
-Info Stock : ${dataJusStroberi.stockStatus}
-
-🍈Jus Melon:
-HARGA BELI : ${Bjusmelon}
-HARGA JUAL : ${Sjusmelon}
-Status Harga : ${statusJusMelon}
-Info Stock : ${dataJusMelon.stockStatus}
-
-🍉Jus Semangka:
-HARGA BELI : ${Bjussemangka}
-HARGA JUAL : ${Sjussemangka}
-Status Harga : ${statusJusSemangka}
-Info Stock : ${dataJusSemangka.stockStatus}
-
-🍈Jus Durian:
-HARGA BELI : ${Bjusdurian}
-HARGA JUAL : ${Sjusdurian}
-Status Harga : ${statusJusDurian}
-Info Stock : ${dataJusDurian.stockStatus}
-
-🥭Jus Pepaya:
-HARGA BELI : ${Bjuspepaya}
-HARGA JUAL : ${Sjuspepaya}
-Status Harga : ${statusJusPepaya}
-Info Stock : ${dataJusPepaya.stockStatus}
-
-🥑Jus Alpukat:
-HARGA BELI : ${Bjusalpukat}
-HARGA JUAL : ${Sjusalpukat}
-Status Harga : ${statusJusAlpukat}
-Info Stock : ${dataJusAlpukat.stockStatus}
-
-🍊Es Jeruk:
-HARGA BELI : ${Besjeruk}
-HARGA JUAL : ${Sesjeruk}
-Status Harga : ${statusEsJeruk}
-Info Stock : ${dataEsJeruk.stockStatus}
-
-🥥Es Kelapa:
-HARGA BELI : ${Beskelapa}
-HARGA JUAL : ${Seskelapa}
-Status Harga : ${statusEsKelapa}
-Info Stock : ${dataEsKelapa.stockStatus}
-
-☕Kopi Hitam:
-HARGA BELI : ${Bkopihitam}
-HARGA JUAL : ${Skopihitam}
-Status Harga : ${statusKopiHitam}
-Info Stock : ${dataKopiHitam.stockStatus}
-
-☕Kopi Susu:
-HARGA BELI : ${Bkopisusu}
-HARGA JUAL : ${Skopisusu}
-Status Harga : ${statusKopiSusu}
-Info Stock : ${dataKopiSusu.stockStatus}
-
-☕Cappuccino:
-HARGA BELI : ${Bcappuccino}
-HARGA JUAL : ${Scappuccino}
-Status Harga : ${statusCappuccino}
-Info Stock : ${dataCappuccino.stockStatus}
-
-☕Latte:
-HARGA BELI : ${Blatte}
-HARGA JUAL : ${Slatte}
-Status Harga : ${statusLatte}
-Info Stock : ${dataLatte.stockStatus}
-
-☕Mocha:
-HARGA BELI : ${Bmocha}
-HARGA JUAL : ${Smocha}
-Status Harga : ${statusMocha}
-Info Stock : ${dataMocha.stockStatus}
-
-🫖Teh Manis:
-HARGA BELI : ${Btehmanis}
-HARGA JUAL : ${Stehmanis}
-Status Harga : ${statusTehManis}
-Info Stock : ${dataTehManis.stockStatus}
-
-🍵Teh Hijau:
-HARGA BELI : ${Btehhijau}
-HARGA JUAL : ${Stehhijau}
-Status Harga : ${statusTehHijau}
-Info Stock : ${dataTehHijau.stockStatus}
-
-🧋Teh Tarik:
-HARGA BELI : ${Btehtarik}
-HARGA JUAL : ${Stehtarik}
-Status Harga : ${statusTehTarik}
-Info Stock : ${dataTehTarik.stockStatus}
-
-🧋Susu Coklat:
-HARGA BELI : ${Bsusucoklat}
-HARGA JUAL : ${Ssusucoklat}
-Status Harga : ${statusSusuCoklat}
-Info Stock : ${dataSusuCoklat.stockStatus}
-
-🧋Susu Stroberi:
-HARGA BELI : ${Bsusustroberi}
-HARGA JUAL : ${Ssusustroberi}
-Status Harga : ${statusSusuStroberi}
-Info Stock : ${dataSusuStroberi.stockStatus}
-
-🥤Soda Gembira:
-HARGA BELI : ${Bsodagembira}
-HARGA JUAL : ${Ssodagembira}
-Status Harga : ${statusSodaGembira}
-Info Stock : ${dataSodaGembira.stockStatus}
-
-🍵Wedang Jahe:
-HARGA BELI : ${Bwedangjahe}
-HARGA JUAL : ${Swedangjahe}
-Status Harga : ${statusWedangJahe}
-Info Stock : ${dataWedangJahe.stockStatus}
-
-🥥Air Kelapa:
-HARGA BELI : ${Bairkelapa}
-HARGA JUAL : ${Sairkelapa}
-Status Harga : ${statusAirKelapa}
-Info Stock : ${dataAirKelapa.stockStatus}
-
-🍧Sirup Melon:
-HARGA BELI : ${Bsirupmelon}
-HARGA JUAL : ${Ssirupmelon}
-Status Harga : ${statusSirupMelon}
-Info Stock : ${dataSirupMelon.stockStatus}
-
-🍧Sirup Jeruk:
-HARGA BELI : ${Bsirupjeruk}
-HARGA JUAL : ${Ssirupjeruk}
-Status Harga : ${statusSirupJeruk}
-Info Stock : ${dataSirupJeruk.stockStatus}
-
-🍧Sirup Anggur:
-HARGA BELI : ${Bsirupanggur}
-HARGA JUAL : ${Ssirupanggur}
-Status Harga : ${statusSirupAnggur}
-Info Stock : ${dataSirupAnggur.stockStatus}
-
-🍧Sirup Stroberi:
-HARGA BELI : ${Bsirupstroberi}
-HARGA JUAL : ${Ssirupstroberi}
-Status Harga : ${statusSirupStroberi}
-Info Stock : ${dataSirupStroberi.stockStatus}`;
-
-    const menuSemua = `━━━「 *DAFTAR SEMUA ITEM TOKO* 」━━━\n\n${menuKebutuhan}\n\n${menuBibit}\n\n${menuBarang}\n\n${menuAlam}\n\n${menuPerlengkapan}\n\n${menuSenjata}\n\n${menuPerhiasan}\n\n${menuCrate}\n\n${menuMakanan}\n\n${menuMinuman}\n\n━━━「 *DOMPET KAMU* 」━━━
+    const menuKebutuhan = `┌─⊷ *List Kebutuhan*
+┃
+┃ 🏷️ *Limit*
+┃ Beli : ${Blimit} Diamond
+┃ Jual : ${Slimit} Money
+┃ Status : ${statusLimit}
+┃ Stock : ${dataLimit.stockStatus}
+┃
+┃ 🐉 *Pet*
+┃ Beli : ${Bpet}
+┃ Jual : ${Spet}
+┃ Status : ${statusPet}
+┃ Stock : ${dataPet.stockStatus}
+┃
+┃ 📦 *Gardenboxs*
+┃ Beli : ${Bgardenboxs}
+┃ Jual : ${Sgardenboxs}
+┃ Status : ${statusGarden}
+┃ Stock : ${dataGarden.stockStatus}
+┃
+┃ ⛽ *Bensin*
+┃ Beli : ${BBensin}
+┃ Jual : ${SBensin}
+┃ Status : ${statusBensin}
+┃ Stock : ${dataBensin.stockStatus}
+┃
+┃ ⚔️ *Weapon*
+┃ Beli : ${BWeap}
+┃ Jual : ${SWeap}
+┃ Status : ${statusWeap}
+┃ Stock : ${dataWeap.stockStatus}
+┃
+┃ 💊 *Obat*
+┃ Beli : ${BObat}
+┃ Jual : ${SObat}
+┃ Status : ${statusObat}
+┃ Stock : ${dataObat.stockStatus}
+┃
+┃ 🎟️ *TiketCoin*
+┃ Beli : ${Btiketcoin} Tiketcoin
+┃ Jual : ${Stiketcoin} Tiketcoin
+┃ Status : ${statusTiketCoin}
+┃ Stock : ${dataTiketCoin.stockStatus}
+┃
+┃ 👹 *TiketM*
+┃ Beli : ${Bhealtmonster}
+┃ Jual : ${Shealtmonster}
+┃ Status : ${statusHealtMonster}
+┃ Stock : ${dataHealtMonster.stockStatus}
+┃
+┃ 🎣 *Pancingan*
+┃ Beli : ${Bpancingan}
+┃ Jual : ${Spancingan}
+┃ Status : ${statusPancingan}
+┃ Stock : ${dataPancingan.stockStatus}
+┃
+└──────────────`;
+
+    const menuBibit = `┌─⊷ *List Bibit & Tanaman*
+┃
+┃ *🍌Bibit Pisang*
+┃ Beli : ${Bbibitpisang}
+┃ Jual : ${Sbibitpisang}
+┃ Status : ${statusBibitPisang}
+┃ Stock : ${dataBibitPisang.stockStatus}
+┃
+┃ *🍇Bibit Anggur*
+┃ Beli : ${Bbibitanggur}
+┃ Jual : ${Sbibitanggur}
+┃ Status : ${statusBibitAnggur}
+┃ Stock : ${dataBibitAnggur.stockStatus}
+┃
+┃ *🥭Bibit Mangga*
+┃ Beli : ${Bbibitmangga}
+┃ Jual : ${Sbibitmangga}
+┃ Status : ${statusBibitMangga}
+┃ Stock : ${dataBibitMangga.stockStatus}
+┃
+┃ *🍊Bibit Jeruk*
+┃ Beli : ${Bbibitjeruk}
+┃ Jual : ${Sbibitjeruk}
+┃ Status : ${statusBibitJeruk}
+┃ Stock : ${dataBibitJeruk.stockStatus}
+┃
+┃ *🍎Bibit Apel*
+┃ Beli : ${Bbibitapel}
+┃ Jual : ${Sbibitapel}
+┃ Status : ${statusBibitApel}
+┃ Stock : ${dataBibitApel.stockStatus}
+┃
+┃ *🌾Bibit Padi*
+┃ Beli : ${Bpadi}
+┃ Jual : ${Spadi}
+┃ Status : ${statusPadi}
+┃ Stock : ${dataPadi.stockStatus}
+┃
+┃ *🌾Bibit Gandum*
+┃ Beli : ${Bgandum}
+┃ Jual : ${Sgandum}
+┃ Status : ${statusGandum}
+┃ Stock : ${dataGandum.stockStatus}
+┃
+┃ *🥕Bibit Wortel*
+┃ Beli : ${Bwortel}
+┃ Jual : ${Swortel}
+┃ Status : ${statusWortel}
+┃ Stock : ${dataWortel.stockStatus}
+┃
+┃ *🥔Bibit Kentang*
+┃ Beli : ${Bkentang}
+┃ Jual : ${Skentang}
+┃ Status : ${statusKentang}
+┃ Stock : ${dataKentang.stockStatus}
+┃
+┃ *🍠Bibit Singkong*
+┃ Beli : ${Bsingkong}
+┃ Jual : ${Ssingkong}
+┃ Status : ${statusSingkong}
+┃ Stock : ${dataSingkong.stockStatus}
+┃
+┃ *🍠Bibit Ubi Jalar*
+┃ Beli : ${Bubijalar}
+┃ Jual : ${Subijalar}
+┃ Status : ${statusUbiJalar}
+┃ Stock : ${dataUbiJalar.stockStatus}
+┃
+┃ *🎋Bibit Tebu*
+┃ Beli : ${Btebu}
+┃ Jual : ${Stebu}
+┃ Status : ${statusTebu}
+┃ Stock : ${dataTebu.stockStatus}
+┃
+┃ *🌶️Bibit Cabai*
+┃ Beli : ${Bbibitcabai}
+┃ Jual : ${Sbibitcabai}
+┃ Status : ${statusBibitCabai}
+┃ Stock : ${dataBibitCabai.stockStatus}
+┃
+┃ *🍅Bibit Tomat*
+┃ Beli : ${Bbibittomat}
+┃ Jual : ${Sbibittomat}
+┃ Status : ${statusBibitTomat}
+┃ Stock : ${dataBibitTomat.stockStatus}
+┃
+┃ *🧅Bibit Bawang*
+┃ Beli : ${Bbibitbawang}
+┃ Jual : ${Sbibitbawang}
+┃ Status : ${statusBibitBawang}
+┃ Stock : ${dataBibitBawang.stockStatus}
+┃
+┃ *🍆Bibit Terong*
+┃ Beli : ${Bbibitterong}
+┃ Jual : ${Sbibitterong}
+┃ Status : ${statusBibitTerong}
+┃ Stock : ${dataBibitTerong.stockStatus}
+┃
+┃ *🌽Bibit Jagung*
+┃ Beli : ${Bbibitjagung}
+┃ Jual : ${Sbibitjagung}
+┃ Status : ${statusBibitJagung}
+┃ Stock : ${dataBibitJagung.stockStatus}
+┃
+┃ *🫘Bibit Kedelai*
+┃ Beli : ${Bbibitkedelai}
+┃ Jual : ${Sbibitkedelai}
+┃ Status : ${statusBibitKedelai}
+┃ Stock : ${dataBibitKedelai.stockStatus}
+┃
+┃ *🍉Bibit Semangka*
+┃ Beli : ${Bbibitsemangka}
+┃ Jual : ${Sbibitsemangka}
+┃ Status : ${statusBibitSemangka}
+┃ Stock : ${dataBibitSemangka.stockStatus}
+┃
+┃ *🍈Bibit Melon*
+┃ Beli : ${Bbibitmelon}
+┃ Jual : ${Sbibitmelon}
+┃ Status : ${statusBibitMelon}
+┃ Stock : ${dataBibitMelon.stockStatus}
+┃
+┃ *🍓Bibit Stroberi*
+┃ Beli : ${Bbibitstroberi}
+┃ Jual : ${Sbibitstroberi}
+┃ Status : ${statusBibitStroberi}
+┃ Stock : ${dataBibitStroberi.stockStatus}
+┃
+┃ *🍍Bibit Nanas*
+┃ Beli : ${Bbibitnanas}
+┃ Jual : ${Sbibitnanas}
+┃ Status : ${statusBibitNanas}
+┃ Stock : ${dataBibitNanas.stockStatus}
+┃
+┃ *🥥Bibit Kelapa*
+┃ Beli : ${Bbibitkelapa}
+┃ Jual : ${Sbibitkelapa}
+┃ Status : ${statusBibitKelapa}
+┃ Stock : ${dataBibitKelapa.stockStatus}
+┃
+┃ *🍈Bibit Durian*
+┃ Beli : ${Bbibitdurian}
+┃ Jual : ${Sbibitdurian}
+┃ Status : ${statusBibitDurian}
+┃ Stock : ${dataBibitDurian.stockStatus}
+┃
+┃ *🥭Bibit Pepaya*
+┃ Beli : ${Bbibitpepaya}
+┃ Jual : ${Sbibitpepaya}
+┃ Status : ${statusBibitPepaya}
+┃ Stock : ${dataBibitPepaya.stockStatus}
+┃
+┃ *🥑Bibit Alpukat*
+┃ Beli : ${Bbibitalpukat}
+┃ Jual : ${Sbibitalpukat}
+┃ Status : ${statusBibitAlpukat}
+┃ Stock : ${dataBibitAlpukat.stockStatus}
+┃
+┃ *☕Bibit Kopi*
+┃ Beli : ${Bbibitkopi}
+┃ Jual : ${Sbibitkopi}
+┃ Status : ${statusBibitKopi}
+┃ Stock : ${dataBibitKopi.stockStatus}
+┃
+┃ *🍫Bibit Kakao*
+┃ Beli : ${Bbibitkakao}
+┃ Jual : ${Sbibitkakao}
+┃ Status : ${statusBibitKakao}
+┃ Stock : ${dataBibitKakao.stockStatus}
+┃
+┃ *🍦Bibit Vanili*
+┃ Beli : ${Bbibitvanili}
+┃ Jual : ${Sbibitvanili}
+┃ Status : ${statusBibitVanili}
+┃ Stock : ${dataBibitVanili.stockStatus}
+┃
+┃ *🥬Bibit Kangkung*
+┃ Beli : ${Bbibitkangkung}
+┃ Jual : ${Sbibitkangkung}
+┃ Status : ${statusBibitKangkung}
+┃ Stock : ${dataBibitKangkung.stockStatus}
+┃
+┃ *🥬Bibit Sawi*
+┃ Beli : ${Bbibitsawi}
+┃ Jual : ${Sbibitsawi}
+┃ Status : ${statusBibitSawi}
+┃ Stock : ${dataBibitSawi.stockStatus}
+┃
+┃ *🥬Bibit Bayam*
+┃ Beli : ${Bbibitbayam}
+┃ Jual : ${Sbibitbayam}
+┃ Status : ${statusBibitBayam}
+┃ Stock : ${dataBibitBayam.stockStatus}
+┃
+┃ *🥦Bibit Kol*
+┃ Beli : ${Bbibitkol}
+┃ Jual : ${Sbibitkol}
+┃ Status : ${statusBibitKol}
+┃ Stock : ${dataBibitKol.stockStatus}
+┃
+┃ *🥦Bibit Brokoli*
+┃ Beli : ${Bbibitbrokoli}
+┃ Jual : ${Sbibitbrokoli}
+┃ Status : ${statusBibitBrokoli}
+┃ Stock : ${dataBibitBrokoli.stockStatus}
+┃
+┃ *🥒Bibit Ketimun*
+┃ Beli : ${Bbibitketimun}
+┃ Jual : ${Sbibitketimun}
+┃ Status : ${statusBibitKetimun}
+┃ Stock : ${dataBibitKetimun.stockStatus}
+┃
+┃ *🌶️Bibit Lombok*
+┃ Beli : ${Bbibitlombok}
+┃ Jual : ${Sbibitlombok}
+┃ Status : ${statusBibitLombok}
+┃ Stock : ${dataBibitLombok.stockStatus}
+┃
+┃ *🫛Bibit Kacang Panjang*
+┃ Beli : ${Bbibitkacangpanjang}
+┃ Jual : ${Sbibitkacangpanjang}
+┃ Status : ${statusBibitKacangPanjang}
+┃ Stock : ${dataBibitKacangPanjang.stockStatus}
+┃
+└──────────────`;
+
+    const menuBarang = `┌─⊷ *List Barang*
+┃
+┃ *🥤Potion*
+┃ Beli : ${potion}
+┃ Jual : ${Spotion}
+┃ Status : ${statusPotion}
+┃ Stock : ${dataPotion.stockStatus}
+┃
+┃ *🗑️Sampah*
+┃ Beli : ${Bsampah}
+┃ Jual : ${Ssampah}
+┃ Status : ${statusSampah}
+┃ Stock : ${dataSampah.stockStatus}
+┃
+┃ *🧵String*
+┃ Beli : ${Bstring}
+┃ Jual : ${Sstring}
+┃ Status : ${statusString}
+┃ Stock : ${dataString.stockStatus}
+┃
+┃ *🍾Botol*
+┃ Beli : ${Bbotol}
+┃ Jual : ${Sbotol}
+┃ Status : ${statusBotol}
+┃ Stock : ${dataBotol.stockStatus}
+┃
+┃ *🥫Kaleng*
+┃ Beli : ${Bkaleng}
+┃ Jual : ${Skaleng}
+┃ Status : ${statusKaleng}
+┃ Stock : ${dataKaleng.stockStatus}
+┃
+┃ *📦Kardus*
+┃ Beli : ${Bkardus}
+┃ Jual : ${Skardus}
+┃ Status : ${statusKardus}
+┃ Stock : ${dataKardus.stockStatus}
+┃
+┃ *⚔️Sword*
+┃ Beli : ${Bsword}
+┃ Jual : ${Ssword}
+┃ Status : ${statusSword}
+┃ Stock : ${dataSword.stockStatus}
+┃
+┃ *🛍️Plastik*
+┃ Beli : ${Bplastik}
+┃ Jual : ${Splastik}
+┃ Status : ${statusPlastik}
+┃ Stock : ${dataPlastik.stockStatus}
+┃
+┃ *🥻Kain*
+┃ Beli : ${Bkain}
+┃ Jual : ${Skain}
+┃ Status : ${statusKain}
+┃ Stock : ${dataKain.stockStatus}
+┃
+┃ *📍Paku*
+┃ Beli : ${Bpaku}
+┃ Jual : ${Spaku}
+┃ Status : ${statusPaku}
+┃ Stock : ${dataPaku.stockStatus}
+┃
+┃ *🔋Baterai*
+┃ Beli : ${Bbaterai}
+┃ Jual : ${Sbaterai}
+┃ Status : ${statusBaterai}
+┃ Stock : ${dataBaterai.stockStatus}
+┃
+┃ *🛞Ban Bekas*
+┃ Beli : ${Bbanbekas}
+┃ Jual : ${Sbanbekas}
+┃ Status : ${statusBanBekas}
+┃ Stock : ${dataBanBekas.stockStatus}
+┃
+┃ *🪀Karet*
+┃ Beli : ${Bkaret}
+┃ Jual : ${Skaret}
+┃ Status : ${statusKaret}
+┃ Stock : ${dataKaret.stockStatus}
+┃
+┃ *🥉Tembaga*
+┃ Beli : ${Btembaga}
+┃ Jual : ${Stembaga}
+┃ Status : ${statusTembaga}
+┃ Stock : ${dataTembaga.stockStatus}
+┃
+┃ *🌫️Aluminium*
+┃ Beli : ${Baluminium}
+┃ Jual : ${Saluminium}
+┃ Status : ${statusAluminium}
+┃ Stock : ${dataAluminium.stockStatus}
+┃
+┃ *🔩Baut*
+┃ Beli : ${Bbaut}
+┃ Jual : ${Sbaut}
+┃ Status : ${statusBaut}
+┃ Stock : ${dataBaut.stockStatus}
+┃
+┃ *🔩Mur*
+┃ Beli : ${Bmur}
+┃ Jual : ${Smur}
+┃ Status : ${statusMur}
+┃ Stock : ${dataMur.stockStatus}
+┃
+┃ *⚙️Gear*
+┃ Beli : ${Bgear}
+┃ Jual : ${Sgear}
+┃ Status : ${statusGear}
+┃ Stock : ${dataGear.stockStatus}
+┃
+┃ *⛓️Rantai*
+┃ Beli : ${Brantai}
+┃ Jual : ${Srantai}
+┃ Status : ${statusRantai}
+┃ Stock : ${dataRantai.stockStatus}
+┃
+┃ *🚂Mesin Bekas*
+┃ Beli : ${Bmesinbekas}
+┃ Jual : ${Smesinbekas}
+┃ Status : ${statusMesinBekas}
+┃ Stock : ${dataMesinBekas.stockStatus}
+┃
+┃ *🛢️Oli*
+┃ Beli : ${Boli}
+┃ Jual : ${Soli}
+┃ Status : ${statusOli}
+┃ Stock : ${dataOli.stockStatus}
+┃
+┃ *🖨️PCB*
+┃ Beli : ${Bpcb}
+┃ Jual : ${Spcb}
+┃ Status : ${statusPcb}
+┃ Stock : ${dataPcb.stockStatus}
+┃
+┃ *🔌Kabel*
+┃ Beli : ${Bkabel}
+┃ Jual : ${Skabel}
+┃ Status : ${statusKabel}
+┃ Stock : ${dataKabel.stockStatus}
+┃
+┃ *🪟Kaca*
+┃ Beli : ${Bkaca}
+┃ Jual : ${Skaca}
+┃ Status : ${statusKaca}
+┃ Stock : ${dataKaca.stockStatus}
+┃
+┃ *🏺Keramik*
+┃ Beli : ${Bkeramik}
+┃ Jual : ${Skeramik}
+┃ Status : ${statusKeramik}
+┃ Stock : ${dataKeramik.stockStatus}
+┃
+┃ *🧱Semen*
+┃ Beli : ${Bsemen}
+┃ Jual : ${Ssemen}
+┃ Status : ${statusSemen}
+┃ Stock : ${dataSemen.stockStatus}
+┃
+┃ *🎨Cat*
+┃ Beli : ${Bcat}
+┃ Jual : ${Scat}
+┃ Status : ${statusCat}
+┃ Stock : ${dataCat.stockStatus}
+┃
+┃ *🪙Koin Kuno*
+┃ Beli : ${Bkoinkuno}
+┃ Jual : ${Skoinkuno}
+┃ Status : ${statusKoinKuno}
+┃ Stock : ${dataKoinKuno.stockStatus}
+┃
+┃ *🕰️Jam Rusak*
+┃ Beli : ${Bjamrusak}
+┃ Jual : ${Sjamrusak}
+┃ Status : ${statusJamRusak}
+┃ Stock : ${dataJamRusak.stockStatus}
+┃
+┃ *🪝Pegas*
+┃ Beli : ${Bpegas}
+┃ Jual : ${Spegas}
+┃ Status : ${statusPegas}
+┃ Stock : ${dataPegas.stockStatus}
+┃
+┃ *🦾Besi Bekas*
+┃ Beli : ${Bbesibekas}
+┃ Jual : ${Sbesibekas}
+┃ Status : ${statusBesiBekas}
+┃ Stock : ${dataBesiBekas.stockStatus}
+┃
+┃ *💡Lampu*
+┃ Beli : ${Blampu}
+┃ Jual : ${Slampu}
+┃ Status : ${statusLampu}
+┃ Stock : ${dataLampu.stockStatus}
+┃
+└──────────────`;
+
+    const menuAlam = `┌─⊷ *List Alam*
+┃
+┃ *🪙Emas Mentah*
+┃ Beli : ${Bemasmentah}
+┃ Jual : ${Semasmentah}
+┃ Status : ${statusEmasMentah}
+┃ Stock : ${dataEmasMentah.stockStatus}
+
+┃
+┃ *🪵 Kayu*
+┃ Beli : ${Bkayu}
+┃ Jual : ${Skayu}
+┃ Status : ${statusKayu}
+┃ Stock : ${dataKayu.stockStatus}
+┃
+┃ *🪨 Batu*
+┃ Beli : ${Bbatu}
+┃ Jual : ${Sbatu}
+┃ Status : ${statusBatu}
+┃ Stock : ${dataBatu.stockStatus}
+┃
+┃ *🪨 Coal*
+┃ Beli : ${Bcoal}
+┃ Jual : ${Scoal}
+┃ Status : ${statusCoal}
+┃ Stock : ${dataCoal.stockStatus}
+┃
+┃ *⛓️ Iron*
+┃ Beli : ${Biron}
+┃ Jual : ${Siron}
+┃ Status : ${statusIron}
+┃ Stock : ${dataIron.stockStatus}
+┃
+┃ *🏖️Pasir*
+┃ Beli : ${Bpasir} /kg
+┃ Jual : ${Spasir} /kg
+┃ Status : ${statusPasir}
+┃ Stock : ${dataPasir.stockStatus}
+┃
+┃ *☢️Uranium*
+┃ Beli : ${Buranium} /gram
+┃ Jual : ${Suranium} /gram
+┃ Status : ${statusUranium}
+┃ Stock : ${dataUranium.stockStatus}
+┃
+┃ *🪨Tembaga Ore*
+┃ Beli : ${Btembagaore}
+┃ Jual : ${Stembagaore}
+┃ Status : ${statusTembagaOre}
+┃ Stock : ${dataTembagaOre.stockStatus}
+┃
+┃ *🪨Perak Ore*
+┃ Beli : ${Bperakore}
+┃ Jual : ${Sperakore}
+┃ Status : ${statusPerakOre}
+┃ Stock : ${dataPerakOre.stockStatus}
+┃
+┃ *🪨Timah*
+┃ Beli : ${Btimah}
+┃ Jual : ${Stimah}
+┃ Status : ${statusTimah}
+┃ Stock : ${dataTimah.stockStatus}
+┃
+┃ *🪨Nikel*
+┃ Beli : ${Bnikel}
+┃ Jual : ${Snikel}
+┃ Status : ${statusNikel}
+┃ Stock : ${dataNikel.stockStatus}
+┃
+┃ *🔮Kuarsa*
+┃ Beli : ${Bkuarsa}
+┃ Jual : ${Skuarsa}
+┃ Status : ${statusKuarsa}
+┃ Stock : ${dataKuarsa.stockStatus}
+┃
+┃ *💠Kristal*
+┃ Beli : ${Bkristal}
+┃ Jual : ${Skristal}
+┃ Status : ${statusKristal}
+┃ Stock : ${dataKristal.stockStatus}
+┃
+┃ *⬛Obsidian*
+┃ Beli : ${Bobsidian}
+┃ Jual : ${Sobsidian}
+┃ Status : ${statusObsidian}
+┃ Stock : ${dataObsidian.stockStatus}
+┃
+┃ *🟨Belerang*
+┃ Beli : ${Bbelerang}
+┃ Jual : ${Sbelerang}
+┃ Status : ${statusBelerang}
+┃ Stock : ${dataBelerang.stockStatus}
+┃
+┃ *🏛️Marmer*
+┃ Beli : ${Bmarmer}
+┃ Jual : ${Smarmer}
+┃ Status : ${statusMarmer}
+┃ Stock : ${dataMarmer.stockStatus}
+┃
+┃ *🪨Granit*
+┃ Beli : ${Bgranit}
+┃ Jual : ${Sgranit}
+┃ Status : ${statusGranit}
+┃ Stock : ${dataGranit.stockStatus}
+┃
+┃ *🧂Garam*
+┃ Beli : ${Bgaram}
+┃ Jual : ${Sgaram}
+┃ Status : ${statusGaram}
+┃ Stock : ${dataGaram.stockStatus}
+┃
+┃ *🏺Tanah Liat*
+┃ Beli : ${Btanahliat}
+┃ Jual : ${Stanahliat}
+┃ Status : ${statusTanahLiat}
+┃ Stock : ${dataTanahLiat.stockStatus}
+┃
+┃ *🪨Batu Kapur*
+┃ Beli : ${Bbatukapur}
+┃ Jual : ${Sbatukapur}
+┃ Status : ${statusBatuKapur}
+┃ Stock : ${dataBatuKapur.stockStatus}
+┃
+┃ *💎Batu Permata*
+┃ Beli : ${Bbatupermata}
+┃ Jual : ${Sbatupermata}
+┃ Status : ${statusBatuPermata}
+┃ Stock : ${dataBatuPermata.stockStatus}
+┃
+┃ *🦴Fosil*
+┃ Beli : ${Bfosil}
+┃ Jual : ${Sfosil}
+┃ Status : ${statusFosil}
+┃ Stock : ${dataFosil.stockStatus}
+┃
+┃ *⚪Mutiara*
+┃ Beli : ${Bmutiara}
+┃ Jual : ${Smutiara}
+┃ Status : ${statusMutiara}
+┃ Stock : ${dataMutiara.stockStatus}
+┃
+┃ *🪸Karang*
+┃ Beli : ${Bkarang}
+┃ Jual : ${Skarang}
+┃ Status : ${statusKarang}
+┃ Stock : ${dataKarang.stockStatus}
+┃
+┃ *🧱Gipsum*
+┃ Beli : ${Bgipsum}
+┃ Jual : ${Sgipsum}
+┃ Status : ${statusGipsum}
+┃ Stock : ${dataGipsum.stockStatus}
+┃
+┃ *🧲Magnetit*
+┃ Beli : ${Bmagnetit}
+┃ Jual : ${Smagnetit}
+┃ Status : ${statusMagnetit}
+┃ Stock : ${dataMagnetit.stockStatus}
+┃
+┃ *🪨Bauksit*
+┃ Beli : ${Bbauksit}
+┃ Jual : ${Sbauksit}
+┃ Status : ${statusBauksit}
+┃ Stock : ${dataBauksit.stockStatus}
+┃
+┃ *🪨Platina Ore*
+┃ Beli : ${Bplatinaore}
+┃ Jual : ${Splatinaore}
+┃ Status : ${statusPlatinaOre}
+┃ Stock : ${dataPlatinaOre.stockStatus}
+┃
+┃ *🪨Titanium Ore*
+┃ Beli : ${Btitaniumore}
+┃ Jual : ${Stitaniumore}
+┃ Status : ${statusTitaniumOre}
+┃ Stock : ${dataTitaniumOre.stockStatus}
+┃
+┃ *🔋Litium*
+┃ Beli : ${Blitium}
+┃ Jual : ${Slitium}
+┃ Status : ${statusLitium}
+┃ Stock : ${dataLitium.stockStatus}
+┃
+┃ *🟩Zamrud Mentah*
+┃ Beli : ${Bzamrudmentah}
+┃ Jual : ${Szamrudmentah}
+┃ Status : ${statusZamrudMentah}
+┃ Stock : ${dataZamrudMentah.stockStatus}
+┃
+┃ *🟥Rubi Mentah*
+┃ Beli : ${Brubimentah}
+┃ Jual : ${Srubimentah}
+┃ Status : ${statusRubiMentah}
+┃ Stock : ${dataRubiMentah.stockStatus}
+┃
+└──────────────`;
+
+    const menuPerlengkapan = `┌─⊷ *List Perlengkapan*
+┃
+┃ *⛏️ Pickaxe*
+┃ Beli : ${Bpickaxe}
+┃ Jual : ${Spickaxe}
+┃ Status : ${statusPickaxe}
+┃ Stock : ${dataPickaxe.stockStatus}
+┃
+┃ *⚔️ Sword*
+┃ Beli : ${Bsword}
+┃ Jual : ${Ssword}
+┃ Status : ${statusSword}
+┃ Stock : ${dataSword.stockStatus}
+┃
+┃ *🦯 Katana*
+┃ Beli : ${Bkatana}
+┃ Jual : ${Skatana}
+┃ Status : ${statusKatana}
+┃ Stock : ${dataKatana.stockStatus}
+┃
+┃ *🪓 Axe*
+┃ Beli : ${Baxe}
+┃ Jual : ${Saxe}
+┃ Status : ${statusAxe}
+┃ Stock : ${dataAxe.stockStatus}
+┃
+┃ *🔱 Trident*
+┃ Beli : ${Btrident}
+┃ Jual : ${Strident}
+┃ Status : ${statusTrident}
+┃ Stock : ${dataTrident.stockStatus}
+┃
+┃ *🏹 Bow*
+┃ Beli : ${Bbow}
+┃ Jual : ${Sbow}
+┃ Status : ${statusBow}
+┃ Stock : ${dataBow.stockStatus}
+┃
+┃ *🔪 Pisau*
+┃ Beli : ${Bpisau}
+┃ Jual : ${Spisau}
+┃ Status : ${statusPisau}
+┃ Stock : ${dataPisau.stockStatus}
+┃
+┃ *🎣 Fishingrod*
+┃ Beli : ${Bfishingrod}
+┃ Jual : ${Sfishingrod}
+┃ Status : ${statusFishingrod}
+┃ Stock : ${dataFishingrod.stockStatus}
+┃
+┃ *🥼 Armor*
+┃ Beli : ${Barmor}
+┃ Jual : ${Sarmor}
+┃ Status : ${statusArmor}
+┃ Stock : ${dataArmor.stockStatus}
+┃
+┃ *🛡️ Shield*
+┃ Beli : ${Bshield}
+┃ Jual : ${Sshield}
+┃ Status : ${statusShield}
+┃ Stock : ${dataShield.stockStatus}
+┃
+┃ *⛑️ Helmet*
+┃ Beli : ${Bhelmet}
+┃ Jual : ${Shelmet}
+┃ Status : ${statusHelmet}
+┃ Stock : ${dataHelmet.stockStatus}
+┃
+└──────────────`;
+
+    const menuSenjata = `┌─⊷ *List Senjata*
+┃
+┃ *🪓 Tombak*
+┃ Beli : ${Btombak}
+┃ Jual : ${Stombak}
+┃ Status : ${statusTombak}
+┃ Stock : ${dataTombak.stockStatus}
+┃
+┃ *🏹 Busur*
+┃ Beli : ${Bbusursenjata}
+┃ Jual : ${Sbusursenjata}
+┃ Status : ${statusBusurSenjata}
+┃ Stock : ${dataBusurSenjata.stockStatus}
+┃
+┃ *🏹 Anak Panah*
+┃ Beli : ${Banakpanah}
+┃ Jual : ${Sanakpanah}
+┃ Status : ${statusAnakPanah}
+┃ Stock : ${dataAnakPanah.stockStatus}
+┃
+┃ *📦 Ammo*
+┃ Beli : ${Bammo}
+┃ Jual : ${Sammo}
+┃ Status : ${statusAmmo}
+┃ Stock : ${dataAmmo.stockStatus}
+┃
+┃ *🔫 Glock*
+┃ Beli : ${Bglock}
+┃ Jual : ${Sglock}
+┃ Status : ${statusGlock}
+┃ Stock : ${dataGlock.stockStatus}
+┃
+┃ *🔫 Beretta*
+┃ Beli : ${Bberetta}
+┃ Jual : ${Sberetta}
+┃ Status : ${statusBeretta}
+┃ Stock : ${dataBeretta.stockStatus}
+┃
+┃ *🔫 Revolver*
+┃ Beli : ${Brevolver}
+┃ Jual : ${Srevolver}
+┃ Status : ${statusRevolver}
+┃ Stock : ${dataRevolver.stockStatus}
+┃
+┃ *🔫 Deagle*
+┃ Beli : ${Bdeagle}
+┃ Jual : ${Sdeagle}
+┃ Status : ${statusDeagle}
+┃ Stock : ${dataDeagle.stockStatus}
+┃
+┃ *🔫 Mac10*
+┃ Beli : ${Bmac10}
+┃ Jual : ${Smac10}
+┃ Status : ${statusMac10}
+┃ Stock : ${dataMac10.stockStatus}
+┃
+┃ *🔫 Vector*
+┃ Beli : ${Bvector}
+┃ Jual : ${Svector}
+┃ Status : ${statusVector}
+┃ Stock : ${dataVector.stockStatus}
+┃
+┃ *🔫 Ump45*
+┃ Beli : ${Bump45}
+┃ Jual : ${Sump45}
+┃ Status : ${statusUmp45}
+┃ Stock : ${dataUmp45.stockStatus}
+┃
+┃ *🔫 Pp19bizon*
+┃ Beli : ${Bpp19bizon}
+┃ Jual : ${Spp19bizon}
+┃ Status : ${statusPp19bizon}
+┃ Stock : ${dataPp19bizon.stockStatus}
+┃
+┃ *🔫 Mp5*
+┃ Beli : ${Bmp5}
+┃ Jual : ${Smp5}
+┃ Status : ${statusMp5}
+┃ Stock : ${dataMp5.stockStatus}
+┃
+┃ *🔫 Uzi*
+┃ Beli : ${Buzi}
+┃ Jual : ${Suzi}
+┃ Status : ${statusUzi}
+┃ Stock : ${dataUzi.stockStatus}
+┃
+┃ *🔫 P90*
+┃ Beli : ${Bp90}
+┃ Jual : ${Sp90}
+┃ Status : ${statusP90}
+┃ Stock : ${dataP90.stockStatus}
+┃
+┃ *🔫 Ak47*
+┃ Beli : ${Bak47}
+┃ Jual : ${Sak47}
+┃ Status : ${statusAk47}
+┃ Stock : ${dataAk47.stockStatus}
+┃
+┃ *🔫 M4*
+┃ Beli : ${Bm4}
+┃ Jual : ${Sm4}
+┃ Status : ${statusM4}
+┃ Stock : ${dataM4.stockStatus}
+┃
+┃ *🔫 Qbz95*
+┃ Beli : ${Bqbz95}
+┃ Jual : ${Sqbz95}
+┃ Status : ${statusQbz95}
+┃ Stock : ${dataQbz95.stockStatus}
+┃
+┃ *🔫 Ar15*
+┃ Beli : ${Bar15}
+┃ Jual : ${Sar15}
+┃ Status : ${statusAr15}
+┃ Stock : ${dataAr15.stockStatus}
+┃
+┃ *🔫 G36c*
+┃ Beli : ${Bg36c}
+┃ Jual : ${Sg36c}
+┃ Status : ${statusG36c}
+┃ Stock : ${dataG36c.stockStatus}
+┃
+┃ *🔫 Aek971*
+┃ Beli : ${Baek971}
+┃ Jual : ${Saek971}
+┃ Status : ${statusAek971}
+┃ Stock : ${dataAek971.stockStatus}
+┃
+┃ *🔫 M16*
+┃ Beli : ${Bm16}
+┃ Jual : ${Sm16}
+┃ Status : ${statusM16}
+┃ Stock : ${dataM16.stockStatus}
+┃
+┃ *🔫 Hk416*
+┃ Beli : ${Bhk416}
+┃ Jual : ${Shk416}
+┃ Status : ${statusHk416}
+┃ Stock : ${dataHk416.stockStatus}
+┃
+┃ *🔫 Scar*
+┃ Beli : ${Bscar}
+┃ Jual : ${Sscar}
+┃ Status : ${statusScar}
+┃ Stock : ${dataScar.stockStatus}
+┃
+┃ *🔫 Famas*
+┃ Beli : ${Bfamas}
+┃ Jual : ${Sfamas}
+┃ Status : ${statusFamas}
+┃ Stock : ${dataFamas.stockStatus}
+┃
+┃ *🔫 Aug*
+┃ Beli : ${Baug}
+┃ Jual : ${Saug}
+┃ Status : ${statusAug}
+┃ Stock : ${dataAug.stockStatus}
+┃
+┃ *🔫 Fnfal*
+┃ Beli : ${Bfnfal}
+┃ Jual : ${Sfnfal}
+┃ Status : ${statusFnfal}
+┃ Stock : ${dataFnfal.stockStatus}
+┃
+┃ *💥 Spas12*
+┃ Beli : ${Bspas12}
+┃ Jual : ${Sspas12}
+┃ Status : ${statusSpas12}
+┃ Stock : ${dataSpas12.stockStatus}
+┃
+┃ *💥 Benellim4*
+┃ Beli : ${Bbenellim4}
+┃ Jual : ${Sbenellim4}
+┃ Status : ${statusBenellim4}
+┃ Stock : ${dataBenellim4.stockStatus}
+┃
+┃ *💥 Saiga12*
+┃ Beli : ${Bsaiga12}
+┃ Jual : ${Ssaiga12}
+┃ Status : ${statusSaiga12}
+┃ Stock : ${dataSaiga12.stockStatus}
+┃
+┃ *💥 Aa12*
+┃ Beli : ${Baa12}
+┃ Jual : ${Saa12}
+┃ Status : ${statusAa12}
+┃ Stock : ${dataAa12.stockStatus}
+┃
+┃ *🔫 Remington700*
+┃ Beli : ${Bremington700}
+┃ Jual : ${Sremington700}
+┃ Status : ${statusRemington700}
+┃ Stock : ${dataRemington700.stockStatus}
+┃
+┃ *🔫 M24*
+┃ Beli : ${Bm24}
+┃ Jual : ${Sm24}
+┃ Status : ${statusM24}
+┃ Stock : ${dataM24.stockStatus}
+┃
+┃ *🔫 M40*
+┃ Beli : ${Bm40}
+┃ Jual : ${Sm40}
+┃ Status : ${statusM40}
+┃ Stock : ${dataM40.stockStatus}
+┃
+┃ *🔫 L96*
+┃ Beli : ${Bl96}
+┃ Jual : ${Sl96}
+┃ Status : ${statusL96}
+┃ Stock : ${dataL96.stockStatus}
+┃
+┃ *🔫 Dragunovsvd*
+┃ Beli : ${Bdragunovsvd}
+┃ Jual : ${Sdragunovsvd}
+┃ Status : ${statusDragunovsvd}
+┃ Stock : ${dataDragunovsvd.stockStatus}
+┃
+┃ *🔫 Barrettm82*
+┃ Beli : ${Bbarrettm82}
+┃ Jual : ${Sbarrettm82}
+┃ Status : ${statusBarrettm82}
+┃ Stock : ${dataBarrettm82.stockStatus}
+┃
+┃ *🔫 Intervention*
+┃ Beli : ${Bintervention}
+┃ Jual : ${Sintervention}
+┃ Status : ${statusIntervention}
+┃ Stock : ${dataIntervention.stockStatus}
+┃
+┃ *🔫 Cheytacm200*
+┃ Beli : ${Bcheytacm200}
+┃ Jual : ${Scheytacm200}
+┃ Status : ${statusCheytacm200}
+┃ Stock : ${dataCheytacm200.stockStatus}
+┃
+┃ *🔫 Awm*
+┃ Beli : ${Bawm}
+┃ Jual : ${Sawm}
+┃ Status : ${statusAwm}
+┃ Stock : ${dataAwm.stockStatus}
+┃
+┃ *🔥 Pkm*
+┃ Beli : ${Bpkm}
+┃ Jual : ${Spkm}
+┃ Status : ${statusPkm}
+┃ Stock : ${dataPkm.stockStatus}
+┃
+┃ *🔥 M249*
+┃ Beli : ${Bm249}
+┃ Jual : ${Sm249}
+┃ Status : ${statusM249}
+┃ Stock : ${dataM249.stockStatus}
+┃
+┃ *🔥 Mg42*
+┃ Beli : ${Bmg42}
+┃ Jual : ${Smg42}
+┃ Status : ${statusMg42}
+┃ Stock : ${dataMg42.stockStatus}
+┃
+┃ *🚀 Rpg7*
+┃ Beli : ${Brpg7}
+┃ Jual : ${Srpg7}
+┃ Status : ${statusRpg7}
+┃ Stock : ${dataRpg7.stockStatus}
+┃
+┃ *🔥 Minigun*
+┃ Beli : ${Bminigun}
+┃ Jual : ${Sminigun}
+┃ Status : ${statusMinigun}
+┃ Stock : ${dataMinigun.stockStatus}
+┃
+┃ *🔫 Rubyrevolver*
+┃ Beli : ${Brubyrevolver}
+┃ Jual : ${Srubyrevolver}
+┃ Status : ${statusRubyrevolver}
+┃ Stock : ${dataRubyrevolver.stockStatus}
+┃
+┃ *🔫 Diamondrifle*
+┃ Beli : ${Bdiamondrifle}
+┃ Jual : ${Sdiamondrifle}
+┃ Status : ${statusDiamondrifle}
+┃ Stock : ${dataDiamondrifle.stockStatus}
+┃
+┃ *🔫 Emeraldsniper*
+┃ Beli : ${Bemeraldsniper}
+┃ Jual : ${Semeraldsniper}
+┃ Status : ${statusEmeraldsniper}
+┃ Stock : ${dataEmeraldsniper.stockStatus}
+┃
+┃ *🚀 Sapphirecannon*
+┃ Beli : ${Bsapphirecannon}
+┃ Jual : ${Ssapphirecannon}
+┃ Status : ${statusSapphirecannon}
+┃ Stock : ${dataSapphirecannon.stockStatus}
+┃
+└──────────────`;
+
+    const menuPerhiasan = `┌─⊷ *List Perhiasan & Gemstone*
+┃
+┃ *💎 Diamond*
+┃ Beli : ${Bdiamond}
+┃ Jual : ${Sdiamond}
+┃ Status : ${statusDiamond}
+┃ Stock : ${dataDiamond.stockStatus}
+┃
+┃ *⬜ Perak*
+┃ Beli : ${Bperak}
+┃ Jual : ${Sperak}
+┃ Status : ${statusPerak}
+┃ Stock : ${dataPerak.stockStatus}
+┃
+┃ *🪙 Emas*
+┃ Beli : ${Bemasbiasa}
+┃ Jual : ${Semasbiasa}
+┃ Status : ${statusEmas}
+┃ Stock : ${dataEmasbiasa.stockStatus}
+┃
+┃ *❇️ Emerald*
+┃ Beli : ${Bemerald}
+┃ Jual : ${Semerald}
+┃ Status : ${statusEmerald}
+┃ Stock : ${dataEmerald.stockStatus}
+┃
+┃ *💎 Berlian*
+┃ Beli : ${Bberlian}
+┃ Jual : ${Sberlian}
+┃ Status : ${statusBerlian}
+┃ Stock : ${dataBerlian.stockStatus}
+┃
+┃ *🥇 Emas Batang*
+┃ Beli : ${Bemasbatang}
+┃ Jual : ${Semasbatang}
+┃ Status : ${statusEmasBatang}
+┃ Stock : ${dataEmasbatang.stockStatus}
+┃
+┃ *🥈 Perak Batang*
+┃ Beli : ${Bperakbatang}
+┃ Jual : ${Sperakbatang}
+┃ Status : ${statusPerakBatang}
+┃ Stock : ${dataPerakbatang.stockStatus}
+┃
+┃ *🔴 Ruby*
+┃ Beli : ${Bruby}
+┃ Jual : ${Sruby}
+┃ Status : ${statusRuby}
+┃ Stock : ${dataRuby.stockStatus}
+┃
+┃ *🔵 Sapphire*
+┃ Beli : ${Bsapphire}
+┃ Jual : ${Ssapphire}
+┃ Status : ${statusSapphire}
+┃ Stock : ${dataSapphire.stockStatus}
+┃
+┃ *🟡 Topaz*
+┃ Beli : ${Btopaz}
+┃ Jual : ${Stopaz}
+┃ Status : ${statusTopaz}
+┃ Stock : ${dataTopaz.stockStatus}
+┃
+┃ *🟣 Amethyst*
+┃ Beli : ${Bamethyst}
+┃ Jual : ${Samethyst}
+┃ Status : ${statusAmethyst}
+┃ Stock : ${dataAmethyst.stockStatus}
+┃
+┃ *🌈 Opal*
+┃ Beli : ${Bopal}
+┃ Jual : ${Sopal}
+┃ Status : ${statusOpal}
+┃ Stock : ${dataOpal.stockStatus}
+┃
+┃ *🧊 Aquamarine*
+┃ Beli : ${Baquamarine}
+┃ Jual : ${Saquamarine}
+┃ Status : ${statusAquamarine}
+┃ Stock : ${dataAquamarine.stockStatus}
+┃
+┃ *❤️ Garnet*
+┃ Beli : ${Bgarnet}
+┃ Jual : ${Sgarnet}
+┃ Status : ${statusGarnet}
+┃ Stock : ${dataGarnet.stockStatus}
+┃
+┃ *🟢 Jade*
+┃ Beli : ${Bjade}
+┃ Jual : ${Sjade}
+┃ Status : ${statusJade}
+┃ Stock : ${dataJade.stockStatus}
+┃
+┃ *⚫ Onyx*
+┃ Beli : ${Bonyx}
+┃ Jual : ${Sonyx}
+┃ Status : ${statusOnyx}
+┃ Stock : ${dataOnyx.stockStatus}
+┃
+┃ *🧿 Turquoise*
+┃ Beli : ${Bturquoise}
+┃ Jual : ${Sturquoise}
+┃ Status : ${statusTurquoise}
+┃ Stock : ${dataTurquoise.stockStatus}
+┃
+┃ *🔮 Alexandrite*
+┃ Beli : ${Balexandrite}
+┃ Jual : ${Salexandrite}
+┃ Status : ${statusAlexandrite}
+┃ Stock : ${dataAlexandrite.stockStatus}
+┃
+┃ *🌙 Moonstone*
+┃ Beli : ${Bmoonstone}
+┃ Jual : ${Smoonstone}
+┃ Status : ${statusMoonstone}
+┃ Stock : ${dataMoonstone.stockStatus}
+┃
+┃ *🖤 Black Diamond*
+┃ Beli : ${Bblackdiamond}
+┃ Jual : ${Sblackdiamond}
+┃ Status : ${statusBlackDiamond}
+┃ Stock : ${dataBlackdiamond.stockStatus}
+┃
+┃ *🩸 Red Diamond*
+┃ Beli : ${Breddiamond}
+┃ Jual : ${Sreddiamond}
+┃ Status : ${statusRedDiamond}
+┃ Stock : ${dataReddiamond.stockStatus}
+┃
+┃ *💿 Platinum*
+┃ Beli : ${Bplatinum}
+┃ Jual : ${Splatinum}
+┃ Status : ${statusPlatinum}
+┃ Stock : ${dataPlatinum.stockStatus}
+┃
+└──────────────`;
+
+    const menuCrate = `┌─⊷ *List Crate*
+┃
+┃ *🎁 Common*
+┃ Beli : ${Bcommon} Money
+┃ Jual : ${Scommon} Money
+┃ Status : ${statusCommon}
+┃
+┃ *🎁 Uncommon*
+┃ Beli : ${Buncommon} Money
+┃ Jual : ${Suncommon} Money
+┃ Status : ${statusUncommon}
+┃
+┃ *💎 Rare*
+┃ Beli : ${Brare} Money
+┃ Jual : ${Srare} Money
+┃ Status : ${statusRare}
+┃
+┃ *🔥 Epic*
+┃ Beli : ${Bepic} Money
+┃ Jual : ${Sepic} Money
+┃ Status : ${statusEpic}
+┃
+┃ *🌌 Mythic*
+┃ Beli : ${Bmythic} Money
+┃ Jual : ${Smythic} Money
+┃ Status : ${statusMythic}
+┃
+┃ *👑 Legendary*
+┃ Beli : ${Blegendary} Money
+┃ Jual : ${Slegendary} Money
+┃ Status : ${statusLegendary}
+┃
+┃ *🗝️ Secret*
+┃ Beli : ${Bsecret} Money
+┃ Jual : ${Ssecret} Money
+┃ Status : ${statusSecret}
+┃
+┃ *🌑 Dark*
+┃ Beli : ${Bdark} Money
+┃ Jual : ${Sdark} Money
+┃ Status : ${statusDark}
+┃
+┃ *⚡ Cheat*
+┃ Beli : ${Bcheat} Money
+┃ Jual : ${Scheat} Money
+┃ Status : ${statusCheat}
+┃
+└──────────────`;
+
+    const menuMakanan = `┌─⊷ *List Makanan*
+┃
+┃ *🍌Pisang*
+┃ Beli : ${Bpisang}
+┃ Jual : ${Spisang}
+┃ Status : ${statusPisang}
+┃ Stock : ${dataPisang.stockStatus}
+┃
+┃ *🍇Anggur*
+┃ Beli : ${Banggur}
+┃ Jual : ${Sanggur}
+┃ Status : ${statusAnggur}
+┃ Stock : ${dataAnggur.stockStatus}
+┃
+┃ *🥭Mangga*
+┃ Beli : ${Bmangga}
+┃ Jual : ${Smangga}
+┃ Status : ${statusMangga}
+┃ Stock : ${dataMangga.stockStatus}
+┃
+┃ *🍊Jeruk*
+┃ Beli : ${Bjeruk}
+┃ Jual : ${Sjeruk}
+┃ Status : ${statusJeruk}
+┃ Stock : ${dataJeruk.stockStatus}
+┃
+┃ *🍎Apel*
+┃ Beli : ${Bapel}
+┃ Jual : ${Sapel}
+┃ Status : ${statusApel}
+┃ Stock : ${dataApel.stockStatus}
+┃
+┃ *🫔MakananPet*
+┃ Beli : ${Bmakananpet}
+┃ Jual : ${Smakananpet}
+┃ Status : ${statusMakananPet}
+┃ Stock : ${dataMakananPet.stockStatus}
+┃
+┃ *🥩MakananNaga*
+┃ Beli : ${Bmakanannaga}
+┃ Jual : ${Smakanannaga}
+┃ Status : ${statusMakananNaga}
+┃ Stock : ${dataMakananNaga.stockStatus}
+┃
+┃ *🥩MakananKyubi*
+┃ Beli : ${Bmakanankyubi}
+┃ Jual : ${Smakanankyubi}
+┃ Status : ${statusMakananKyubi}
+┃ Stock : ${dataMakananKyubi.stockStatus}
+┃
+┃ *🥩MakananGriffin*
+┃ Beli : ${Bmakanangriffin}
+┃ Jual : ${Smakanangriffin}
+┃ Status : ${statusMakananGriffin}
+┃ Stock : ${dataMakananGriffin.stockStatus}
+┃
+┃ *🥩MakananPhonix*
+┃ Beli : ${Bmakananphonix}
+┃ Jual : ${Smakananphonix}
+┃ Status : ${statusMakananPhonix}
+┃ Stock : ${dataMakananPhonix.stockStatus}
+┃
+┃ *🥩MakananCentaur*
+┃ Beli : ${Bmakanancentaur}
+┃ Jual : ${Smakanancentaur}
+┃ Status : ${statusMakananCentaur}
+┃ Stock : ${dataMakananCentaur.stockStatus}
+┃
+└──────────────`;
+
+    const menuMinuman = `┌─⊷ *List Minuman & Jus*
+┃
+┃ *💧Air Mineral*
+┃ Beli : ${Bairmineral}
+┃ Jual : ${Sairmineral}
+┃ Status : ${statusAirMineral}
+┃ Stock : ${dataAirMineral.stockStatus}
+┃
+┃ *🍵Teh Botol*
+┃ Beli : ${Btehbotol}
+┃ Jual : ${Stehbotol}
+┃ Status : ${statusTehBotol}
+┃ Stock : ${dataTehBotol.stockStatus}
+┃
+┃ *☕Kopi Nescafe*
+┃ Beli : ${Bnescafe}
+┃ Jual : ${Snescafe}
+┃ Status : ${statusNescafe}
+┃ Stock : ${dataNescafe.stockStatus}
+┃
+┃ *🥛Ultra Milk*
+┃ Beli : ${Bultramilk}
+┃ Jual : ${Sultramilk}
+┃ Status : ${statusUltraMilk}
+┃ Stock : ${dataUltraMilk.stockStatus}
+┃
+┃ *🫗Aqua*
+┃ Beli : ${Baqua}
+┃ Jual : ${Saqua}
+┃ Status : ${statusAqua}
+┃ Stock : ${dataAqua.stockStatus}
+┃
+┃ *🥛Susu*
+┃ Beli : ${Bsusu}
+┃ Jual : ${Ssusu}
+┃ Status : ${statusSusu}
+┃ Stock : ${dataSusu.stockStatus}
+┃
+┃ *🍯Madu*
+┃ Beli : ${Bmadu} /botol
+┃ Jual : ${Smadu} /botol
+┃ Status : ${statusMadu}
+┃ Stock : ${dataMadu.stockStatus}
+┃
+┃ *🪤Umpan (Fishing)*
+┃ Beli : ${Bumpan}
+┃ Jual : ${Sumpan}
+┃ Status : ${statusUmpan}
+┃ Stock : ${dataUmpan.stockStatus}
+┃
+┃ *🍇Jus Anggur*
+┃ Beli : ${Bjusanggur}
+┃ Jual : ${Sjusanggur}
+┃ Status : ${statusJusAnggur}
+┃ Stock : ${dataJusAnggur.stockStatus}
+┃
+┃ *🍎Jus Apel*
+┃ Beli : ${Bjusapel}
+┃ Jual : ${Sjusapel}
+┃ Status : ${statusJusApel}
+┃ Stock : ${dataJusApel.stockStatus}
+┃
+┃ *🍊Jus Jeruk*
+┃ Beli : ${Bjusjeruk}
+┃ Jual : ${Sjusjeruk}
+┃ Status : ${statusJusJeruk}
+┃ Stock : ${dataJusJeruk.stockStatus}
+┃
+┃ *🥭Jus Mangga*
+┃ Beli : ${Bjusmangga}
+┃ Jual : ${Sjusmangga}
+┃ Status : ${statusJusMangga}
+┃ Stock : ${dataJusMangga.stockStatus}
+┃
+┃ *🍌Jus Pisang*
+┃ Beli : ${Bjuspisang}
+┃ Jual : ${Sjuspisang}
+┃ Status : ${statusJusPisang}
+┃ Stock : ${dataJusPisang.stockStatus}
+┃
+┃ *🍓Jus Stroberi*
+┃ Beli : ${Bjusstroberi}
+┃ Jual : ${Sjusstroberi}
+┃ Status : ${statusJusStroberi}
+┃ Stock : ${dataJusStroberi.stockStatus}
+┃
+┃ *🍈Jus Melon*
+┃ Beli : ${Bjusmelon}
+┃ Jual : ${Sjusmelon}
+┃ Status : ${statusJusMelon}
+┃ Stock : ${dataJusMelon.stockStatus}
+┃
+┃ *🍉Jus Semangka*
+┃ Beli : ${Bjussemangka}
+┃ Jual : ${Sjussemangka}
+┃ Status : ${statusJusSemangka}
+┃ Stock : ${dataJusSemangka.stockStatus}
+┃
+┃ *🍈Jus Durian*
+┃ Beli : ${Bjusdurian}
+┃ Jual : ${Sjusdurian}
+┃ Status : ${statusJusDurian}
+┃ Stock : ${dataJusDurian.stockStatus}
+┃
+┃ *🥭Jus Pepaya*
+┃ Beli : ${Bjuspepaya}
+┃ Jual : ${Sjuspepaya}
+┃ Status : ${statusJusPepaya}
+┃ Stock : ${dataJusPepaya.stockStatus}
+┃
+┃ *🥑Jus Alpukat*
+┃ Beli : ${Bjusalpukat}
+┃ Jual : ${Sjusalpukat}
+┃ Status : ${statusJusAlpukat}
+┃ Stock : ${dataJusAlpukat.stockStatus}
+┃
+┃ *🍊Es Jeruk*
+┃ Beli : ${Besjeruk}
+┃ Jual : ${Sesjeruk}
+┃ Status : ${statusEsJeruk}
+┃ Stock : ${dataEsJeruk.stockStatus}
+┃
+┃ *🥥Es Kelapa*
+┃ Beli : ${Beskelapa}
+┃ Jual : ${Seskelapa}
+┃ Status : ${statusEsKelapa}
+┃ Stock : ${dataEsKelapa.stockStatus}
+┃
+┃ *☕Kopi Hitam*
+┃ Beli : ${Bkopihitam}
+┃ Jual : ${Skopihitam}
+┃ Status : ${statusKopiHitam}
+┃ Stock : ${dataKopiHitam.stockStatus}
+┃
+┃ *☕Kopi Susu*
+┃ Beli : ${Bkopisusu}
+┃ Jual : ${Skopisusu}
+┃ Status : ${statusKopiSusu}
+┃ Stock : ${dataKopiSusu.stockStatus}
+┃
+┃ *☕Cappuccino*
+┃ Beli : ${Bcappuccino}
+┃ Jual : ${Scappuccino}
+┃ Status : ${statusCappuccino}
+┃ Stock : ${dataCappuccino.stockStatus}
+┃
+┃ *☕Latte*
+┃ Beli : ${Blatte}
+┃ Jual : ${Slatte}
+┃ Status : ${statusLatte}
+┃ Stock : ${dataLatte.stockStatus}
+┃
+┃ *☕Mocha*
+┃ Beli : ${Bmocha}
+┃ Jual : ${Smocha}
+┃ Status : ${statusMocha}
+┃ Stock : ${dataMocha.stockStatus}
+┃
+┃ *🫖Teh Manis*
+┃ Beli : ${Btehmanis}
+┃ Jual : ${Stehmanis}
+┃ Status : ${statusTehManis}
+┃ Stock : ${dataTehManis.stockStatus}
+┃
+┃ *🍵Teh Hijau*
+┃ Beli : ${Btehhijau}
+┃ Jual : ${Stehhijau}
+┃ Status : ${statusTehHijau}
+┃ Stock : ${dataTehHijau.stockStatus}
+┃
+┃ *🧋Teh Tarik*
+┃ Beli : ${Btehtarik}
+┃ Jual : ${Stehtarik}
+┃ Status : ${statusTehTarik}
+┃ Stock : ${dataTehTarik.stockStatus}
+┃
+┃ *🧋Susu Coklat*
+┃ Beli : ${Bsusucoklat}
+┃ Jual : ${Ssusucoklat}
+┃ Status : ${statusSusuCoklat}
+┃ Stock : ${dataSusuCoklat.stockStatus}
+┃
+┃ *🧋Susu Stroberi*
+┃ Beli : ${Bsusustroberi}
+┃ Jual : ${Ssusustroberi}
+┃ Status : ${statusSusuStroberi}
+┃ Stock : ${dataSusuStroberi.stockStatus}
+┃
+┃ *🥤Soda Gembira*
+┃ Beli : ${Bsodagembira}
+┃ Jual : ${Ssodagembira}
+┃ Status : ${statusSodaGembira}
+┃ Stock : ${dataSodaGembira.stockStatus}
+┃
+┃ *🍵Wedang Jahe*
+┃ Beli : ${Bwedangjahe}
+┃ Jual : ${Swedangjahe}
+┃ Status : ${statusWedangJahe}
+┃ Stock : ${dataWedangJahe.stockStatus}
+┃
+┃ *🥥Air Kelapa*
+┃ Beli : ${Bairkelapa}
+┃ Jual : ${Sairkelapa}
+┃ Status : ${statusAirKelapa}
+┃ Stock : ${dataAirKelapa.stockStatus}
+┃
+┃ *🍧Sirup Melon*
+┃ Beli : ${Bsirupmelon}
+┃ Jual : ${Ssirupmelon}
+┃ Status : ${statusSirupMelon}
+┃ Stock : ${dataSirupMelon.stockStatus}
+┃
+┃ *🍧Sirup Jeruk*
+┃ Beli : ${Bsirupjeruk}
+┃ Jual : ${Ssirupjeruk}
+┃ Status : ${statusSirupJeruk}
+┃ Stock : ${dataSirupJeruk.stockStatus}
+┃
+┃ *🍧Sirup Anggur*
+┃ Beli : ${Bsirupanggur}
+┃ Jual : ${Ssirupanggur}
+┃ Status : ${statusSirupAnggur}
+┃ Stock : ${dataSirupAnggur.stockStatus}
+┃
+┃ *🍧Sirup Stroberi*
+┃ Beli : ${Bsirupstroberi}
+┃ Jual : ${Ssirupstroberi}
+┃ Status : ${statusSirupStroberi}
+┃ Stock : ${dataSirupStroberi.stockStatus}
+┃
+└──────────────`;
+
+    const menuSemua = `┌─⊷ *Semua Item Toko*\n┃\n└──────────────\n\n${menuKebutuhan}\n\n${menuBibit}\n\n${menuBarang}\n\n${menuAlam}\n\n${menuPerlengkapan}\n\n${menuSenjata}\n\n${menuPerhiasan}\n\n${menuCrate}\n\n${menuMakanan}\n\n${menuMinuman}\n\n┌─⊷ *Dompet Kamu*
 • *Uang:* Rp ${user.money.toLocaleString()}
 • *Emerald:* ${user.emerald}
 • *Emas:* ${user.emas}
@@ -2200,31 +2199,58 @@ Info Stock : ${dataSirupStroberi.stockStatus}`;
 
     if (isShop) {
         let arg0 = (args[0] || '').toLowerCase();
-        if (!arg0 || arg0 === 'help') return await sendShopList();
+        if (!arg0 || arg0 === 'help') return conn.reply(m.chat, menuHelp, m, { mentions: [m.sender] });
         if (arg0 === 'list') return conn.reply(m.chat, menuList, m);
-        if (arg0 === 'semua' || arg0 === 'all') return await sendCategoryMsg(menuSemua);
-        if (arg0 === 'kebutuhan') return await sendCategoryMsg(menuKebutuhan);
-        if (arg0 === 'bibit' || arg0 === 'tanaman') return await sendCategoryMsg(menuBibit);
-        if (arg0 === 'barang') return await sendCategoryMsg(menuBarang);
-        if (arg0 === 'alam') return await sendCategoryMsg(menuAlam);
-        if (arg0 === 'perlengkapan') return await sendCategoryMsg(menuPerlengkapan);
-        if (arg0 === 'senjata' || arg0 === 'gun') return await sendCategoryMsg(menuSenjata);
-        if (arg0 === 'perhiasan') return await sendCategoryMsg(menuPerhiasan);
-        if (arg0 === 'crate') return await sendCategoryMsg(menuCrate);
-        if (arg0 === 'makanan') return await sendCategoryMsg(menuMakanan);
-        if (arg0 === 'minuman' || arg0 === 'jus') return await sendCategoryMsg(menuMinuman);
+        if (arg0 === 'semua' || arg0 === 'all') return conn.reply(m.chat, menuSemua, m);
+        if (arg0 === 'kebutuhan') return conn.reply(m.chat, menuKebutuhan, m);
+        if (arg0 === 'bibit' || arg0 === 'tanaman') return conn.reply(m.chat, menuBibit, m);
+        if (arg0 === 'barang') return conn.reply(m.chat, menuBarang, m);
+        if (arg0 === 'alam') return conn.reply(m.chat, menuAlam, m);
+        if (arg0 === 'perlengkapan') return conn.reply(m.chat, menuPerlengkapan, m);
+        if (arg0 === 'senjata' || arg0 === 'gun') return conn.reply(m.chat, menuSenjata, m);
+        if (arg0 === 'perhiasan') return conn.reply(m.chat, menuPerhiasan, m);
+        if (arg0 === 'crate') return conn.reply(m.chat, menuCrate, m);
+        if (arg0 === 'makanan') return conn.reply(m.chat, menuMakanan, m);
+        if (arg0 === 'minuman' || arg0 === 'jus') return conn.reply(m.chat, menuMinuman, m);
     }
 
     let action = isShop ? (args[0] || '').toLowerCase() : (isBuy ? 'buy' : (isSell ? 'sell' : ''));
-    let item = isShop ? (args[1] || '').toLowerCase() : (args[0] || '').toLowerCase();
-    let countRaw = isShop ? args[2] : args[1];
-    let count = countRaw && countRaw.length > 0 ? Math.max(parseInt(countRaw), 1) : 1;
+
+    // ====== SUPPORT NAMA ITEM DENGAN/TANPA SPASI ======
+    // Contoh: .buy black diamond 5  →  item='blackdiamond', count=5
+    //         .buy blackdiamond 5   →  item='blackdiamond', count=5
+    //         .shop buy black diamond 5 → item='blackdiamond', count=5
+    function parseItemAndCount(rawArgs) {
+        // Coba dari belakang: kalau arg terakhir adalah angka → itu count
+        // sisanya join jadi nama item (tanpa spasi)
+        if (!rawArgs || rawArgs.length === 0) return { item: '', count: 1 };
+        let lastArg = rawArgs[rawArgs.length - 1];
+        let parsed = parseInt(lastArg);
+        if (!isNaN(parsed) && parsed > 0 && rawArgs.length > 1) {
+            let itemName = rawArgs.slice(0, -1).join('').toLowerCase().replace(/\s+/g, '');
+            return { item: itemName, count: parsed };
+        }
+        // Tidak ada angka di akhir → semua adalah nama item, count=1
+        let itemName = rawArgs.join('').toLowerCase().replace(/\s+/g, '');
+        return { item: itemName, count: 1 };
+    }
+
+    let parsed;
+    if (isShop) {
+        // .shop buy black diamond 5
+        parsed = parseItemAndCount(args.slice(1));
+    } else {
+        // .buy black diamond 5 atau .sell blackdiamond 5
+        parsed = parseItemAndCount(args);
+    }
+    let item = parsed.item;
+    let count = parsed.count;
 
     try {
-        if (!action) return await sendShopList();
+        if (!action) return conn.reply(m.chat, menuHelp, m, { mentions: [m.sender] });
         let curItem = shopItems[item];
         if (!curItem) {
-            if (action !== 'buy' && action !== 'sell') return await sendShopList();
+            if (action !== 'buy' && action !== 'sell') return conn.reply(m.chat, menuHelp, m, { mentions: [m.sender] });
             return conn.reply(m.chat, `❌ Item *${item}* tidak ditemukan di toko. Ketik *${usedPrefix}shop semua* untuk melihat daftar item.`, m);
         }
 
@@ -2273,7 +2299,7 @@ Info Stock : ${dataSirupStroberi.stockStatus}`;
     }
 }
 
-handler.help = ['shop', 'shop list', 'shop semua', 'shop <kategori>', 'shop <buy|sell> <item> <jumlah>']
+handler.help = ['shop', 'shop list', 'shop semua', 'shop <kategori>', 'shop buy <item> <jumlah>', 'buy <item> <jumlah>', 'sell <item> <jumlah>', 'beli <item> <jumlah>', 'jual <item> <jumlah>']
 handler.tags = ['rpg']
 handler.command = /^(shop|toko|buy|beli|sell|jual)$/i
 
