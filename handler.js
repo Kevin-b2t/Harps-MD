@@ -18,19 +18,6 @@ module.exports = {
         try {
             m = simple.smsg(this, m) || m
             if (!m) return
-
-                        // ==========================================
-            // FITUR AUTOREAD (Langsung Centang Biru)
-            // ==========================================
-            if (m.key && !m.key.fromMe) {
-                try {
-                    // Mengirimkan status read (centang biru) ke pengirim pesan
-                    await this.readMessages([m.key]);
-                } catch (e) {
-                    console.error('Gagal membaca pesan (Autoread):', e);
-                }
-            }
-
             m.exp = 0
             m.limit = false
             try {
@@ -1122,7 +1109,7 @@ module.exports = {
             if (opts['nyimak']) return
             if (!m.fromMe && opts['self']) return
             if (opts['pconly'] && m.chat.endsWith('g.us')) return
-            if (opts['gconly'] && !m.chat.endsWith('g.us')) return
+            //if (opts['gconly'] && !m.chat.endsWith('g.us')) return
             if (opts['swonly'] && m.chat !== 'status@broadcast') return
             if (typeof m.text !== 'string') m.text = ''
             if (opts['queque'] && m.text) {
