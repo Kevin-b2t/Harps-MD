@@ -36,9 +36,13 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, footerText, but
         await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
     } catch (e) {
         console.error("Gagal Native Flow Image:", e.message);
+        // Fallback jika tombol gagal muncul di versi WA tertentu
+        let fallbackCaption = caption + '\n\n💡 _Balas pesan ini dengan teks berikut jika tombol tidak muncul:_\n';
+        buttons.forEach(btn => fallbackCaption += `> *${btn.id}* (untuk ${btn.text})\n`);
+        
         await conn.sendMessage(jid, { 
             image: { url: imageUrl }, 
-            caption: caption + '\n\n💡 _Balas pesan ini dengan ID tombol jika tombol tidak muncul._' 
+            caption: fallbackCaption 
         }, { quoted });
     }
 }
@@ -134,7 +138,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       break;
     }
 
-    // ================== SPOTIFY (LANGSUNG LAGU, NO ERROR) ==================
+    // ================== SPOTIFY (LANGSUNG LAGU) ==================
     case 'spotify': {
       if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} payung teduh`;
       
@@ -143,8 +147,9 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         try {
           const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${args[0]}&apikey=${apiKey}`);
           let jsons = await res.json();
-          const { title, duration, url } = jsons.result.data;
+          if (!jsons.status || !jsons.result || !jsons.result.data) return m.reply('❌ Gagal mendapatkan data dari URL Spotify tersebut.');
           
+          const { url } = jsons.result.data;
           await conn.sendMessage(m.chat, { audio: { url: url }, mimetype: 'audio/mpeg' }, { quoted: m });
         } catch (e) {
           m.reply(eror);
@@ -164,11 +169,13 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
 
           const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${firstSong.url}&apikey=${apiKey}`);
           let jsons = await res.json();
+          
+          if (!jsons.status || !jsons.result || !jsons.result.data) return m.reply('❌ Gagal memproses audio dari Spotify.');
+          
           const { url: audioUrl } = jsons.result.data;
-
           await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mpeg' }, { quoted: m });
         } catch (e) {
-          m.reply(`❌ Gagal mengambil lagu dari Spotify.`);
+          m.reply(`❌ Gagal mengambil lagu dari Spotify: ${e.message}`);
         }
       }
       break;
@@ -185,7 +192,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         
         if (!videos || videos.length === 0) return m.reply('❌ Video tidak ditemukan.');
 
-        let topVideos = videos.slice(0, 5); // Ambil 5 teratas
+        let topVideos = videos.slice(0, 5); 
 
         conn.ytsSearch = conn.ytsSearch || {};
         if (conn.ytsSearch[m.sender]?.timeout) clearTimeout(conn.ytsSearch[m.sender].timeout);
@@ -213,7 +220,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       if (!text) throw `*Example:* ${usedPrefix + command} https://www.youtube.com/watch?v=dQw4w9WgXcQ`;
       m.reply(wait);
       try {
-        const response = await fetch(`https://api.botcahx.eu.org/api/dowloader/yt?url=${encodeURIComponent(text)}&apikey=${apiKey}`);
+        const response = await fetch(`https://api.botcahx.eu.org/api/download/yt?url=${encodeURIComponent(text)}&apikey=${apiKey}`);
         const result = await response.json();
 
         if (result.status && result.result && result.result.mp3) {
@@ -232,7 +239,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       if (!text) throw `*Example:* ${usedPrefix + command} https://www.youtube.com/watch?v=dQw4w9WgXcQ`;
       m.reply(wait);
       try {
-        const response = await fetch(`https://api.botcahx.eu.org/api/dowloader/yt?url=${encodeURIComponent(text)}&apikey=${apiKey}`);
+        const response = await fetch(`https://api.botcahx.eu.org/api/download/yt?url=${encodeURIComponent(text)}&apikey=${apiKey}`);
         const result = await response.json();
 
         if (result.status && result.result && result.result.mp4) {
@@ -333,7 +340,7 @@ handler.before = async (m, { conn }) => {
     m.reply(`⏳ _Sedang mengunduh video: *${videoData.title}*, mohon tunggu..._`);
     
     try {
-        const response = await fetch(`https://api.botcahx.eu.org/api/dowloader/yt?url=${encodeURIComponent(videoData.url)}&apikey=${apiKey}`);
+        const response = await fetch(`https://api.botcahx.eu.org/api/download/yt?url=${encodeURIComponent(videoData.url)}&apikey=${apiKey}`);
         const result = await response.json();
 
         if (result.status && result.result && result.result.mp4) {
