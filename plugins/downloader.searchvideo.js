@@ -31,7 +31,7 @@ function startSession(conn, sender, type, query, results) {
 }
 
 // =========================================================================
-// RAW PAYLOAD: Mengirim Item Tunggal + Tombol Next + Header Biru
+// RAW PAYLOAD: Mengirim Item Tunggal + Tombol Next (Tanpa Forward Info)
 // =========================================================================
 async function sendInteractiveItem(conn, jid, sessionData, quoted) {
     try {
@@ -78,16 +78,9 @@ async function sendInteractiveItem(conn, jid, sessionData, quoted) {
                         body: { text: caption },
                         footer: { text: `⏳ Sesi berlaku 5 menit • Item ${currentIndex + 1}/${results.length}` },
                         contextInfo: {
+                            // Forward dihapus karena sudah di-handle oleh simple.js secara global
                             participant: quoted.sender,
-                            quotedMessage: quoted.message || {},
-                            isForwarded: true,
-                            forwardingScore: 999,
-                            forwardedNewsletterMessageInfo: {
-                                // JID wajib diisi dengan ID valid (bukan URL) agar tidak error saat dipencet
-                                newsletterJid: "120363281044075112@newsletter", 
-                                newsletterName: "📢 HARPS BOT MD",
-                                serverMessageId: 143
-                            }
+                            quotedMessage: quoted.message || {}
                         },
                         nativeFlowMessage: { buttons: dynamicButtons }
                     }
