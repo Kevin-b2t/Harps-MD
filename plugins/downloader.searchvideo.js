@@ -1,23 +1,73 @@
 const fetch = require('node-fetch');
 const yts = require('yt-search');
-const { prepareWAMessageMedia, generateWAMessageFromContent } = require('@adiwajshing/baileys');
-const crypto = require('crypto');
+const { prepareWAMessageMedia, generateWAMessageFromContent } = require('lily-baileys');
 
 const wait = '⏳ _Sedang memproses permintaan Anda..._';
 const eror = '❌ _Gagal mengambil data, silakan coba lagi nanti._';
 
 // =========================================================================
-// RAW PAYLOAD: Mengirim Gambar + Tombol Biasa (Masih dipertahankan jika butuh)
+// HELPER: Manajemen Sesi (5 Menit Timeout)
 // =========================================================================
-async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted) {
-    try {
-        let media = await conn.getFile(imageUrl);
-        let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
+function startSession(conn, sender, type, query, results) {
+    conn.searchSessions = conn.searchSessions || {};
+    
+    if (conn.searchSessions[sender]?.timeout) {
+        clearTimeout(conn.searchSessions[sender].timeout);
+    }
+    
+    conn.searchSessions[sender] = {
+        type: type,
+        query: query,
+        results: results,
+        currentIndex: 0,
+        timeout: setTimeout(() => {
+            if (conn.searchSessions[sender]) {
+                delete conn.searchSessions[sender];
+            }
+        }, 5 * 60 * 1000)
+    };
+    
+    return conn.searchSessions[sender];
+}
 
+// =========================================================================
+// RAW PAYLOAD: Mengirim Item Tunggal + Tombol Next + Header Biru
+// =========================================================================
+async function sendInteractiveItem(conn, jid, sessionData, quoted) {
+    try {
+        let { type, query, results, currentIndex } = sessionData;
+        let item = results[currentIndex];
+        let isLast = currentIndex >= results.length - 1;
+
+        let imageUrl, caption, buttons;
+
+        // --- Susun Konten Berdasarkan Tipe ---
+        if (type === 'pinterest') {
+            imageUrl = item; 
+            caption = `🍟 *Pinterest Search:* ${query}\n📷 *Foto:* ${currentIndex + 1}/${results.length}`;
+            buttons = isLast ? [] : [{ text: "➡️ Next Foto", id: "next_item" }];
+        } 
+        else if (type === 'spotify') {
+            imageUrl = 'https://i.ibb.co/GFVf3h3/spotify.png'; 
+            caption = `🎵 *Spotify Search:* ${query}\n📌 *Judul:* ${item.title}\n⏱️ *Durasi:* ${item.duration}\n📈 *Populer:* ${item.popularity}\n🎧 *Lagu:* ${currentIndex + 1}/${results.length}`;
+            buttons = [{ text: "⬇️ Download Audio", id: `dl-spotify|${item.url}` }];
+            if (!isLast) buttons.push({ text: "➡️ Next Lagu", id: "next_item" });
+        } 
+        else if (type === 'yts') {
+            imageUrl = item.thumbnail;
+            caption = `📺 *YouTube Search:* ${query}\n📌 *Judul:* ${item.title}\n👁️ *Views:* ${item.views.toLocaleString()}\n👤 *Oleh:* ${item.author.name}\n⏱️ *Durasi:* ${item.timestamp}\n🎬 *Video:* ${currentIndex + 1}/${results.length}`;
+            buttons = [{ text: "⬇️ Download Video", id: `dl-ytv|${item.url}` }];
+            if (!isLast) buttons.push({ text: "➡️ Next Video", id: "next_item" });
+        }
+
+        // --- Konversi ke Format Native Flow ---
         let dynamicButtons = buttons.map(btn => ({
             name: "quick_reply",
             buttonParamsJson: JSON.stringify({ display_text: btn.text, id: btn.id })
         }));
+
+        let media = await conn.getFile(imageUrl);
+        let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
 
         let messageContent = {
             viewOnceMessage: {
@@ -26,15 +76,16 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted
                     interactiveMessage: {
                         header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
                         body: { text: caption },
-                        footer: { text: "🍟 Downloader Center" },
+                        footer: { text: `⏳ Sesi berlaku 5 menit • Item ${currentIndex + 1}/${results.length}` },
                         contextInfo: {
                             participant: quoted.sender,
                             quotedMessage: quoted.message || {},
                             isForwarded: true,
                             forwardingScore: 999,
                             forwardedNewsletterMessageInfo: {
-                                newsletterJid: "120363400911374213@newsletter",
-                                newsletterName: "🍟 Downloader Center",
+                                // JID wajib diisi dengan ID valid (bukan URL) agar tidak error saat dipencet
+                                newsletterJid: "120363281044075112@newsletter", 
+                                newsletterName: "📢 HARPS BOT MD",
                                 serverMessageId: 143
                             }
                         },
@@ -46,67 +97,15 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted
 
         let msg = generateWAMessageFromContent(jid, messageContent, { quoted, userJid: conn.user?.id || conn.user?.jid });
         await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
+
     } catch (e) {
-        console.error("Gagal Native Flow:", e.message);
-        await conn.sendMessage(jid, { 
-            image: { url: imageUrl }, 
-            caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._' 
-        }, { quoted });
-    }
-}
-
-// =========================================================================
-// RAW PAYLOAD: Mengirim Gambar + List Menu (Native Flow)
-// =========================================================================
-async function sendListWithImage(conn, jid, imageUrl, caption, footerText, listTitle, sections, quoted) {
-    try {
-        let media = await conn.getFile(imageUrl);
-        let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
-
-        let messageContent = {
-            viewOnceMessage: {
-                message: {
-                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                    interactiveMessage: {
-                        header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
-                        body: { text: caption },
-                        footer: { text: footerText },
-                        contextInfo: {
-                            participant: quoted.sender,
-                            quotedMessage: quoted.message || {},
-                            isForwarded: true,
-                            forwardingScore: 999,
-                            forwardedNewsletterMessageInfo: {
-                                newsletterJid: "120363400911374213@newsletter",
-                                newsletterName: "🍟 Downloader Center",
-                                serverMessageId: 143
-                            }
-                        },
-                        nativeFlowMessage: {
-                            buttons: [{
-                                name: "single_select",
-                                buttonParamsJson: JSON.stringify({ title: listTitle, sections: sections })
-                            }]
-                        }
-                    }
-                }
-            }
-        };
-
-        let msg = generateWAMessageFromContent(jid, messageContent, { quoted, userJid: conn.user?.id || conn.user?.jid });
-        await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
-    } catch (e) {
-        console.error("Gagal Native List:", e.message);
-        await conn.sendMessage(jid, { 
-            image: { url: imageUrl }, 
-            caption: caption + '\n\n💡 _Sistem list tidak didukung di device Anda._' 
-        }, { quoted });
+        console.error("Gagal Native Send Item:", e.message);
+        await conn.sendMessage(jid, { text: `❌ _Gagal memuat item ke-${sessionData.currentIndex + 1}._` }, { quoted });
     }
 }
 
 let handler = async (m, { conn, args, text, usedPrefix, command }) => {
   const apiKey = global.btc || global.APIKey || global.apikey || global.api_key || '';
-  
   if (!apiKey) return m.reply('❌ *API Key belum diset!*\nSilakan set `global.btc` di config bot kamu.');
 
   switch (command) {
@@ -120,7 +119,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         try {
           let response = await fetch(`https://api.botcahx.eu.org/api/download/pinterest?url=${args[0]}&apikey=${apiKey}`);
           let json = await response.json();
-          
           if (json.status && json.result) {
             let mediaUrl = json.result.url || json.result.result || json.result;
             await conn.sendFile(m.chat, mediaUrl, 'pinterest.jpg', '🍟 *Pinterest Downloader*', m);
@@ -136,36 +134,13 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         try {
           let response = await fetch(`https://api.botcahx.eu.org/api/search/pinterest?text1=${encodeURIComponent(text)}&apikey=${apiKey}`);
           let data = await response.json();   
-          
           if (!data.result || data.result.length === 0) return m.reply('❌ Gambar tidak ditemukan dari API.');
 
-          let images = data.result.slice(0, 10); // Mengambil 10 Pencarian
+          let images = data.result.slice(0, 10); 
+          let session = startSession(conn, m.sender, 'pinterest', text, images);
           
-          let sections = [{
-            title: `Hasil Pencarian Pinterest`,
-            rows: images.map((url, i) => ({
-              title: `🖼️ Gambar ke-${i + 1}`,
-              description: `Klik untuk melihat & mendownload gambar ini`,
-              id: `dl-pinterest|${url}` 
-            }))
-          }];
-
-          let firstImage = images[0];
-          let captionText = `🍟 *Pinterest Search:* ${text}\n\nSilakan pilih salah satu dari 10 gambar di bawah.`;
-
-          await sendListWithImage(
-              conn, 
-              m.chat, 
-              firstImage, 
-              captionText, 
-              '📌 Pinterest Downloader',
-              '🖼️ Pilih Gambar', 
-              sections, 
-              m
-          );
-          
+          await sendInteractiveItem(conn, m.chat, session, m);
         } catch (e) {
-          console.error("Pinterest Error:", e);
           m.reply(`❌ Gagal mengambil data: ${e.message}`);
         }
       }
@@ -197,24 +172,11 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         try {
           const api = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(query)}&apikey=${apiKey}`);
           let json = await api.json();
-          let res = json.result.data.slice(0, 10); // Mengambil 10 Pencarian
+          let res = json.result.data.slice(0, 10); 
 
-          let sections = [{
-            title: `Hasil Pencarian Spotify`,
-            rows: res.map((v) => ({
-              title: v.title.slice(0, 24), // Max 24 char agar list native flow tidak error
-              description: `Durasi: ${v.duration} | Populer: ${v.popularity}`,
-              id: `dl-spotify|${v.url}` 
-            }))
-          }];
-
-          let spotifyThumb = 'https://i.ibb.co/GFVf3h3/spotify.png';
-          let caption = `🎵 *Hasil Pencarian: ${query}*\n\nSilakan klik tombol di bawah untuk memilih 10 lagu teratas.`;
-          
-          await sendListWithImage(conn, m.chat, spotifyThumb, caption, '🎵 Spotify Downloader', '🎶 Pilih Lagu', sections, m);
-
+          let session = startSession(conn, m.sender, 'spotify', query, res);
+          await sendInteractiveItem(conn, m.chat, session, m);
         } catch (e) {
-          console.error("Spotify Error:", e);
           m.reply(`❌ Gagal mengambil data: ${e.message}`);
         }
       }
@@ -228,24 +190,11 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       m.reply(wait);
       try {
         let results = await yts(text);
-        let videos = results.videos.slice(0, 10); // Mengambil 10 Pencarian
-        
+        let videos = results.videos.slice(0, 10); 
         if (!videos || videos.length === 0) return m.reply('❌ Video tidak ditemukan.');
 
-        let sections = [{
-            title: `Hasil Pencarian YouTube`,
-            rows: videos.map((v) => ({
-              title: v.title.slice(0, 24), // Max char judul agar list tidak error
-              description: `👁️ Views: ${v.views.toLocaleString()} | 👤 Oleh: ${v.author.name}`,
-              id: `dl-ytv|${v.url}` 
-            }))
-        }];
-
-        let topVideoThumb = videos[0].thumbnail;
-        let caption = `🍟 *Hasil Pencarian YouTube: ${text}*\n\nSilakan pilih salah satu video dari 10 hasil pencarian di bawah untuk mendownload (MP4).`;
-
-        await sendListWithImage(conn, m.chat, topVideoThumb, caption, '📺 YouTube Downloader', '🎬 Pilih Video', sections, m);
-
+        let session = startSession(conn, m.sender, 'yts', text, videos);
+        await sendInteractiveItem(conn, m.chat, session, m);
       } catch (e) {
         m.reply(eror);
       }
@@ -262,10 +211,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         const result = await response.json();
 
         if (result.status && result.result && result.result.mp3) {
-          await conn.sendMessage(m.chat, { 
-            audio: { url: result.result.mp3 }, 
-            mimetype: 'audio/mpeg' 
-          }, { quoted: m });
+          await conn.sendMessage(m.chat, { audio: { url: result.result.mp3 }, mimetype: 'audio/mpeg' }, { quoted: m });
         } else {
           m.reply('❌ Gagal mengunduh audio dari API.');
         }
@@ -285,10 +231,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         const result = await response.json();
 
         if (result.status && result.result && result.result.mp4) {
-          await conn.sendMessage(m.chat, { 
-            video: { url: result.result.mp4 }, 
-            mimetype: 'video/mp4' 
-          }, { quoted: m });
+          await conn.sendMessage(m.chat, { video: { url: result.result.mp4 }, mimetype: 'video/mp4' }, { quoted: m });
         } else {
           m.reply('❌ Gagal mengunduh video dari API.');
         }
@@ -307,7 +250,6 @@ handler.before = async (m, { conn }) => {
   
   let teks = m.text || '';
 
-  // Tangkap param dari Native Flow
   if (m.msg && m.msg.nativeFlowResponseMessage) {
     try {
       let params = JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson);
@@ -316,25 +258,38 @@ handler.before = async (m, { conn }) => {
   }
 
   if (!teks) return;
+  teks = teks.toLowerCase();
   const apiKey = global.btc || global.APIKey || global.apikey || global.api_key || '';
 
-  // --- LISTENER PINTEREST ---
-  if (teks.startsWith('dl-pinterest|')) {
-    let url = teks.split('|')[1];
-    m.reply('⏳ *Mendownload gambar, harap tunggu...*');
-    try {
-      await conn.sendMessage(m.chat, { image: { url: url }, caption: '🍟 *Pinterest Downloader*' }, { quoted: m });
-    } catch (e) {
-      m.reply('❌ Gagal mengirim gambar.');
+  // --- LISTENER TOMBOL "NEXT" ---
+  if (teks === 'next' || teks === 'next_item') {
+    if (!conn.searchSessions || !conn.searchSessions[m.sender]) {
+        return m.reply('⏳ _Sesi pencarian Anda sudah habis (melewati 5 menit) atau tidak ditemukan. Silakan cari ulang._');
     }
+
+    let session = conn.searchSessions[m.sender];
+    session.currentIndex += 1;
+
+    if (session.currentIndex >= session.results.length) {
+        delete conn.searchSessions[m.sender];
+        return m.reply('✅ *Sudah mencapai hasil terakhir dari pencarian ini.*');
+    }
+
+    clearTimeout(session.timeout);
+    session.timeout = setTimeout(() => {
+        if (conn.searchSessions[m.sender]) {
+            delete conn.searchSessions[m.sender];
+        }
+    }, 5 * 60 * 1000);
+
+    await sendInteractiveItem(conn, m.chat, session, m);
     return true;
   }
 
-  // --- LISTENER SPOTIFY ---
+  // --- LISTENER DOWNLOAD SPOTIFY ---
   if (teks.startsWith('dl-spotify|')) {
     let url = teks.split('|')[1];
     m.reply('⏳ *Mendownload lagu, harap tunggu...*');
-    
     try {
       const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${apiKey}`);
       let jsons = await res.json();
@@ -347,11 +302,10 @@ handler.before = async (m, { conn }) => {
     return true; 
   }
 
-  // --- LISTENER YTS (DOWNLOAD VIDEO YOUTUBE) ---
+  // --- LISTENER DOWNLOAD YTS (VIDEO YOUTUBE) ---
   if (teks.startsWith('dl-ytv|')) {
     let url = teks.split('|')[1];
     m.reply('⏳ *Mendownload video, harap tunggu...*');
-    
     try {
         const response = await fetch(`https://api.botcahx.eu.org/api/dowloader/yt?url=${encodeURIComponent(url)}&apikey=${apiKey}`);
         const result = await response.json();
