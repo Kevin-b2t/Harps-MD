@@ -2144,9 +2144,45 @@ Info Stock : ${dataSirupStroberi.stockStatus}`;
 
     if (isShop) {
         let arg0 = (args[0] || '').toLowerCase();
-        if (!arg0 || arg0 === 'help') return conn.reply(m.chat, menuHelp, m);
-        if (arg0 === 'list') return conn.reply(m.chat, menuList, m);
-        if (arg0 === 'semua' || arg0 === 'all') return conn.reply(m.chat, menuSemua, m);
+        
+        // ================= TEMPLATE LIST MENU BUTTON =================
+        let listKategori = {
+            title: "Katalog Kategori",
+            rows: [
+                { title: "📦 Kebutuhan", rowId: `${usedPrefix}shop kebutuhan` },
+                { title: "🌱 Bibit", rowId: `${usedPrefix}shop bibit` },
+                { title: "🎒 Barang", rowId: `${usedPrefix}shop barang` },
+                { title: "⛰️ Alam", rowId: `${usedPrefix}shop alam` },
+                { title: "🛡️ Perlengkapan", rowId: `${usedPrefix}shop perlengkapan` },
+                { title: "🔫 Senjata", rowId: `${usedPrefix}shop senjata` },
+                { title: "💍 Perhiasan", rowId: `${usedPrefix}shop perhiasan` },
+                { title: "🎁 Crate", rowId: `${usedPrefix}shop crate` },
+                { title: "🍌 Makanan", rowId: `${usedPrefix}shop makanan` },
+                { title: "🥤 Minuman", rowId: `${usedPrefix}shop minuman` },
+                { title: "📜 Lihat Semua Item", rowId: `${usedPrefix}shop semua` }
+            ]
+        };
+
+        if (!arg0 || arg0 === 'help' || arg0 === 'list') {
+            return await conn.sendMessage(m.chat, {
+                text: menuHelp,
+                footer: "Toko RPG",
+                title: "━━━「 *TOKO RPG* 」━━━",
+                buttonText: "Pilih Kategori 🛍️",
+                sections: [listKategori]
+            }, { quoted: m });
+        }
+        
+        if (arg0 === 'semua' || arg0 === 'all') {
+            return await conn.sendMessage(m.chat, {
+                text: menuSemua,
+                footer: "Toko RPG",
+                title: "━━━「 *SEMUA ITEM TOKO* 」━━━",
+                buttonText: "Kategori Lainnya 🛍️",
+                sections: [listKategori]
+            }, { quoted: m });
+        }
+
         if (arg0 === 'kebutuhan') return conn.reply(m.chat, menuKebutuhan, m);
         if (arg0 === 'bibit' || arg0 === 'tanaman') return conn.reply(m.chat, menuBibit, m);
         if (arg0 === 'barang') return conn.reply(m.chat, menuBarang, m);
