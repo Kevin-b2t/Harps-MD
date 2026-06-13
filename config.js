@@ -7,6 +7,7 @@ global.nameowner = "ðŸ„°ðŸ„»ðŸ……ðŸ„¸ðŸ„½"; // wajib di
 global.numberowner = "628154033464"; // wajib di isi tidak boleh kosong
 global.mail = "support@tioprm.eu.org"; // wajib di isi tidak boleh kosong
 global.gc = "https://chat.whatsapp.com/I5RpePh2b5u37OyFjzCNTr"; // wajib di isi tidak boleh kosong
+global.channel = "https://whatsapp.com/channel/0029Vaeovqk1noyyUalf9z16"
 global.instagram = "https://instagram.com/prm2.0"; // wajib di isi tidak boleh kosong
 global.wm = "Â© â’½â’¶â“‡â“…â“ˆ"; // isi nama bot atau nama kalian
 global.wait = "_*Tunggu sedang di proses...*_"; // ini pesan simulasi loading
