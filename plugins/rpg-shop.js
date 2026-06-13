@@ -1705,133 +1705,111 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
 ┃ Beli : ${Bdiamond}
 ┃ Jual : ${Sdiamond}
 ┃ Status : ${statusDiamond}
-┃ Stock : ${dataDiamond.stockStatus}
 ┃
 ┃ *⬜ Perak*
 ┃ Beli : ${Bperak}
 ┃ Jual : ${Sperak}
 ┃ Status : ${statusPerak}
-┃ Stock : ${dataPerak.stockStatus}
 ┃
 ┃ *🪙 Emas*
 ┃ Beli : ${Bemasbiasa}
 ┃ Jual : ${Semasbiasa}
 ┃ Status : ${statusEmas}
-┃ Stock : ${dataEmasbiasa.stockStatus}
 ┃
 ┃ *❇️ Emerald*
 ┃ Beli : ${Bemerald}
 ┃ Jual : ${Semerald}
 ┃ Status : ${statusEmerald}
-┃ Stock : ${dataEmerald.stockStatus}
 ┃
 ┃ *💎 Berlian*
 ┃ Beli : ${Bberlian}
 ┃ Jual : ${Sberlian}
 ┃ Status : ${statusBerlian}
-┃ Stock : ${dataBerlian.stockStatus}
 ┃
 ┃ *🥇 Emas Batang*
 ┃ Beli : ${Bemasbatang}
 ┃ Jual : ${Semasbatang}
 ┃ Status : ${statusEmasBatang}
-┃ Stock : ${dataEmasbatang.stockStatus}
 ┃
 ┃ *🥈 Perak Batang*
 ┃ Beli : ${Bperakbatang}
 ┃ Jual : ${Sperakbatang}
 ┃ Status : ${statusPerakBatang}
-┃ Stock : ${dataPerakbatang.stockStatus}
 ┃
 ┃ *🔴 Ruby*
 ┃ Beli : ${Bruby}
 ┃ Jual : ${Sruby}
 ┃ Status : ${statusRuby}
-┃ Stock : ${dataRuby.stockStatus}
 ┃
 ┃ *🔵 Sapphire*
 ┃ Beli : ${Bsapphire}
 ┃ Jual : ${Ssapphire}
 ┃ Status : ${statusSapphire}
-┃ Stock : ${dataSapphire.stockStatus}
 ┃
 ┃ *🟡 Topaz*
 ┃ Beli : ${Btopaz}
 ┃ Jual : ${Stopaz}
 ┃ Status : ${statusTopaz}
-┃ Stock : ${dataTopaz.stockStatus}
 ┃
 ┃ *🟣 Amethyst*
 ┃ Beli : ${Bamethyst}
 ┃ Jual : ${Samethyst}
 ┃ Status : ${statusAmethyst}
-┃ Stock : ${dataAmethyst.stockStatus}
 ┃
 ┃ *🌈 Opal*
 ┃ Beli : ${Bopal}
 ┃ Jual : ${Sopal}
 ┃ Status : ${statusOpal}
-┃ Stock : ${dataOpal.stockStatus}
 ┃
 ┃ *🧊 Aquamarine*
 ┃ Beli : ${Baquamarine}
 ┃ Jual : ${Saquamarine}
 ┃ Status : ${statusAquamarine}
-┃ Stock : ${dataAquamarine.stockStatus}
 ┃
 ┃ *❤️ Garnet*
 ┃ Beli : ${Bgarnet}
 ┃ Jual : ${Sgarnet}
 ┃ Status : ${statusGarnet}
-┃ Stock : ${dataGarnet.stockStatus}
 ┃
 ┃ *🟢 Jade*
 ┃ Beli : ${Bjade}
 ┃ Jual : ${Sjade}
 ┃ Status : ${statusJade}
-┃ Stock : ${dataJade.stockStatus}
 ┃
 ┃ *⚫ Onyx*
 ┃ Beli : ${Bonyx}
 ┃ Jual : ${Sonyx}
 ┃ Status : ${statusOnyx}
-┃ Stock : ${dataOnyx.stockStatus}
 ┃
 ┃ *🧿 Turquoise*
 ┃ Beli : ${Bturquoise}
 ┃ Jual : ${Sturquoise}
 ┃ Status : ${statusTurquoise}
-┃ Stock : ${dataTurquoise.stockStatus}
 ┃
 ┃ *🔮 Alexandrite*
 ┃ Beli : ${Balexandrite}
 ┃ Jual : ${Salexandrite}
 ┃ Status : ${statusAlexandrite}
-┃ Stock : ${dataAlexandrite.stockStatus}
 ┃
 ┃ *🌙 Moonstone*
 ┃ Beli : ${Bmoonstone}
 ┃ Jual : ${Smoonstone}
 ┃ Status : ${statusMoonstone}
-┃ Stock : ${dataMoonstone.stockStatus}
 ┃
 ┃ *🖤 Black Diamond*
 ┃ Beli : ${Bblackdiamond}
 ┃ Jual : ${Sblackdiamond}
 ┃ Status : ${statusBlackDiamond}
-┃ Stock : ${dataBlackdiamond.stockStatus}
 ┃
 ┃ *🩸 Red Diamond*
 ┃ Beli : ${Breddiamond}
 ┃ Jual : ${Sreddiamond}
 ┃ Status : ${statusRedDiamond}
-┃ Stock : ${dataReddiamond.stockStatus}
 ┃
 ┃ *💿 Platinum*
 ┃ Beli : ${Bplatinum}
 ┃ Jual : ${Splatinum}
 ┃ Status : ${statusPlatinum}
-┃ Stock : ${dataPlatinum.stockStatus}
 ┃
 └──────────────`;
 
