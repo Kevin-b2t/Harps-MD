@@ -4,40 +4,15 @@ let path = require('path')
 let fetch = require('node-fetch')
 let moment = require('moment-timezone')
 let levelling = require('../lib/levelling')
-let arrayMenu = [
-  'all', 
-  'ai', 
-  'main', 
-  'downloader', 
-  'database', 
-  'rpg',
-  'rpgG', 
-  'sticker', 
-  'advanced', 
-  'xp', 
-  'fun', 
-  'game', 
-  'github', 
-  'group', 
-  'image', 
-  'nsfw', 
-  'info', 
-  'internet', 
-  'islam', 
-  'kerang', 
-  'maker', 
-  'news', 
-  'owner', 
-  'voice', 
-  'quotes', 
-  'store', 
-  'stalk', 
-  'shortlink', 
-  'tools', 
-  'anonymous',
-  ''
-  ];
+const { generateWAMessageFromContent } = require('lily-baileys') // Menggunakan lily-baileys sesuai dependencymu
 
+let arrayMenu = [
+  'all', 'ai', 'main', 'downloader', 'database', 'rpg',
+  'rpgG', 'sticker', 'advanced', 'xp', 'fun', 'game', 
+  'github', 'group', 'image', 'nsfw', 'info', 'internet', 
+  'islam', 'kerang', 'maker', 'news', 'owner', 'voice', 
+  'quotes', 'store', 'stalk', 'shortlink', 'tools', 'anonymous', ''
+];
 
 const allTags = {
     'all': 'SEMUA MENU',
@@ -75,28 +50,36 @@ const allTags = {
 
 const defaultMenu = {
     before: `
-Hi %name
-I am an automated system (WhatsApp Bot) that can help to do something, search and get data / information only through WhatsApp.
-
-◦ *Library:* Baileys
-◦ *Function:* Assistant
-
-┌  ◦ Uptime : %uptime
-│  ◦ Tanggal : %date
-│  ◦ Waktu : %time
-└  ◦ Prefix Used : *[ %p ]*
+┌─⊷ *HARPS BOT MD*
+┃
+┃ Hai %name 👋
+┃
+┃ 🤖 Bot Information
+┃ • Status  : Online
+┃ • Uptime  : %uptime
+┃ • Version : %version
+┃ • Prefix  : %p
+┃
+┃ 📅 Today
+┃ • Date : %date
+┃ • Time : %time
+┃
+┃ 📌 Pilih menu spesifik 
+┃ melalui tombol di bawah.
+└──────────────
 `.trimStart(),
     header: '┌  ◦ *%category*',
     body: '│  ◦ %cmd %islimit %isPremium',
     footer: '└  ',
-    after: `*Note:* Ketik .menu <category> untuk melihat menu spesifik\nContoh: .menu tools`
+    after: `*Note:* Jika ingin kembali ke daftar utama silakan klik Kembali.`
 }
 
 let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
     try {
         let package = JSON.parse(await fs.promises.readFile(path.join(__dirname, '../package.json')).catch(_ => '{}'))
-        let { exp, limit, level, role } = global.db.data.users[m.sender]
-        let { min, xp, max } = levelling.xpRange(level, global.multiplier)
+        let version = package.version || '1.0.0'
+
+        let { exp, limit, level, role } = global.db.data.users[m.sender] || {}
         let name = `@${m.sender.split`@`[0]}`
         let teks = args[0] || ''
         
@@ -128,30 +111,72 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
             }
         })
 
+        // ==========================================
+        // JIKA KETIK ".menu" (LIST UTAMA + TOMBOL LINK)
+        // ==========================================
         if (!teks) {
-            let menuList = `${defaultMenu.before}\n\n┌  ◦ *DAFTAR MENU*\n`
+            let replace = { '%': '%', p: _p, uptime, name, date, time, version }
+            let textData = defaultMenu.before.replace(new RegExp(`%(${Object.keys(replace).sort((a, b) => b.length - a.length).join`|`})`, 'g'), (_, name) => '' + replace[name])
+
+            let sections = [{
+                title: "Daftar Kategori Menu",
+                rows: []
+            }];
+
             for (let tag of arrayMenu) {
                 if (tag && allTags[tag]) {
-                    menuList += `│  ◦ ${_p}menu ${tag}\n`
+                    sections[0].rows.push({
+                        title: allTags[tag],
+                        description: `Menampilkan daftar command ${allTags[tag]}`,
+                        id: `${_p}menu ${tag}` // Diubah menjadi 'id' untuk Native Flow
+                    });
                 }
             }
-            menuList += `└  \n\n${defaultMenu.after}`
 
-            let replace = {
-                '%': '%',
-                p: _p, 
-                uptime,
-                name, 
-                date,
-                time
-            }
+            let msg = generateWAMessageFromContent(m.chat, {
+                viewOnceMessage: {
+                    message: {
+                        messageContextInfo: {
+                            deviceListMetadata: {},
+                            deviceListMetadataVersion: 2
+                        },
+                        interactiveMessage: {
+                            body: { text: textData },
+                            footer: { text: "© HARPS BOT MD" },
+                            header: { hasMediaAttachment: false },
+                            contextInfo: {
+                                mentionedJid: [m.sender] // Agar tag nama/mention bekerja
+                            },
+                            nativeFlowMessage: {
+                                buttons: [
+                                    {
+                                        name: "single_select",
+                                        buttonParamsJson: JSON.stringify({
+                                            title: "PILIH MENU DISINI ⎙",
+                                            sections: sections
+                                        })
+                                    },
+                                    {
+                                        name: "cta_url",
+                                        buttonParamsJson: JSON.stringify({
+                                            display_text: "📄 Channel",
+                                            url: global.channel || "https://whatsapp.com/channel/0029Vaeovqk1noyyUalf9z16"
+                                        })
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }, { quoted: m })
 
-            let text = menuList.replace(new RegExp(`%(${Object.keys(replace).sort((a, b) => b.length - a.length).join`|`})`, 'g'), 
-                (_, name) => '' + replace[name])
-            await conn.sendMessage(m.chat, { image: { url: 'https://telegra.ph/file/3a34bfa58714bdef500d9.jpg' }, caption: text, mentions: [m.sender] }, { quoted: m });
+            await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id })
             return
         }
 
+        // ==========================================
+        // JIKA BUKA SUB-MENU KATEGORI (MUNCUL BUTTONS + LINK)
+        // ==========================================
         if (!allTags[teks]) {
             return m.reply(`Menu "${teks}" tidak tersedia.\nSilakan ketik ${_p}menu untuk melihat daftar menu.`)
         }
@@ -159,11 +184,9 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
         let menuCategory = defaultMenu.before + '\n\n'
         
         if (teks === 'all') {
-            // category all
             for (let tag of arrayMenu) {
                 if (tag !== 'all' && allTags[tag]) {
                     menuCategory += defaultMenu.header.replace(/%category/g, allTags[tag]) + '\n'
-                    
                     let categoryCommands = help.filter(menu => menu.tags && menu.tags.includes(tag) && menu.help)
                     for (let menu of categoryCommands) {
                         for (let help of menu.help) {
@@ -178,7 +201,6 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
             }
         } else {
             menuCategory += defaultMenu.header.replace(/%category/g, allTags[teks]) + '\n'
-            
             let categoryCommands = help.filter(menu => menu.tags && menu.tags.includes(teks) && menu.help)
             for (let menu of categoryCommands) {
                 for (let help of menu.help) {
@@ -193,19 +215,49 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
 
         menuCategory += '\n' + defaultMenu.after
         
-        let replace = {
-            '%': '%',
-            p: _p, 
-            uptime, 
-            name,
-            date,
-            time
-        }
+        let replace = { '%': '%', p: _p, uptime, name, date, time, version }
+        let textCategory = menuCategory.replace(new RegExp(`%(${Object.keys(replace).sort((a, b) => b.length - a.length).join`|`})`, 'g'), (_, name) => '' + replace[name])
 
-        let text = menuCategory.replace(new RegExp(`%(${Object.keys(replace).sort((a, b) => b.length - a.length).join`|`})`, 'g'), 
-            (_, name) => '' + replace[name])
+        let msg = generateWAMessageFromContent(m.chat, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
+                    interactiveMessage: {
+                        body: { text: textCategory },
+                        footer: { text: "© HARPS BOT MD" },
+                        header: { hasMediaAttachment: false },
+                        contextInfo: {
+                            mentionedJid: [m.sender] // Agar tag nama/mention bekerja
+                        },
+                        nativeFlowMessage: {
+                            buttons: [
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "Kembali Ke Menu 🔙",
+                                        id: `${_p}menu`
+                                    })
+                                },
+                                {
+                                    name: "cta_url",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "📄 Channel",
+                                        url: global.channel || "https://whatsapp.com/channel/0029Vaeovqk1noyyUalf9z16"
+                                    })
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }, { quoted: m })
 
-        await conn.sendMessage(m.chat, { image: { url: 'https://telegra.ph/file/3a34bfa58714bdef500d9.jpg' }, caption: text, mentions: [m.sender] }, { quoted: m });
+        // Mengirim pesan menggunakan relayMessage untuk Native Flow
+        await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id })
+
     } catch (e) {
         conn.reply(m.chat, 'Maaf, menu sedang error', m)
         console.error(e)
