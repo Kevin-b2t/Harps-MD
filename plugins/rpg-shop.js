@@ -142,7 +142,6 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dataLampu = getMarketPrice('lampu', 600, 120, 100000, 150000); let Blampu = dataLampu.beli; let Slampu = dataLampu.jual; let statusLampu = dataLampu.status;
 
     // ================= DATA ALAM =================
-    // (Sumber daya alam & bahan mentah masih pakai sistem stock/getMarketPrice)
     let dataEmasMentah = getMarketPrice('emasmentah', 866490, 700000, 15000, 22000); let Bemasmentah = dataEmasMentah.beli; let Semasmentah = dataEmasMentah.jual; let statusEmasMentah = dataEmasMentah.status;
     let dataKayu = getMarketPrice('kayu', 1000, 400, 250000, 350000); let Bkayu = dataKayu.beli; let Skayu = dataKayu.jual; let statusKayu = dataKayu.status;
     let dataBatu = getMarketPrice('batu', 500, 100, 250000, 350000); let Bbatu = dataBatu.beli; let Sbatu = dataBatu.jual; let statusBatu = dataBatu.status;
@@ -177,7 +176,6 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dataRubiMentah = getMarketPrice('rubimentah', 70000, 18000, 10000, 20000); let Brubimentah = dataRubiMentah.beli; let Srubimentah = dataRubiMentah.jual; let statusRubiMentah = dataRubiMentah.status;
 
     // ================= DATA PERLENGKAPAN =================
-    // Catatan: Jika 'sword' sudah ada di DATA BARANG, kamu bisa menghapusnya di sana agar tidak dobel.
     let dataPickaxe = getMarketPrice('pickaxe', 15000, 5000, 10000, 20000); let Bpickaxe = dataPickaxe.beli; let Spickaxe = dataPickaxe.jual; let statusPickaxe = dataPickaxe.status;
     let dataKatana = getMarketPrice('katana', 200000, 25000, 3000, 5000); let Bkatana = dataKatana.beli; let Skatana = dataKatana.jual; let statusKatana = dataKatana.status;
     let dataAxe = getMarketPrice('axe', 15000, 5000, 10000, 20000); let Baxe = dataAxe.beli; let Saxe = dataAxe.jual; let statusAxe = dataAxe.status;
@@ -241,12 +239,10 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dataSapphirecannon = getMarketPrice('sapphirecannon', 1000000000, 500000000, 1, 5); let Bsapphirecannon = dataSapphirecannon.beli; let Ssapphirecannon = dataSapphirecannon.jual; let statusSapphirecannon = dataSapphirecannon.status;
 
     // ================= DATA PERHIASAN =================
-    // (Perhiasan sekarang full fluktuatif tanpa sistem Info Stock)
     let pEmas = getStatusPasarItem(1); let statusEmas = pEmas.statusPasar; let Bemasbiasa = Math.floor(1545000 + (1545000 * pEmas.persentase)); let Semasbiasa = Math.floor(1296000 + (1296000 * pEmas.persentase));
     let pDiamond = getStatusPasarItem(2); let statusDiamond = pDiamond.statusPasar; let Bdiamond = Math.floor(5810000 + (5810000 * pDiamond.persentase)); let Sdiamond = Math.floor(4081000 + (4081000 * pDiamond.persentase));
     let pPerak = getStatusPasarItem(3); let statusPerak = pPerak.statusPasar; let Bperak = Math.floor(1009000 + (1009000 * pPerak.persentase)); let Sperak = Math.floor(891000 + (891000 * pPerak.persentase));
     let pEmerald = getStatusPasarItem(4); let statusEmerald = pEmerald.statusPasar; let Bemerald = Math.floor(11000000 + (11000000 * pEmerald.persentase)); let Semerald = Math.floor(9000000 + (9000000 * pEmerald.persentase));
-    
     let pBerlian = getStatusPasarItem(5); let statusBerlian = pBerlian.statusPasar; let Bberlian = Math.floor(150000 + (150000 * pBerlian.persentase)); let Sberlian = Math.max(1, Math.floor(10000 + (10000 * pBerlian.persentase)));
     let pEmasBatang = getStatusPasarItem(6); let statusEmasBatang = pEmasBatang.statusPasar; let Bemasbatang = Math.floor(250000 + (250000 * pEmasBatang.persentase)); let Semasbatang = Math.max(1, Math.floor(10000 + (10000 * pEmasBatang.persentase)));
     let pPerakBatang = getStatusPasarItem(7); let statusPerakBatang = pPerakBatang.statusPasar; let Bperakbatang = Math.floor(150000 + (150000 * pPerakBatang.persentase)); let Sperakbatang = Math.max(1, Math.floor(7000 + (7000 * pPerakBatang.persentase)));
@@ -330,8 +326,11 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     let dDark = getStatusPasarCrate(17); let statusDark = dDark.statusPasar; let Bdark = Math.floor(12000000 + (12000000 * dDark.persentase)); let Sdark = Math.max(1, Math.floor(10000000 + (10000000 * dDark.persentase)));
     let dCheat = getStatusPasarCrate(18); let statusCheat = dCheat.statusPasar; let Bcheat = Math.floor(15670000 + (15670000 * dCheat.persentase)); let Scheat = Math.max(1, Math.floor(14670000 + (14670000 * dCheat.persentase)));
 
+    // ================= SISTEM PAJAK HARIAN (FIXED BUG) =================
     let user = global.db.data.users[m.sender];
-    let tanggalHariIni = new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' });
+    let dTax = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"}));
+    let tanggalHariIni = `${dTax.getDate()}-${dTax.getMonth() + 1}-${dTax.getFullYear()}`; // Mengunci format tanggal agar tidak gonta-ganti
+
     if (user.lastTaxDate !== tanggalHariIni) {
         let uangSaatIni = user.money || 0;
         let potonganPajak = Math.floor(uangSaatIni * 0.01);
@@ -342,6 +341,7 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
             global.db.data.negara.kas += potonganPajak;
             conn.reply(m.chat, `🏛️ *INFO PAJAK HARIAN (1%)*\n\nPemerintah telah memotong uangmu sebesar *Rp ${potonganPajak.toLocaleString()}* dan langsung disetor ke Kas Negara.\nSisa uangmu sekarang: Rp ${user.money.toLocaleString()}`, m);
         }
+        // Menyimpan tanggal pajak berhasil ditarik hari ini
         user.lastTaxDate = tanggalHariIni;
     }
 
@@ -525,7 +525,7 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
         'emeraldsniper': { costType: 'money', B: Bemeraldsniper, S: Semeraldsniper, data: dataEmeraldsniper, db: 'emeraldsniper', name: 'Emerald Sniper' },
         'sapphirecannon': { costType: 'money', B: Bsapphirecannon, S: Ssapphirecannon, data: dataSapphirecannon, db: 'sapphirecannon', name: 'Sapphire Cannon' },
 
-        // PERHIASAN (Semua data stock dinonaktifkan 'null')
+        // PERHIASAN
         'diamond': { costType: 'money', B: Bdiamond, S: Sdiamond, data: null, db: 'diamond', name: 'Diamond' },
         'perak': { costType: 'money', B: Bperak, S: Sperak, data: null, db: 'perak', name: 'Perak' },
         'emas': { costType: 'money', B: Bemasbiasa, S: Semasbiasa, data: null, db: 'emas', name: 'Emas' },
@@ -626,20 +626,6 @@ Penggunaan: ${usedPrefix}shop <aksi> <item> <jumlah>
 - *${usedPrefix}shop sell <item> <jumlah>* (Menjual item)
 
 Contoh: *${usedPrefix}shop buy potion 5*
-=======================`;
-
-    const menuList = `━━━「 *KATEGORI TOKO* 」━━━
-Ketik perintah di bawah untuk melihat isi tiap kategori:
-- ${usedPrefix}shop kebutuhan
-- ${usedPrefix}shop bibit
-- ${usedPrefix}shop barang
-- ${usedPrefix}shop alam
-- ${usedPrefix}shop perlengkapan
-- ${usedPrefix}shop senjata
-- ${usedPrefix}shop perhiasan
-- ${usedPrefix}shop crate
-- ${usedPrefix}shop makanan
-- ${usedPrefix}shop minuman
 =======================`;
 
     const menuKebutuhan = `━━━「 *HARGA BELI/JUAL* 」━━━
@@ -2149,17 +2135,17 @@ Info Stock : ${dataSirupStroberi.stockStatus}`;
         let listKategori = {
             title: "Katalog Kategori",
             rows: [
-                { title: "📦 Kebutuhan", rowId: `${usedPrefix}shop kebutuhan` },
-                { title: "🌱 Bibit", rowId: `${usedPrefix}shop bibit` },
-                { title: "🎒 Barang", rowId: `${usedPrefix}shop barang` },
-                { title: "⛰️ Alam", rowId: `${usedPrefix}shop alam` },
-                { title: "🛡️ Perlengkapan", rowId: `${usedPrefix}shop perlengkapan` },
-                { title: "🔫 Senjata", rowId: `${usedPrefix}shop senjata` },
-                { title: "💍 Perhiasan", rowId: `${usedPrefix}shop perhiasan` },
-                { title: "🎁 Crate", rowId: `${usedPrefix}shop crate` },
-                { title: "🍌 Makanan", rowId: `${usedPrefix}shop makanan` },
-                { title: "🥤 Minuman", rowId: `${usedPrefix}shop minuman` },
-                { title: "📜 Lihat Semua Item", rowId: `${usedPrefix}shop semua` }
+                { title: "📦 Kebutuhan", rowId: `${usedPrefix}shop kebutuhan`, id: `${usedPrefix}shop kebutuhan` },
+                { title: "🌱 Bibit", rowId: `${usedPrefix}shop bibit`, id: `${usedPrefix}shop bibit` },
+                { title: "🎒 Barang", rowId: `${usedPrefix}shop barang`, id: `${usedPrefix}shop barang` },
+                { title: "⛰️ Alam", rowId: `${usedPrefix}shop alam`, id: `${usedPrefix}shop alam` },
+                { title: "🛡️ Perlengkapan", rowId: `${usedPrefix}shop perlengkapan`, id: `${usedPrefix}shop perlengkapan` },
+                { title: "🔫 Senjata", rowId: `${usedPrefix}shop senjata`, id: `${usedPrefix}shop senjata` },
+                { title: "💍 Perhiasan", rowId: `${usedPrefix}shop perhiasan`, id: `${usedPrefix}shop perhiasan` },
+                { title: "🎁 Crate", rowId: `${usedPrefix}shop crate`, id: `${usedPrefix}shop crate` },
+                { title: "🍌 Makanan", rowId: `${usedPrefix}shop makanan`, id: `${usedPrefix}shop makanan` },
+                { title: "🥤 Minuman", rowId: `${usedPrefix}shop minuman`, id: `${usedPrefix}shop minuman` },
+                { title: "📜 Lihat Semua Item", rowId: `${usedPrefix}shop semua`, id: `${usedPrefix}shop semua` }
             ]
         };
 
