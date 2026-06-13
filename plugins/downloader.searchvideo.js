@@ -1,14 +1,15 @@
 const fetch = require('node-fetch');
 const yts = require('yt-search');
 const { prepareWAMessageMedia, generateWAMessageFromContent } = require('@adiwajshing/baileys');
+const crypto = require('crypto');
 
 const wait = '⏳ _Sedang memproses permintaan Anda..._';
 const eror = '❌ _Gagal mengambil data, silakan coba lagi nanti._';
 
 // =========================================================================
-// GLOBAL: Mengirim Gambar + Tombol (Untuk Pinterest & YTS)
+// RAW PAYLOAD: Mengirim Gambar + Tombol (Native Flow + Spoofing Saluran)
 // =========================================================================
-async function sendButtonWithImage(conn, jid, imageUrl, caption, footerText, buttons, quoted) {
+async function sendButtonWithImage(conn, jid, imageUrl, caption, buttons, quoted) {
     try {
         let media = await conn.getFile(imageUrl);
         let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
@@ -25,7 +26,18 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, footerText, but
                     interactiveMessage: {
                         header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
                         body: { text: caption },
-                        footer: { text: footerText },
+                        footer: { text: "🍟 Pinterest Downloader" },
+                        contextInfo: {
+                            participant: quoted.sender,
+                            quotedMessage: quoted.message || {},
+                            isForwarded: true,
+                            forwardingScore: 999,
+                            forwardedNewsletterMessageInfo: {
+                                newsletterJid: "120363400911374213@newsletter",
+                                newsletterName: "🍟 Downloader Center",
+                                serverMessageId: 143
+                            }
+                        },
                         nativeFlowMessage: { buttons: dynamicButtons }
                     }
                 }
@@ -35,42 +47,62 @@ async function sendButtonWithImage(conn, jid, imageUrl, caption, footerText, but
         let msg = generateWAMessageFromContent(jid, messageContent, { quoted, userJid: conn.user?.id || conn.user?.jid });
         await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
     } catch (e) {
-        console.error("Gagal Native Flow Image:", e.message);
+        console.error("Gagal Native Flow:", e.message);
+        // FALLBACK AMAN: Hanya kirim gambar dan teks biasa. (TIDAK ADA TOMBOL FORMAT LAMA YANG BIKIN CRASH!)
         await conn.sendMessage(jid, { 
             image: { url: imageUrl }, 
-            caption: caption + '\n\n💡 _Balas pesan ini dengan ID tombol jika tombol tidak muncul._' 
+            caption: caption + '\n\n💡 _Ketik *next* untuk melihat foto selanjutnya._' 
         }, { quoted });
     }
 }
 
 // =========================================================================
-// Helper: Menampilkan YTS UI
+// RAW PAYLOAD: Mengirim Gambar + List Menu (Native Flow + Spoofing Saluran)
 // =========================================================================
-async function showYts(conn, m, jid) {
-    let ytData = conn.ytsSearch[jid];
-    if (!ytData) return;
+async function sendListWithImage(conn, jid, imageUrl, caption, listTitle, sections, quoted) {
+    try {
+        let media = await conn.getFile(imageUrl);
+        let mediaMsg = await prepareWAMessageMedia({ image: media.data }, { upload: conn.waUploadToServer });
 
-    let videoData = ytData.videos[ytData.currentIndex];
-    let total = ytData.videos.length;
-    let index = ytData.currentIndex;
+        let messageContent = {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                    interactiveMessage: {
+                        header: { hasMediaAttachment: true, imageMessage: mediaMsg.imageMessage },
+                        body: { text: caption },
+                        footer: { text: "🎵 Spotify Downloader" },
+                        contextInfo: {
+                            participant: quoted.sender,
+                            quotedMessage: quoted.message || {},
+                            isForwarded: true,
+                            forwardingScore: 999,
+                            forwardedNewsletterMessageInfo: {
+                                newsletterJid: "120363400911374213@newsletter",
+                                newsletterName: "🎵 Downloader Center",
+                                serverMessageId: 143
+                            }
+                        },
+                        nativeFlowMessage: {
+                            buttons: [{
+                                name: "single_select",
+                                buttonParamsJson: JSON.stringify({ title: listTitle, sections: sections })
+                            }]
+                        }
+                    }
+                }
+            }
+        };
 
-    let caption = `📺 *YouTube Search:* ${ytData.query}\n` +
-                  `📌 *Judul:* ${videoData.title}\n` +
-                  `👁️ *Views:* ${videoData.views.toLocaleString()}\n` +
-                  `👤 *Oleh:* ${videoData.author.name}\n` +
-                  `⏱️ *Durasi:* ${videoData.timestamp}\n` +
-                  `🎬 *Video:* ${index + 1}/${total}\n` +
-                  `⏳ _Sesi berlaku 5 menit_`;
-
-    let buttons = [
-        { text: "⬇️ Download Video", id: "dl-yts" }
-    ];
-
-    if (index < total - 1) {
-        buttons.push({ text: "➡️ Next Video", id: "nextvid" });
+        let msg = generateWAMessageFromContent(jid, messageContent, { quoted, userJid: conn.user?.id || conn.user?.jid });
+        await conn.relayMessage(jid, msg.message, { messageId: msg.key.id });
+    } catch (e) {
+        console.error("Gagal Native List:", e.message);
+        await conn.sendMessage(jid, { 
+            image: { url: imageUrl }, 
+            caption: caption + '\n\n💡 _Ketik *lagu 1* untuk mendownload._' 
+        }, { quoted });
     }
-
-    await sendButtonWithImage(conn, jid, videoData.thumbnail, caption, "🍟 YouTube Downloader", buttons, m);
 }
 
 let handler = async (m, { conn, args, text, usedPrefix, command }) => {
@@ -103,6 +135,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       else {
         m.reply(wait);
         try {
+          // FIX FATAL: Parameter diubah menjadi text1 (sebelumnya salah ketik query)
           let response = await fetch(`https://api.botcahx.eu.org/api/search/pinterest?text1=${encodeURIComponent(text)}&apikey=${apiKey}`);
           let data = await response.json();   
           
@@ -111,30 +144,33 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let images = data.result.slice(0, 8); 
           
           conn.pinterestSearch = conn.pinterestSearch || {};
-          if (conn.pinterestSearch[m.sender]?.timeout) clearTimeout(conn.pinterestSearch[m.sender].timeout);
-
           conn.pinterestSearch[m.sender] = {
             query: text,
             urls: images,
-            currentIndex: 0,
-            timeout: setTimeout(() => {
-                if (conn.pinterestSearch[m.sender]) delete conn.pinterestSearch[m.sender];
-            }, 300000)
+            currentIndex: 0
           };
 
           let firstImage = images[0];
           let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}`;
 
-          await sendButtonWithImage(conn, m.chat, firstImage, captionText, "🍟 Pinterest Downloader", [{ text: "➡️ Next Foto", id: "next" }], m);
+          await sendButtonWithImage(
+              conn, 
+              m.chat, 
+              firstImage, 
+              captionText, 
+              [{ text: "➡️ Next Foto", id: "next" }], 
+              m
+          );
           
         } catch (e) {
+          console.error("Pinterest Error:", e);
           m.reply(`❌ Gagal mengambil data: ${e.message}`);
         }
       }
       break;
     }
 
-    // ================== SPOTIFY (LANGSUNG LAGU, NO ERROR) ==================
+    // ================== SPOTIFY ==================
     case 'spotify': {
       if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} payung teduh`;
       
@@ -144,70 +180,49 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${args[0]}&apikey=${apiKey}`);
           let jsons = await res.json();
           const { title, duration, url } = jsons.result.data;
+          const { id, type } = jsons.result.data.artist;
           
+          let captionvid = ` ∘ Title: ${title}\n∘ Id: ${id}\n∘ Duration: ${duration}\n∘ Type: ${type}`;
+          await conn.reply(m.chat, captionvid, m);
           await conn.sendMessage(m.chat, { audio: { url: url }, mimetype: 'audio/mpeg' }, { quoted: m });
         } catch (e) {
           m.reply(eror);
         }
       } 
       else { 
-        m.reply('🔍 _Mencari lagu di Spotify..._');
+        m.reply(wait);
         const query = args.join(" ");
         try {
           const api = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(query)}&apikey=${apiKey}`);
           let json = await api.json();
+          let res = json.result.data.slice(0, 5); 
+
+          conn.spotifySearch = conn.spotifySearch || {};
+          conn.spotifySearch[m.sender] = res;
           
-          if (!json.status || !json.result.data || json.result.data.length === 0) return m.reply('❌ Lagu tidak ditemukan.');
+          let sections = [{
+            title: `Hasil Pencarian Spotify`,
+            rows: res.map((v) => ({
+              title: v.title.slice(0, 24), 
+              description: `Durasi: ${v.duration} | Populer: ${v.popularity}`,
+              id: `dl-spotify|${v.url}` 
+            }))
+          }];
 
-          let firstSong = json.result.data[0];
-          m.reply(`⏳ *Mendownload:* ${firstSong.title}...`);
+          let spotifyThumb = 'https://i.ibb.co/GFVf3h3/spotify.png';
+          let caption = `🎵 *Hasil Pencarian: ${query}*\n\nSilakan klik tombol di bawah untuk memilih lagu.`;
+          
+          await sendListWithImage(conn, m.chat, spotifyThumb, caption, '🎶 Pilih Lagu', sections, m);
 
-          const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${firstSong.url}&apikey=${apiKey}`);
-          let jsons = await res.json();
-          const { url: audioUrl } = jsons.result.data;
-
-          await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mpeg' }, { quoted: m });
         } catch (e) {
-          m.reply(`❌ Gagal mengambil lagu dari Spotify.`);
+          console.error("Spotify Error:", e);
+          m.reply(`❌ Gagal mengambil data: ${e.message}`);
         }
       }
       break;
     }
 
-    // ================== YOUTUBE SEARCH ==================
-    case 'yts':
-    case 'ytsearch': {
-      if (!text) throw 'Cari apa?';
-      m.reply('🔍 _Mencari video, mohon tunggu sebentar..._');
-      try {
-        let results = await yts(text);
-        let videos = results.videos; 
-        
-        if (!videos || videos.length === 0) return m.reply('❌ Video tidak ditemukan.');
-
-        let topVideos = videos.slice(0, 5); // Ambil 5 teratas
-
-        conn.ytsSearch = conn.ytsSearch || {};
-        if (conn.ytsSearch[m.sender]?.timeout) clearTimeout(conn.ytsSearch[m.sender].timeout);
-
-        conn.ytsSearch[m.sender] = {
-            query: text,
-            videos: topVideos,
-            currentIndex: 0,
-            timeout: setTimeout(() => {
-                if (conn.ytsSearch[m.sender]) delete conn.ytsSearch[m.sender];
-            }, 300000)
-        };
-
-        await showYts(conn, m, m.sender);
-
-      } catch (e) {
-        m.reply(eror);
-      }
-      break;
-    }
-
-    // ================== YOUTUBE AUDIO/VIDEO ==================
+    // ================== YOUTUBE AUDIO (MP3) ==================
     case 'ytmp3':
     case 'yta': {
       if (!text) throw `*Example:* ${usedPrefix + command} https://www.youtube.com/watch?v=dQw4w9WgXcQ`;
@@ -217,7 +232,10 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         const result = await response.json();
 
         if (result.status && result.result && result.result.mp3) {
-          await conn.sendMessage(m.chat, { audio: { url: result.result.mp3 }, mimetype: 'audio/mpeg' }, { quoted: m });
+          await conn.sendMessage(m.chat, { 
+            audio: { url: result.result.mp3 }, 
+            mimetype: 'audio/mpeg' 
+          }, { quoted: m });
         } else {
           m.reply('❌ Gagal mengunduh audio dari API.');
         }
@@ -227,6 +245,47 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       break;
     }
 
+    // ================== YOUTUBE SEARCH ==================
+    case 'yts':
+    case 'ytsearch': {
+      if (!text) throw 'Cari apa?';
+      m.reply(wait);
+      try {
+        let results = await yts(text);
+        let videos = results.videos; 
+        
+        if (!videos || videos.length === 0) return m.reply('❌ Video tidak ditemukan.');
+
+        let topVideo = videos.reduce((max, video) => video.views > max.views ? video : max, videos[0]);
+
+        let infoTeks = `🔥 *Video Terpopuler Ditemukan!*\n\n` +
+                       `📌 *Judul:* ${topVideo.title}\n` +
+                       `👁️ *Views:* ${topVideo.views.toLocaleString()}x ditonton\n` +
+                       `⏱️ *Durasi:* ${topVideo.timestamp}\n` +
+                       `🔗 *Link:* ${topVideo.url}\n\n` +
+                       `⏳ _Sedang mengunduh video, mohon tunggu..._`;
+        
+        await conn.reply(m.chat, infoTeks, m);
+
+        const response = await fetch(`https://api.botcahx.eu.org/api/dowloader/yt?url=${encodeURIComponent(topVideo.url)}&apikey=${apiKey}`);
+        const result = await response.json();
+
+        if (result.status && result.result && result.result.mp4) {
+          await conn.sendMessage(m.chat, { 
+            video: { url: result.result.mp4 }, 
+            mimetype: 'video/mp4',
+            caption: `🍟 *YT Search Downloader*\n🎬 ${topVideo.title}`
+          }, { quoted: m });
+        } else {
+          m.reply('❌ Gagal mengunduh video.');
+        }
+      } catch (e) {
+        m.reply(eror);
+      }
+      break;
+    }
+
+    // ================== YOUTUBE VIDEO (MP4) ==================
     case 'ytmp4':
     case 'ytv': {
       if (!text) throw `*Example:* ${usedPrefix + command} https://www.youtube.com/watch?v=dQw4w9WgXcQ`;
@@ -236,7 +295,10 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         const result = await response.json();
 
         if (result.status && result.result && result.result.mp4) {
-          await conn.sendMessage(m.chat, { video: { url: result.result.mp4 }, mimetype: 'video/mp4' }, { quoted: m });
+          await conn.sendMessage(m.chat, { 
+            video: { url: result.result.mp4 }, 
+            mimetype: 'video/mp4' 
+          }, { quoted: m });
         } else {
           m.reply('❌ Gagal mengunduh video dari API.');
         }
@@ -245,6 +307,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       }
       break;
     }
+
   }
 };
 
@@ -264,14 +327,10 @@ handler.before = async (m, { conn }) => {
   teks = teks.toLowerCase();
   if (!teks) return;
 
-  const apiKey = global.btc || global.APIKey || global.apikey || global.api_key || '';
-
   // --- LISTENER PINTEREST ---
   conn.pinterestSearch = conn.pinterestSearch || {};
   if (teks === 'next' && conn.pinterestSearch[m.sender]) {
     let pinData = conn.pinterestSearch[m.sender];
-    
-    clearTimeout(pinData.timeout);
     pinData.currentIndex += 1;
 
     if (pinData.currentIndex >= pinData.urls.length) {
@@ -285,69 +344,63 @@ handler.before = async (m, { conn }) => {
     let captionText = `🍟 *Pinterest Search:* ${pinData.query}\n📷 *Foto:* ${pinData.currentIndex + 1}/${pinData.urls.length}`;
 
     if (!isLast) {
-      pinData.timeout = setTimeout(() => {
-          if (conn.pinterestSearch[m.sender]) delete conn.pinterestSearch[m.sender];
-      }, 300000);
-      
-      await sendButtonWithImage(conn, m.chat, nextImageUrl, captionText, "🍟 Pinterest Downloader", [{ text: "➡️ Next Foto", id: "next" }], m);
+      await sendButtonWithImage(
+          conn, 
+          m.chat, 
+          nextImageUrl, 
+          captionText, 
+          [{ text: "➡️ Next Foto", id: "next" }], 
+          m
+      );
     } else {
-      captionText += `\n\n✅ _Ini adalah foto terakhir._`;
+      captionText += `\n\n✅ _Ini adalah foto terakhir dari pencarian._`;
       await conn.sendMessage(m.chat, { image: { url: nextImageUrl }, caption: captionText }, { quoted: m });
       delete conn.pinterestSearch[m.sender];
     }
     return true;
   }
 
-  // --- LISTENER YTS (TOMBOL NEXT VIDEO) ---
-  conn.ytsSearch = conn.ytsSearch || {};
-  if (teks === 'nextvid' && conn.ytsSearch[m.sender]) {
-    let ytData = conn.ytsSearch[m.sender];
-    
-    clearTimeout(ytData.timeout);
-    ytData.currentIndex += 1;
+  // --- LISTENER SPOTIFY ---
+  const apiKey = global.btc || global.APIKey || global.apikey || global.api_key || '';
 
-    if (ytData.currentIndex >= ytData.videos.length) {
-      m.reply('✅ *Sudah mencapai video terakhir.*');
-      delete conn.ytsSearch[m.sender]; 
-      return true;
-    }
-
-    ytData.timeout = setTimeout(() => { 
-        if (conn.ytsSearch[m.sender]) delete conn.ytsSearch[m.sender];
-    }, 300000);
-
-    await showYts(conn, m, m.sender);
-    return true;
-  }
-
-  // --- LISTENER YTS (TOMBOL DOWNLOAD) ---
-  if (teks === 'dl-yts' && conn.ytsSearch[m.sender]) {
-    let ytData = conn.ytsSearch[m.sender];
-    let videoData = ytData.videos[ytData.currentIndex];
-
-    clearTimeout(ytData.timeout);
-    ytData.timeout = setTimeout(() => { 
-        if (conn.ytsSearch[m.sender]) delete conn.ytsSearch[m.sender];
-    }, 300000);
-
-    m.reply(`⏳ _Sedang mengunduh video: *${videoData.title}*, mohon tunggu..._`);
+  if (teks.startsWith('dl-spotify|')) {
+    let url = teks.split('|')[1];
+    m.reply('⏳ *Mendownload lagu, harap tunggu...*');
     
     try {
-        const response = await fetch(`https://api.botcahx.eu.org/api/dowloader/yt?url=${encodeURIComponent(videoData.url)}&apikey=${apiKey}`);
-        const result = await response.json();
-
-        if (result.status && result.result && result.result.mp4) {
-            await conn.sendMessage(m.chat, { 
-                video: { url: result.result.mp4 }, 
-                caption: `✅ *Berhasil diunduh:* ${videoData.title}` 
-            }, { quoted: m });
-        } else {
-            m.reply('❌ Gagal mengunduh video dari API server.');
-        }
+      const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${apiKey}`);
+      let jsons = await res.json();
+      const { title, url: audioUrl } = jsons.result.data;
+      
+      await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mpeg' }, { quoted: m });
     } catch (e) {
-        m.reply('❌ Terjadi kesalahan saat memproses unduhan.');
+       m.reply('❌ Gagal mendownload lagu. API sedang bermasalah.');
     }
-    return true;
+    return true; 
+  }
+
+  // Fallback teks kalau list ditekan manual
+  let matchSpotify = teks.match(/^lagu\s+([1-5])$/);
+  if (matchSpotify && conn.spotifySearch && conn.spotifySearch[m.sender]) {
+    let index = parseInt(matchSpotify[1]) - 1;
+    let data = conn.spotifySearch[m.sender];
+    
+    if (!data[index]) return m.reply('❌ Pilihan lagu tidak ada di daftar.');
+    
+    let url = data[index].url;
+    m.reply(`⏳ *Mendownload ${data[index].title}...*`);
+    
+    try {
+      const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${apiKey}`);
+      let jsons = await res.json();
+      const { title, url: audioUrl } = jsons.result.data;
+      
+      await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mpeg' }, { quoted: m });
+      delete conn.spotifySearch[m.sender];
+    } catch (e) {
+       m.reply('❌ Gagal mendownload lagu.');
+    }
+    return true; 
   }
 };
 
