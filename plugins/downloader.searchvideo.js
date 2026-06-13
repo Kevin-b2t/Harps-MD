@@ -134,7 +134,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
       break;
     }
 
-    // ================== SPOTIFY (LANGSUNG LAGU) ==================
+    // ================== SPOTIFY (LANGSUNG LAGU, NO ERROR) ==================
     case 'spotify': {
       if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} payung teduh`;
       
