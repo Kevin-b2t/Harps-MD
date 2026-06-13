@@ -34,13 +34,11 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           
           if (!data.result || data.result.length === 0) throw 'Gambar tidak ditemukan.';
 
-          // Ambil maksimal 10 foto
           let images = data.result.slice(0, 10); 
           
           conn.pinterestSearch = conn.pinterestSearch || {};
           if (conn.pinterestSearch[m.sender]) clearTimeout(conn.pinterestSearch[m.sender].timer);
 
-          // Buat Sesi Baru
           conn.pinterestSearch[m.sender] = {
             query: text,
             urls: images,
@@ -55,7 +53,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let firstImage = images[0];
           let captionText = `🍟 *Pinterest Search:* ${text}\n📷 *Foto:* 1/${images.length}\n⏳ Sesi berlaku 5 menit`;
 
-          // Format Pesan dengan Button WhatsApp
           await conn.sendMessage(m.chat, { 
             image: { url: firstImage }, 
             caption: captionText,
@@ -107,7 +104,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
         
         if (!videos || videos.length === 0) throw 'Video tidak ditemukan.';
 
-        // Ambil maksimal 10 video
         let topVideos = videos.slice(0, 10);
         
         conn.ytsSearch = conn.ytsSearch || {};
@@ -134,7 +130,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
                        `🎬 Video: 1/${topVideos.length}\n` +
                        `⏳ Sesi berlaku 5 menit • Item 1/${topVideos.length}`;
         
-        // Format Pesan dengan Button WhatsApp
         await conn.sendMessage(m.chat, { 
           image: { url: v.thumbnail }, 
           caption: infoTeks,
@@ -180,15 +175,35 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
 
 // ================== LISTENER BUTTON (HANDLER.BEFORE) ==================
 handler.before = async (m, { conn }) => {
-  if (m.isBaileys || !m.text) return;
+  if (m.isBaileys) return; 
   
-  // Tangkap respon dari tombol atau ketikan user
-  let teks = m.text.toLowerCase().trim();
+  // Ambil teks dari input biasa ATAU ID dari tombol langsung dari payload
+  let teks = m.text || '';
+  if (m.message && m.message.buttonsResponseMessage && m.message.buttonsResponseMessage.selectedButtonId) {
+      teks = m.message.buttonsResponseMessage.selectedButtonId;
+  } else if (m.message && m.message.templateButtonReplyMessage && m.message.templateButtonReplyMessage.selectedId) {
+      teks = m.message.templateButtonReplyMessage.selectedId;
+  } else if (m.message && m.message.interactiveResponseMessage) {
+      try {
+          let params = JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson);
+          if (params && params.id) teks = params.id;
+      } catch (e) {}
+  }
+
+  // Jika setelah dibongkar tetap tidak ada pesan/ID, hentikan
+  if (!teks) return;
+
+  teks = teks.toLowerCase().trim();
   const timeoutMs = 5 * 60 * 1000; 
 
-  // --- LISTENER PINTEREST ("Next Foto") ---
+  // Pengecekan kata kunci atau buttonId (Jauh lebih kebal)
+  let isNextFoto = teks.includes('next foto') || teks.includes('next_foto');
+  let isYtsNext = teks.includes('next video') || teks.includes('next_video');
+  let isYtsDownload = teks.includes('download') || teks.includes('download_video');
+
+  // --- LISTENER PINTEREST ---
   conn.pinterestSearch = conn.pinterestSearch || {};
-  if (teks === 'next foto' && conn.pinterestSearch[m.sender]) {
+  if (isNextFoto && conn.pinterestSearch[m.sender]) {
     let pinData = conn.pinterestSearch[m.sender];
     pinData.currentIndex += 1;
 
@@ -227,9 +242,9 @@ handler.before = async (m, { conn }) => {
     return true;
   }
 
-  // --- LISTENER YTS ("Next Video" & "Download") ---
+  // --- LISTENER YTS ---
   conn.ytsSearch = conn.ytsSearch || {};
-  if ((teks === 'next video' || teks === 'download') && conn.ytsSearch[m.sender]) {
+  if ((isYtsNext || isYtsDownload) && conn.ytsSearch[m.sender]) {
     let ytData = conn.ytsSearch[m.sender];
 
     if (ytData.downloaded) {
@@ -237,7 +252,7 @@ handler.before = async (m, { conn }) => {
       return true;
     }
 
-    if (teks === 'next video') {
+    if (isYtsNext) {
       ytData.currentIndex += 1;
 
       clearTimeout(ytData.timer);
@@ -274,7 +289,7 @@ handler.before = async (m, { conn }) => {
       return true;
     }
 
-    if (teks === 'download') {
+    if (isYtsDownload) {
       let v = ytData.videos[ytData.currentIndex];
       m.reply(`⏳ _Sedang mengunduh video: *${v.title}*, mohon tunggu..._`);
       
@@ -310,7 +325,7 @@ handler.help = [
   'yts <query>'
 ];
 handler.tags = ['downloader', 'internet', 'tools'];
-handler.command = /^(pinterest|ytmp3|yta|yts(earch)?|ytmp4|ytv)$/i; // Spotify sudah dihapus dari command list
+handler.command = /^(pinterest|ytmp3|yta|yts(earch)?|ytmp4|ytv)$/i;
 
 handler.limit = true;
 handler.exp = 0;
