@@ -1,3 +1,5 @@
+const { generateWAMessageFromContent } = require('lily-baileys');
+
 let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     
     if (!global.db.data.market) global.db.data.market = {};
@@ -615,32 +617,86 @@ let handler  = async (m, { conn, command, args, usedPrefix, owner }) => {
     };
 
     // ================= DAFTAR MENU TEMPLATE =================
-    const menuHelp = `━━━「 *CARA PENGGUNAAN TOKO* 」━━━
-Penggunaan: ${usedPrefix}shop <aksi> <item> <jumlah>
+    const shopListText = `┌─⊷ *TOKO RPG*
+┃
+┃ Hi @${m.sender.split('@')[0]} 👋
+┃
+┃ Pilih kategori toko di bawah ini
+┃ untuk melihat daftar item & harga.
+┃
+┃ 💡 Cara beli/jual:
+┃ • ${usedPrefix}shop buy <item> <jml>
+┃ • ${usedPrefix}shop sell <item> <jml>
+└──────────────`;
 
-*Aksi yang tersedia:*
-- *${usedPrefix}shop list* (Melihat daftar kategori)
-- *${usedPrefix}shop semua* (Melihat semua item toko)
-- *${usedPrefix}shop <kategori>* (Melihat per kategori, cth: ${usedPrefix}shop alam)
-- *${usedPrefix}shop buy <item> <jumlah>* (Membeli item)
-- *${usedPrefix}shop sell <item> <jumlah>* (Menjual item)
+    const shopCategories = [
+        { title: '🛒 Kebutuhan',    desc: 'Limit, Pet, Bensin, Obat, dll',     id: `${usedPrefix}shop kebutuhan` },
+        { title: '🌱 Bibit',        desc: 'Bibit tanaman untuk kebun',          id: `${usedPrefix}shop bibit` },
+        { title: '📦 Barang',       desc: 'Potion, material, bahan craft',      id: `${usedPrefix}shop barang` },
+        { title: '🌿 Alam',         desc: 'Ore, kayu, batu, mineral',           id: `${usedPrefix}shop alam` },
+        { title: '🛡️ Perlengkapan', desc: 'Armor, helm, pickaxe, fishing rod', id: `${usedPrefix}shop perlengkapan` },
+        { title: '🔫 Senjata',      desc: 'Pistol, rifle, SMG, dll',            id: `${usedPrefix}shop senjata` },
+        { title: '💎 Perhiasan',    desc: 'Gemstone & perhiasan langka',        id: `${usedPrefix}shop perhiasan` },
+        { title: '🎁 Crate',        desc: 'Berbagai crate & loot box',          id: `${usedPrefix}shop crate` },
+        { title: '🍱 Makanan',      desc: 'Buah, makanan pet, dll',             id: `${usedPrefix}shop makanan` },
+        { title: '🥤 Minuman',      desc: 'Jus, kopi, teh, sirup, dll',        id: `${usedPrefix}shop minuman` },
+        { title: '📋 Semua Item',   desc: 'Tampilkan seluruh item toko',        id: `${usedPrefix}shop semua` },
+    ];
 
-Contoh: *${usedPrefix}shop buy potion 5*
-=======================`;
+    async function sendShopList() {
+        await conn.sendList(
+            m.chat,
+            "🏪 TOKO RPG",
+            shopListText,
+            "📋 Pilih Kategori",
+            [{ title: "Kategori Toko", rows: shopCategories.map(c => ({ title: c.title, description: c.desc, rowId: c.id })) }],
+            m,
+            { mentions: [m.sender] }
+        );
+    }
 
-    const menuList = `━━━「 *KATEGORI TOKO* 」━━━
-Ketik perintah di bawah untuk melihat isi tiap kategori:
-- ${usedPrefix}shop kebutuhan
-- ${usedPrefix}shop bibit
-- ${usedPrefix}shop barang
-- ${usedPrefix}shop alam
-- ${usedPrefix}shop perlengkapan
-- ${usedPrefix}shop senjata
-- ${usedPrefix}shop perhiasan
-- ${usedPrefix}shop crate
-- ${usedPrefix}shop makanan
-- ${usedPrefix}shop minuman
-=======================`;
+    async function sendCategoryMsg(menuText) {
+        let msg = generateWAMessageFromContent(m.chat, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                    interactiveMessage: {
+                        body: { text: menuText },
+                        footer: { text: "🏪 Toko RPG • Harga berubah tiap jam" },
+                        header: { hasMediaAttachment: false },
+                        nativeFlowMessage: {
+                            buttons: [
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({ display_text: "🔙 Kembali ke Kategori", id: `${usedPrefix}shop` })
+                                },
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({ display_text: "📋 Semua Item", id: `${usedPrefix}shop semua` })
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }, { quoted: m });
+        await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+    }
+
+    const menuList = `┌─⊷ *List Kategori Toko*
+┃
+┃ 🛒 ${usedPrefix}shop kebutuhan
+┃ 🌱 ${usedPrefix}shop bibit
+┃ 📦 ${usedPrefix}shop barang
+┃ 🌿 ${usedPrefix}shop alam
+┃ 🛡️ ${usedPrefix}shop perlengkapan
+┃ 🔫 ${usedPrefix}shop senjata
+┃ 💎 ${usedPrefix}shop perhiasan
+┃ 🎁 ${usedPrefix}shop crate
+┃ 🍱 ${usedPrefix}shop makanan
+┃ 🥤 ${usedPrefix}shop minuman
+┃
+└──────────────`;
 
     const menuKebutuhan = `━━━「 *HARGA BELI/JUAL* 」━━━
 > Kebutuhan
@@ -2144,19 +2200,19 @@ Info Stock : ${dataSirupStroberi.stockStatus}`;
 
     if (isShop) {
         let arg0 = (args[0] || '').toLowerCase();
-        if (!arg0 || arg0 === 'help') return conn.reply(m.chat, menuHelp, m);
+        if (!arg0 || arg0 === 'help') return await sendShopList();
         if (arg0 === 'list') return conn.reply(m.chat, menuList, m);
-        if (arg0 === 'semua' || arg0 === 'all') return conn.reply(m.chat, menuSemua, m);
-        if (arg0 === 'kebutuhan') return conn.reply(m.chat, menuKebutuhan, m);
-        if (arg0 === 'bibit' || arg0 === 'tanaman') return conn.reply(m.chat, menuBibit, m);
-        if (arg0 === 'barang') return conn.reply(m.chat, menuBarang, m);
-        if (arg0 === 'alam') return conn.reply(m.chat, menuAlam, m);
-        if (arg0 === 'perlengkapan') return conn.reply(m.chat, menuPerlengkapan, m);
-        if (arg0 === 'senjata' || arg0 === 'gun') return conn.reply(m.chat, menuSenjata, m);
-        if (arg0 === 'perhiasan') return conn.reply(m.chat, menuPerhiasan, m);
-        if (arg0 === 'crate') return conn.reply(m.chat, menuCrate, m);
-        if (arg0 === 'makanan') return conn.reply(m.chat, menuMakanan, m);
-        if (arg0 === 'minuman' || arg0 === 'jus') return conn.reply(m.chat, menuMinuman, m);
+        if (arg0 === 'semua' || arg0 === 'all') return await sendCategoryMsg(menuSemua);
+        if (arg0 === 'kebutuhan') return await sendCategoryMsg(menuKebutuhan);
+        if (arg0 === 'bibit' || arg0 === 'tanaman') return await sendCategoryMsg(menuBibit);
+        if (arg0 === 'barang') return await sendCategoryMsg(menuBarang);
+        if (arg0 === 'alam') return await sendCategoryMsg(menuAlam);
+        if (arg0 === 'perlengkapan') return await sendCategoryMsg(menuPerlengkapan);
+        if (arg0 === 'senjata' || arg0 === 'gun') return await sendCategoryMsg(menuSenjata);
+        if (arg0 === 'perhiasan') return await sendCategoryMsg(menuPerhiasan);
+        if (arg0 === 'crate') return await sendCategoryMsg(menuCrate);
+        if (arg0 === 'makanan') return await sendCategoryMsg(menuMakanan);
+        if (arg0 === 'minuman' || arg0 === 'jus') return await sendCategoryMsg(menuMinuman);
     }
 
     let action = isShop ? (args[0] || '').toLowerCase() : (isBuy ? 'buy' : (isSell ? 'sell' : ''));
@@ -2165,10 +2221,10 @@ Info Stock : ${dataSirupStroberi.stockStatus}`;
     let count = countRaw && countRaw.length > 0 ? Math.max(parseInt(countRaw), 1) : 1;
 
     try {
-        if (!action) return conn.reply(m.chat, menuHelp, m); 
+        if (!action) return await sendShopList();
         let curItem = shopItems[item];
         if (!curItem) {
-            if (action !== 'buy' && action !== 'sell') return conn.reply(m.chat, menuHelp, m);
+            if (action !== 'buy' && action !== 'sell') return await sendShopList();
             return conn.reply(m.chat, `❌ Item *${item}* tidak ditemukan di toko. Ketik *${usedPrefix}shop semua* untuk melihat daftar item.`, m);
         }
 
