@@ -91,7 +91,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           let json = await api.json();
           let res = json.result.data.slice(0, 5);
           
-          // Simpan dengan penanda hasDownloaded untuk mencegah multi-download
           conn.spotifySearch = conn.spotifySearch || {};
           conn.spotifySearch[m.sender] = {
             results: res,
@@ -107,7 +106,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
             teks += `   ∘ Duration: ${res[i].duration}\n`;
             teks += `   ∘ Popularity: ${res[i].popularity}\n\n`;
             
-            // Tambahkan tombol untuk masing-masing lagu (buttonId: lagu_1, lagu_2, dst)
             buttons.push({ buttonId: `lagu_${i+1}`, buttonText: { displayText: `Lagu ${i+1}` }, type: 1 });
           }
           
@@ -166,7 +164,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
           videos: searchResults,
           currentIndex: 0,
           timeout: Date.now() + 300000, 
-          hasDownloaded: false // Penanda belum download
+          hasDownloaded: false 
         };
 
         let currentVideo = searchResults[0];
@@ -233,7 +231,6 @@ handler.before = async (m, { conn }) => {
 
   // --- LISTENER PINTEREST ---
   conn.pinterestSearch = conn.pinterestSearch || {};
-  // Menangkap balasan dari button ('next_foto') dan ketikan manual ('next foto')
   if (/^(next|next foto|next_foto)$/i.test(teks) && conn.pinterestSearch[m.sender]) {
     let pinData = conn.pinterestSearch[m.sender];
 
@@ -285,7 +282,6 @@ handler.before = async (m, { conn }) => {
 
   // --- LISTENER YOUTUBE SEARCH ---
   conn.ytsSearch = conn.ytsSearch || {};
-  // Menangkap balasan button ('next_video', 'download_video') atau ketikan biasa
   if (/^(next video|next_video|download|download_video)$/i.test(teks) && conn.ytsSearch[m.sender]) {
     let ytsData = conn.ytsSearch[m.sender];
 
@@ -345,9 +341,6 @@ handler.before = async (m, { conn }) => {
       let selectedVid = ytsData.videos[ytsData.currentIndex];
       m.reply(`⏳ _Sedang mengunduh video: *${selectedVid.title}*, mohon tunggu..._`);
 
-      // KUNCI SESI YTS
-      ytsData.hasDownloaded = true;
-
       try {
         const response = await fetch(`https://api.botcahx.eu.org/api/dowloader/yt?url=${encodeURIComponent(selectedVid.url)}&apikey=${global.btc || btc}`);
         const result = await response.json();
@@ -358,11 +351,14 @@ handler.before = async (m, { conn }) => {
             mimetype: 'video/mp4',
             caption: `🍟 *YT Search Downloader*\n🎬 ${selectedVid.title}`
           }, { quoted: m });
+          
+          ytsData.hasDownloaded = true; // Kunci setelah berhasil
+          
         } else {
-          m.reply('❌ Gagal mengunduh file media dari server API.');
+          throw new Error(result.message || 'API gagal mengambil file media');
         }
       } catch (e) {
-        m.reply('❌ Terjadi kesalahan saat mengunduh.');
+        m.reply(`❌ Terjadi kesalahan saat mengunduh:\n_${e.message}_`);
       }
       
       return true;
@@ -371,20 +367,17 @@ handler.before = async (m, { conn }) => {
 
   // --- LISTENER SPOTIFY ---
   conn.spotifySearch = conn.spotifySearch || {};
-  // Regex membaca spasi (lagu 1) MAUPUN balasan button yang pakai underscore (lagu_1)
   let matchSpotify = teks.match(/^lagu[\s_]*([1-5])$/i);
   
   if (matchSpotify && conn.spotifySearch[m.sender]) {
     let spotifyData = conn.spotifySearch[m.sender];
     
-    // Cek apakah user sudah mengunduh lagu sebelumnya di sesi ini
     if (spotifyData.hasDownloaded) {
       m.reply('⚠️ Mohon Cari Pencarian Lain Karna Kau Sudah Download Lagu Tersebut');
       delete conn.spotifySearch[m.sender]; 
       return true;
     }
 
-    // Cek timeout
     if (Date.now() > spotifyData.timeout) {
       m.reply('⏱️ *Sesi Spotify kamu telah berakhir (Batas 5 menit).* Silakan cari ulang.');
       delete conn.spotifySearch[m.sender];
@@ -399,15 +392,17 @@ handler.before = async (m, { conn }) => {
        return true;
     }
     
-    // KUNCI SESI SPOTIFY
-    spotifyData.hasDownloaded = true;
-
     let url = data[index].url;
     m.reply(`⏳ *Mendownload ${data[index].title}...*`);
     
     try {
+      // PERBAIKAN: Dibuat sama persis dengan script lama (TIDAK pakai encodeURIComponent)
       const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${global.btc || btc}`);
       let jsons = await res.json();
+      
+      if (!jsons.status) throw new Error(jsons.message || 'API mengembalikan status false.');
+      if (!jsons.result || !jsons.result.data) throw new Error('Data audio tidak dikembalikan oleh API.');
+
       const { title, url: audioUrl } = jsons.result.data;
       
       await conn.sendMessage(m.chat, { 
@@ -415,8 +410,10 @@ handler.before = async (m, { conn }) => {
         mimetype: 'audio/mpeg'
       }, { quoted: m });
       
+      spotifyData.hasDownloaded = true; // Kunci setelah berhasil
+      
     } catch (e) {
-       m.reply('Gagal mendownload lagu. API sedang bermasalah.');
+       m.reply(`❌ Gagal mendownload lagu. API bermasalah:\n_${e.message}_`);
     }
     return true;
   }
