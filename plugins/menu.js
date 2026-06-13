@@ -4,7 +4,8 @@ let path = require('path')
 let fetch = require('node-fetch')
 let moment = require('moment-timezone')
 let levelling = require('../lib/levelling')
-const { generateWAMessageFromContent } = require('lily-baileys') // Menggunakan lily-baileys sesuai dependencymu
+const { generateWAMessageFromContent } = require('lily-baileys')
+ // Tambahan untuk Native Flow
 
 let arrayMenu = [
   'all', 'ai', 'main', 'downloader', 'database', 'rpg',
@@ -112,7 +113,7 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
         })
 
         // ==========================================
-        // JIKA KETIK ".menu" (LIST UTAMA + TOMBOL LINK)
+        // JIKA KETIK ".menu" (LIST UTAMA - NATIVE FLOW LIST)
         // ==========================================
         if (!teks) {
             let replace = { '%': '%', p: _p, uptime, name, date, time, version }
@@ -128,54 +129,25 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
                     sections[0].rows.push({
                         title: allTags[tag],
                         description: `Menampilkan daftar command ${allTags[tag]}`,
-                        id: `${_p}menu ${tag}` // Diubah menjadi 'id' untuk Native Flow
+                        rowId: `${_p}menu ${tag}` 
                     });
                 }
             }
 
-            let msg = generateWAMessageFromContent(m.chat, {
-                viewOnceMessage: {
-                    message: {
-                        messageContextInfo: {
-                            deviceListMetadata: {},
-                            deviceListMetadataVersion: 2
-                        },
-                        interactiveMessage: {
-                            body: { text: textData },
-                            footer: { text: "© HARPS BOT MD" },
-                            header: { hasMediaAttachment: false },
-                            contextInfo: {
-                                mentionedJid: [m.sender] // Agar tag nama/mention bekerja
-                            },
-                            nativeFlowMessage: {
-                                buttons: [
-                                    {
-                                        name: "single_select",
-                                        buttonParamsJson: JSON.stringify({
-                                            title: "PILIH MENU DISINI ⎙",
-                                            sections: sections
-                                        })
-                                    },
-                                    {
-                                        name: "cta_url",
-                                        buttonParamsJson: JSON.stringify({
-                                            display_text: "📄 Channel",
-                                            url: global.channel || "https://whatsapp.com/channel/0029Vaeovqk1noyyUalf9z16"
-                                        })
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                }
-            }, { quoted: m })
-
-            await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id })
+            await conn.sendList(
+                m.chat, 
+                "🤖 HARPS BOT MD", 
+                textData, 
+                "PILIH MENU DISINI ⎙", 
+                sections, 
+                m, 
+                { mentions: [m.sender] }
+            );
             return
         }
 
         // ==========================================
-        // JIKA BUKA SUB-MENU KATEGORI (MUNCUL BUTTONS + LINK)
+        // JIKA BUKA SUB-MENU KATEGORI (MUNCUL BUTTONS)
         // ==========================================
         if (!allTags[teks]) {
             return m.reply(`Menu "${teks}" tidak tersedia.\nSilakan ketik ${_p}menu untuk melihat daftar menu.`)
@@ -218,6 +190,9 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
         let replace = { '%': '%', p: _p, uptime, name, date, time, version }
         let textCategory = menuCategory.replace(new RegExp(`%(${Object.keys(replace).sort((a, b) => b.length - a.length).join`|`})`, 'g'), (_, name) => '' + replace[name])
 
+        // ==========================================
+        // STRUKTUR BUTTONS BER-LINK (NATIVE FLOW CTA_URL)
+        // ==========================================
         let msg = generateWAMessageFromContent(m.chat, {
             viewOnceMessage: {
                 message: {
@@ -229,9 +204,6 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
                         body: { text: textCategory },
                         footer: { text: "© HARPS BOT MD" },
                         header: { hasMediaAttachment: false },
-                        contextInfo: {
-                            mentionedJid: [m.sender] // Agar tag nama/mention bekerja
-                        },
                         nativeFlowMessage: {
                             buttons: [
                                 {
@@ -245,7 +217,7 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
                                     name: "cta_url",
                                     buttonParamsJson: JSON.stringify({
                                         display_text: "📄 Channel",
-                                        url: global.channel || "https://whatsapp.com/channel/0029Vaeovqk1noyyUalf9z16"
+                                        url: "https://whatsapp.com/channel/0029Vaeovqk1noyyUalf9z16"
                                     })
                                 }
                             ]
