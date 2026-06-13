@@ -1,6 +1,6 @@
 {
-    "name": "harpsmd",
-    "version": "12.6.7",
+    "name": " harpsmd",
+    "version": "1.0.0 BETA",
     "description": "Lightweight WhatsApp Bot",
     "depecrated": false,
     "main": "index.js",
@@ -28,7 +28,7 @@
     ],
     "homepage": "https://github.com/Kevin-b2t/Harps-MD",
     "author": {
-        "name": "HARPS_MD"
+        "name": "HARPSMD"
     },
     "repository": {
         "type": "git",
@@ -39,7 +39,7 @@
     },
     "license": "MIT",
     "dependencies": {
-        "@adiwajshing/baileys": "npm:baileys@7.0.0-rc10",
+        "lily-baileys": "github:kiuur/baileys",
         "@adiwajshing/keyed-db": "^0.2.4",
         "@vitalets/google-translate-api": "^9.0.0",
         "async": "^3.2.4",
