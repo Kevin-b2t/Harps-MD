@@ -107,7 +107,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
             teks += `   ∘ Duration: ${res[i].duration}\n`;
             teks += `   ∘ Popularity: ${res[i].popularity}\n\n`;
             
-            // Tambahkan tombol untuk masing-masing lagu
+            // Tambahkan tombol untuk masing-masing lagu (buttonId: lagu_1, lagu_2, dst)
             buttons.push({ buttonId: `lagu_${i+1}`, buttonText: { displayText: `Lagu ${i+1}` }, type: 1 });
           }
           
@@ -231,9 +231,10 @@ handler.before = async (m, { conn }) => {
   
   let teks = m.text.toLowerCase().trim();
 
-  // --- LISTENER PINTEREST ("next foto") ---
+  // --- LISTENER PINTEREST ---
   conn.pinterestSearch = conn.pinterestSearch || {};
-  if ((teks === 'next' || teks === 'next foto') && conn.pinterestSearch[m.sender]) {
+  // Menangkap balasan dari button ('next_foto') dan ketikan manual ('next foto')
+  if (/^(next|next foto|next_foto)$/i.test(teks) && conn.pinterestSearch[m.sender]) {
     let pinData = conn.pinterestSearch[m.sender];
 
     if (Date.now() > pinData.timeout) {
@@ -282,9 +283,10 @@ handler.before = async (m, { conn }) => {
     return true;
   }
 
-  // --- LISTENER YOUTUBE SEARCH ("next video" & "download") ---
+  // --- LISTENER YOUTUBE SEARCH ---
   conn.ytsSearch = conn.ytsSearch || {};
-  if ((teks === 'next video' || teks === 'download') && conn.ytsSearch[m.sender]) {
+  // Menangkap balasan button ('next_video', 'download_video') atau ketikan biasa
+  if (/^(next video|next_video|download|download_video)$/i.test(teks) && conn.ytsSearch[m.sender]) {
     let ytsData = conn.ytsSearch[m.sender];
 
     if (ytsData.hasDownloaded) {
@@ -299,7 +301,7 @@ handler.before = async (m, { conn }) => {
       return true;
     }
 
-    if (teks === 'next video') {
+    if (/^(next video|next_video)$/i.test(teks)) {
       ytsData.currentIndex += 1;
       let totalVideos = ytsData.videos.length;
 
@@ -339,11 +341,11 @@ handler.before = async (m, { conn }) => {
       return true;
     }
 
-    if (teks === 'download') {
+    if (/^(download|download_video)$/i.test(teks)) {
       let selectedVid = ytsData.videos[ytsData.currentIndex];
       m.reply(`⏳ _Sedang mengunduh video: *${selectedVid.title}*, mohon tunggu..._`);
 
-      // KUNCI SESI
+      // KUNCI SESI YTS
       ytsData.hasDownloaded = true;
 
       try {
@@ -367,9 +369,10 @@ handler.before = async (m, { conn }) => {
     }
   }
 
-  // --- LISTENER SPOTIFY ("lagu 1", "lagu 2", dst) ---
+  // --- LISTENER SPOTIFY ---
   conn.spotifySearch = conn.spotifySearch || {};
-  let matchSpotify = teks.match(/^lagu\s+([1-5])$/);
+  // Regex membaca spasi (lagu 1) MAUPUN balasan button yang pakai underscore (lagu_1)
+  let matchSpotify = teks.match(/^lagu[\s_]*([1-5])$/i);
   
   if (matchSpotify && conn.spotifySearch[m.sender]) {
     let spotifyData = conn.spotifySearch[m.sender];
@@ -396,7 +399,7 @@ handler.before = async (m, { conn }) => {
        return true;
     }
     
-    // KUNCI SESI (Tandai telah di download)
+    // KUNCI SESI SPOTIFY
     spotifyData.hasDownloaded = true;
 
     let url = data[index].url;
