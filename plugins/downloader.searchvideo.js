@@ -355,9 +355,39 @@ handler.before = async (m, { conn }) => {
       
       return true;
     }
+  // --- LISTENER SPOTIFY ("lagu 1", "lagu 2", dst) ---
+  conn.spotifySearch = conn.spotifySearch || {};
+  let matchSpotify = teks.match(/^lagu\s+([1-5])$/);
+  
+  if (matchSpotify && conn.spotifySearch[m.sender]) {
+    let index = parseInt(matchSpotify[1]) - 1;
+    let data = conn.spotifySearch[m.sender];
+    
+    if (!data[index]) {
+       m.reply('Pilihan lagu tidak ada di daftar. Silakan cari ulang.');
+       return true;
+    }
+    
+    let url = data[index].url;
+    m.reply(`⏳ *Mendownload ${data[index].title}...*`);
+    
+    try {
+      const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${global.btc || btc}`);
+      let jsons = await res.json();
+      const { title, url: audioUrl } = jsons.result.data;
+      
+      await conn.sendMessage(m.chat, { 
+        audio: { url: audioUrl }, 
+        mimetype: 'audio/mpeg' 
+      }, { quoted: m });
+      
+      // Hapus sesi spotify setelah lagu berhasil dikirim
+      delete conn.spotifySearch[m.sender];
+    } catch (e) {
+       m.reply('Gagal mendownload lagu. API sedang bermasalah.');
+    }
+    return true; 
   }
-
-  // (Pendengar / Listener Spotify dihilangkan karena prosesnya otomatis langsung selesai)
 };
 
 // ================== KONFIGURASI PLUGIN ==================
