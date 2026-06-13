@@ -156,8 +156,8 @@ module.exports = {
                     if (!isNumber(user.lastBankTax)) user.lastBankTax = 0
                     if (!isNumber(user.lastBansos)) user.lastBansos = 0
                     if (!isNumber(user.lastKorupsi)) user.lastKorupsi = 0
-                    if (!isNumber(user.lastTaxDate)) user.lastTaxDate = 0
-                    
+                    if (!('lastTaxDate' in user)) user.lastTaxDate = 0
+
                     //Tambahan rpg
                     if (!isNumber(user.litecoin)) user.litecoin = 0
                     if (!isNumber(user.chip)) user.chip = 0
@@ -1109,7 +1109,7 @@ module.exports = {
             if (opts['nyimak']) return
             if (!m.fromMe && opts['self']) return
             if (opts['pconly'] && m.chat.endsWith('g.us')) return
-            //if (opts['gconly'] && !m.chat.endsWith('g.us')) return
+            if (opts['gconly'] && !m.chat.endsWith('g.us')) return
             if (opts['swonly'] && m.chat !== 'status@broadcast') return
             if (typeof m.text !== 'string') m.text = ''
             if (opts['queque'] && m.text) {
