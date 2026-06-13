@@ -352,7 +352,7 @@ handler.before = async (m, { conn }) => {
             caption: `🍟 *YT Search Downloader*\n🎬 ${selectedVid.title}`
           }, { quoted: m });
           
-          ytsData.hasDownloaded = true; // Kunci setelah berhasil
+          ytsData.hasDownloaded = true; // Kunci sesi
           
         } else {
           throw new Error('API gagal mengambil file media');
@@ -396,32 +396,23 @@ handler.before = async (m, { conn }) => {
     m.reply(`⏳ *Mendownload ${data[index].title}...*`);
     
     try {
+      // PERBAIKAN: Disamakan persis struktur kodenya dengan block "case 'spotify'"
       const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${global.btc || btc}`);
+      let jsons = await res.json();
       
-      // Ambil respon sebagai text dulu untuk mengecek apakah ini HTML error dari Cloudflare
-      const rawText = await res.text();
-      let jsons;
-      try {
-        jsons = JSON.parse(rawText);
-      } catch (err) {
-        throw new Error('Server API mengembalikan HTML/Error, bukan data lagu.');
-      }
+      const { title, duration, url: audioUrl } = jsons.result.data;
+      const { id, type } = jsons.result.data.artist;
       
-      if (!jsons.status || !jsons.result || !jsons.result.data) {
-        throw new Error('Data audio tidak dikembalikan oleh API.');
-      }
-
-      const { title, url: audioUrl } = jsons.result.data;
+      // Mengirim caption detail lagu layaknya mode pencarian langsung
+      let captionvid = ` ∘ Title: ${title}\n∘ Id: ${id}\n∘ Duration: ${duration}\n∘ Type: ${type}`;
+      await conn.reply(m.chat, captionvid, m);
       
-      await conn.sendMessage(m.chat, { 
-        audio: { url: audioUrl },
-        mimetype: 'audio/mpeg'
-      }, { quoted: m });
+      // Mengirimkan audio
+      await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mpeg' }, { quoted: m });
       
       spotifyData.hasDownloaded = true; // Kunci setelah berhasil
       
     } catch (e) {
-       // Menampilkan pesan error yang sama persis seperti file lamamu
        m.reply('❌ Gagal mendownload lagu. API sedang bermasalah.');
     }
     return true;
