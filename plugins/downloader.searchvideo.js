@@ -355,10 +355,10 @@ handler.before = async (m, { conn }) => {
           ytsData.hasDownloaded = true; // Kunci setelah berhasil
           
         } else {
-          throw new Error(result.message || 'API gagal mengambil file media');
+          throw new Error('API gagal mengambil file media');
         }
       } catch (e) {
-        m.reply(`❌ Terjadi kesalahan saat mengunduh:\n_${e.message}_`);
+        m.reply('❌ Gagal mengunduh file media. API sedang bermasalah.');
       }
       
       return true;
@@ -396,12 +396,20 @@ handler.before = async (m, { conn }) => {
     m.reply(`⏳ *Mendownload ${data[index].title}...*`);
     
     try {
-      // PERBAIKAN: Dibuat sama persis dengan script lama (TIDAK pakai encodeURIComponent)
       const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${url}&apikey=${global.btc || btc}`);
-      let jsons = await res.json();
       
-      if (!jsons.status) throw new Error(jsons.message || 'API mengembalikan status false.');
-      if (!jsons.result || !jsons.result.data) throw new Error('Data audio tidak dikembalikan oleh API.');
+      // Ambil respon sebagai text dulu untuk mengecek apakah ini HTML error dari Cloudflare
+      const rawText = await res.text();
+      let jsons;
+      try {
+        jsons = JSON.parse(rawText);
+      } catch (err) {
+        throw new Error('Server API mengembalikan HTML/Error, bukan data lagu.');
+      }
+      
+      if (!jsons.status || !jsons.result || !jsons.result.data) {
+        throw new Error('Data audio tidak dikembalikan oleh API.');
+      }
 
       const { title, url: audioUrl } = jsons.result.data;
       
@@ -413,7 +421,8 @@ handler.before = async (m, { conn }) => {
       spotifyData.hasDownloaded = true; // Kunci setelah berhasil
       
     } catch (e) {
-       m.reply(`❌ Gagal mendownload lagu. API bermasalah:\n_${e.message}_`);
+       // Menampilkan pesan error yang sama persis seperti file lamamu
+       m.reply('❌ Gagal mendownload lagu. API sedang bermasalah.');
     }
     return true;
   }
