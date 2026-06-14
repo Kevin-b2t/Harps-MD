@@ -55,9 +55,6 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         }
     }
 
-    // Path folder media untuk gambar header
-    let thumbMenu = { url: './media/foto.jpg' };
-
     // ==========================================
     // 1. FITUR : .INVENTORY
     // ==========================================
@@ -80,14 +77,16 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
 │ ⌁ 🎫 *Limit* : ${user.limit || 0}
 │ ⌁ 🏷️ *Title* : ${user.titlein || 'Tidak Ada'}
 │ ⌁ 🪄 *Skill* : ${user.skill ? user.skill : 'Tidak Ada'}
-│
-│ ⌁ *FINANSIAL & ASET*
+╰──────────〔 🫧 〕
+
+╭─〔 💳 〕 *FINANSIAL & ASET*
 │ ⌁ 💵 *Money* : Rp ${(user.money || 0).toLocaleString('id-ID')}
 │ ⌁ 💳 *Bank ATM* : Rp ${(user.bank || 0).toLocaleString('id-ID')}
 │ ⌁ 📉 *Hutang* : ${user.hutangNegara > 0 ? `-Rp ${user.hutangNegara.toLocaleString('id-ID')}` : 'Lunas'}
 │ ⌁ 🗺️ *Luas Lahan* : ${user.tanah || 0} Hektar
-│
-│ ⌁ *STATUS TUBUH*
+╰──────────〔 🫧 〕
+
+╭─〔 💊 〕 *STATUS TUBUH*
 │ ⌁ ❤️ *Health* : ${user.healt || 0}
 │ ⌁ ⚡ *Energi* : ${user.energi || 0}
 │ ⌁ 🏃 *Stamina* : ${user.stamina || 0}
@@ -95,16 +94,18 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
 │ ⌁ 💪 *Strength* : ${user.strenght || 0}
 │ ⌁ 🗡️ *Attack* : ${user.attack || 0}
 │ ⌁ 🛡️ *Defense* : ${user.defense || 0}
-│
-│ ⌁ *SENJATA & ARMOR*
+╰──────────〔 🫧 〕
+
+╭─〔 ⚔️ 〕 *SENJATA & ARMOR*
 │ ⌁ 👕 *Armor* : ${armor == 0 ? 'Tidak Punya' : '' || armor == 1 ? 'Leather Armor' : '' || armor == 2 ? 'Iron Armor' : '' || armor == 3 ? 'Gold Armor' : '' || armor == 4 ? 'Diamond Armor' : '' || armor == 5 ? 'Emerald Armor' : '' || armor == 6 ? 'Crystal Armor' : '' || armor == 7 ? 'Obsidian Armor' : '' || armor == 8 ? 'Netherite Armor' : '' || armor == 9 ? 'Wither Armor' : '' || armor == 10 ? 'Dragon Armor' : '' || armor == 11 ? 'Hacker Armor' : '' || armor == 12 ? 'GOD Armor' : ''}
 │ ⌁ 🛡️ *Shield* : ${shield > 0 ? 'Punya ('+shield+')' : 'Tidak Punya'}
 │ ⌁ 🪖 *Helmet* : ${helmet > 0 ? 'Punya ('+helmet+')' : 'Tidak Punya'}
 │ ⌁ ⚔️ *Sword* : ${sword == 0 ? 'Tidak Punya' : '' || sword == 1 ? 'Wooden Sword' : '' || sword == 2 ? 'Iron Sword' : '' || sword == 3 ? 'Gold Sword' : '' || sword == 4 ? 'Diamond Sword' : '' || sword == 5 ? 'Netherite Sword' : '' || sword == 6 ? 'Crystal Sword' : '' || sword == 7 ? 'Obsidian Sword' : '' || sword == 8 ? 'Netherite Sword' : '' || sword == 9 ? 'Wither Sword' : '' || sword == 10 ? 'Dragon Sword' : '' || sword == 11 ? 'Hacker Sword' : '' || sword == 12 ? 'GOD Sword' : ''}
 │ ⌁ 🎣 *FishingRod* : ${fishingrod > 0 ? 'Punya ('+fishingrod+')' : 'Tidak Punya'}
 │ ⌁ ⛏️ *Pickaxe* : ${pickaxe > 0 ? 'Punya ('+pickaxe+')' : 'Tidak Punya'}
-│
-│ ⌁ *USER BOX*
+╰──────────〔 🫧 〕
+
+╭─〔 📦 〕 *USER BOX*
 │ ⌁ 📦 *Total Box* : ${(user.common||0) + (user.uncommon||0) + (user.rare||0) + (user.epic||0) + (user.mythic||0) + (user.legendary||0) + (user.secret||0) + (user.dark||0) + (user.cheat||0)}
 ╰──────────〔 🫧 〕`
 
@@ -113,12 +114,15 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
             { buttonId: `${usedPrefix}infopet`, buttonText: { displayText: '🐱 INFO PET' }, type: 1 }
         ];
 
+        // Format Document a-la Vinz MD
         return await conn.sendMessage(m.chat, {
-            image: thumbMenu,
+            document: { url: './media/foto.jpg' },
+            mimetype: 'image/jpeg',
+            fileName: 'Harps Bot MD', // Judul file yang akan muncul di samping gambar
             caption: capt.trim(),
             footer: 'Status Profile & Inventory',
             buttons: buttons,
-            headerType: 4 // Header 4 adalah Image
+            headerType: 3 // Mode Document
         }, { quoted: m });
     }
 
@@ -126,7 +130,7 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
     // 2. FITUR : .BACKPACK 
     // ==========================================
     if (cmd === 'backpack') {
-        let txt = `╭─〔 🫧 〕 *BACKPACK*\n`;
+        let txt = `╭─〔 🎒 〕 *BACKPACK*\n`;
         
         if (backpackItems.length === 0) {
             txt += `│ ⌁ _Tas mu saat ini kosong_\n`;
@@ -140,8 +144,11 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         txt += `╰──────────〔 🫧 〕\n_Hanya menampilkan barang yang kamu miliki._`
 
         return await conn.sendMessage(m.chat, {
-            image: thumbMenu,
-            caption: txt.trim()
+            document: { url: './media/foto.jpg' },
+            mimetype: 'image/jpeg',
+            fileName: 'Harps Bot MD',
+            caption: txt.trim(),
+            headerType: 3
         }, { quoted: m });
     }
 
@@ -149,7 +156,7 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
     // 3. FITUR : .INFOPET / .MYPET
     // ==========================================
     if (cmd === 'infopet' || cmd === 'mypet') {
-        let txt = `╭─〔 🫧 〕 *INFO PET*\n`;
+        let txt = `╭─〔 🐱 〕 *INFO PET*\n`;
         txt += `│ ⌁ 👤 *Pemilik:* ${user.name || 'Warga'}\n│\n`;
         txt += `│ ⌁ 🎫 *Pet Token:* ${user.pet || 0}\n`;
         txt += `│ ⌁ 🍖 *Makanan Pet:* ${user.makananpet || 0}\n│\n`;
@@ -193,11 +200,13 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         ];
 
         return await conn.sendMessage(m.chat, {
-            image: thumbMenu,
+            document: { url: './media/foto.jpg' },
+            mimetype: 'image/jpeg',
+            fileName: 'Harps Bot MD',
             caption: txt,
             footer: 'Status Peliharaan',
             buttons: buttons,
-            headerType: 4 // Header 4 adalah Image
+            headerType: 3
         }, { quoted: m });
     }
 
@@ -229,7 +238,7 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         let nettWorth = money + bank + ptCash + itemsValue - hutang;
         let isBankrupt = nettWorth < 0;
 
-        let txt = `╭─〔 🫧 〕 *TOTAL KEKAYAAN*\n`;
+        let txt = `╭─〔 💰 〕 *TOTAL KEKAYAAN*\n`;
         txt += `│ ⌁ 👤 *Pengguna:* ${user.name || 'Warga'}\n│\n`;
         txt += `│ ⌁ *📊 LIKUIDITAS (TUNAI):*\n`;
         txt += `│ ⌁ 💵 *Dompet:* Rp ${money.toLocaleString('id-ID')}\n`;
@@ -251,8 +260,11 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         else txt += `_🚶‍♂️ Status: Menengah Ke Bawah_`;
 
         return await conn.sendMessage(m.chat, {
-            image: thumbMenu,
-            caption: txt.trim()
+            document: { url: './media/foto.jpg' },
+            mimetype: 'image/jpeg',
+            fileName: 'Harps Bot MD',
+            caption: txt.trim(),
+            headerType: 3
         }, { quoted: m });
     }
 }
