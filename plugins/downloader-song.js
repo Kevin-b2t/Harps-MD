@@ -1,55 +1,61 @@
 const fetch = require("node-fetch");
 
 let handler = async (m, { conn, args, usedPrefix, command }) => {
-  if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} https://open.spotify.com/track/1xxx\n${usedPrefix + command} payung teduh`;
+  if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} payung teduh`;
   
-  m.reply(wait);
+  m.reply(typeof wait !== 'undefined' ? wait : '⏳ Sedang diproses...');
   
-  let targetUrl = "";
+  let targetUrl = '';
 
-  // 1. Cek apakah yang dikirim itu link Spotify atau bukan
-  if (/https:\/\/(open\.spotify\.com)/i.test(args[0])) {
-    targetUrl = args[0]; // Jika link, langsung jadikan target
-  } else { 
-    // 2. Jika bukan link, berarti dia nyari judul lagu
-    const text = args.join(" ");
+  // 1. CEK INPUT: Link atau Teks Pencarian?
+  if (args[0].match(/https:\/\/open\.spotify\.com/i)) {
+    targetUrl = args[0]; // Jika link, langsung gunakan
+  } else {
+    // 2. JIKA JUDUL: Lakukan pencarian persis seperti di downloader.searchvideo.js
+    const query = args.join(" ");
     try {
-      // Wajib di-encodeURIComponent agar spasi (contoh: "pun tak boleh") tidak error di API
-      const searchApi = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(text)}&apikey=${btc}`);
-      let searchJson = await searchApi.json();
+      // Encode wajib untuk teks pencarian agar spasi terbaca API
+      const api = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(query)}&apikey=${global.btc || btc}`);
+      let json = await api.json();
       
-      if (!searchJson.status || searchJson.result.data.length === 0) throw 'Lagu tidak ditemukan!';
+      if (!json.result || !json.result.data || json.result.data.length === 0) throw 'Lagu tidak ditemukan!';
       
-      // Ambil hasil pencarian paling atas (nomor 1)
-      targetUrl = searchJson.result.data[0].url; 
+      // Karena kamu minta LANGSUNG DOWNLOAD, kita ambil hasil urutan pertama (index 0)
+      targetUrl = json.result.data[0].url; 
     } catch (e) {
-      throw `🚩 Pencarian gagal. Lagu tidak ditemukan atau API error.`;
+      throw `🚩 Pencarian gagal. Lagu tidak ditemukan atau API bermasalah.`;
     }
   }
 
-  // 3. Proses Download Lagu (dari link langsung ATAU hasil pencarian)
+  // 3. EKSEKUSI DOWNLOAD
   try {
-    // Di sini JANGAN di-encodeURIComponent karena API downloadnya bisa error (kasus invalid json sebelumnya)
-    const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${targetUrl}&apikey=${btc}`);
+    // Tanpa encodeURIComponent untuk URL, persis seperti downloader.searchvideo.js
+    const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${targetUrl}&apikey=${global.btc || btc}`);
     let jsons = await res.json();
     
-    const {
-      thumbnail,
-      title,
-      artist,
-      duration,
-      url
-    } = jsons.result.data;
+    // Sesuaikan parameter data dengan API
+    const { title, duration, url, thumbnail } = jsons.result.data;
     
-    let captionvid = `*Spotify Downloader*\n\n∘ *Title:* ${title}\n∘ *Artist:* ${artist}\n∘ *Duration:* ${duration}\n∘ *Source:* ${targetUrl}`;
+    // Cegah error jika objek artist berbeda format
+    let artistName = jsons.result.data.artist;
+    if (typeof artistName === 'object' && artistName.name) {
+      artistName = artistName.name;
+    }
     
-    // Kirim Thumbnail & Info
-    await conn.sendFile(m.chat, thumbnail, "thumb.png", captionvid, m);
-    // Kirim Audio/Lagu
+    let captionvid = `*Spotify Downloader*\n\n∘ *Title:* ${title}\n∘ *Artist:* ${artistName}\n∘ *Duration:* ${duration}\n∘ *Source:* ${targetUrl}`;
+    
+    // Kirim Thumbnail beserta Caption Info
+    if (thumbnail) {
+      await conn.sendFile(m.chat, thumbnail, "thumb.png", captionvid, m);
+    } else {
+      await conn.reply(m.chat, captionvid, m);
+    }
+    
+    // Kirim Audio MP3
     await conn.sendMessage(m.chat, { audio: { url: url }, mimetype: 'audio/mpeg' }, { quoted: m });
     
   } catch (e) {
-    throw `🚩 ${eror} (Gagal mengunduh atau server sedang down)`;
+    throw `🚩 Gagal mendownload lagu. API sedang bermasalah.`;
   }
 };
 
