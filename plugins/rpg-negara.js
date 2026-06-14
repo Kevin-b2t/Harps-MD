@@ -1,3 +1,5 @@
+const { generateWAMessageFromContent } = require('lily-baileys');
+
 // ==========================================
 // FITUR NEGARA, BANK, BUMN, GUDANG NEGARA & KORUPSI RPG
 // ==========================================
@@ -76,6 +78,60 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         if (!negara.b2bCounter) negara.b2bCounter = 1;
         
         let cmd = command.toLowerCase();
+
+        // ==========================================
+        // FUNGSI LIST BUTTON INFO
+        // ==========================================
+        async function sendInfoList() {
+            let headerText = `╭─〔 🍃 〕 *Info Negara*
+│ ⌁
+│ Pilih menu info di bawah ini:
+╰──────────〔 🍃 〕`;
+            let sections = [{
+                title: "📊 Menu Informasi",
+                rows: [
+                    { title: "🏛️ Info Negara",        description: "Status kas, presiden, pemilu, BUMN",   rowId: `${usedPrefix}negara info` },
+                    { title: "🏢 Info BUMN",           description: "Kinerja & aset PLN / PDAM",           rowId: `${usedPrefix}negara infobumn` },
+                    { title: "📈 Investasiku",         description: "Portofolio & estimasi dividen",        rowId: `${usedPrefix}negara investasiku` },
+                    { title: "📊 Leaderboard",         description: "Papan peringkat valuasi korporasi",   rowId: `${usedPrefix}negara leaderboard` },
+                    { title: "🏦 Info Bank",           description: "Saldo, tarif & akses perbankan",      rowId: `${usedPrefix}bank` },
+                    { title: "🎁 Klaim Bansos",        description: "Ambil jaminan bantuan sosial harian", rowId: `${usedPrefix}negara bansos` },
+                    { title: "📋 Semua Perintah",      description: "Lihat panduan lengkap negara",        rowId: `${usedPrefix}negara help` },
+                ]
+            }];
+            await conn.sendList(
+                m.chat,
+                "🏛️ PEMERINTAHAN",
+                headerText,
+                "📋 Pilih Menu",
+                sections,
+                m
+            );
+        }
+
+        async function sendInfoMsg(text) {
+            let msg = generateWAMessageFromContent(m.chat, {
+                viewOnceMessage: {
+                    message: {
+                        messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                        interactiveMessage: {
+                            body: { text },
+                            footer: { text: "🏛️ Sistem Pemerintahan RPG" },
+                            header: { hasMediaAttachment: false },
+                            nativeFlowMessage: {
+                                buttons: [
+                                    {
+                                        name: "quick_reply",
+                                        buttonParamsJson: JSON.stringify({ display_text: "🔙 Kembali ke Menu", id: `${usedPrefix}negara` })
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }, { quoted: m });
+            await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+        }
 
         // ==========================================
         // AUTO PAJAK HARIAN BANK (0.2% PER HARI) 
@@ -343,86 +399,83 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         // 3. PEMERINTAHAN NEGARA & BUMN LENGKAP
         // ==========================================
         if (/^(negara|gov|pemerintah)$/i.test(cmd)) {
-            let action = args[0] ? args[0].toLowerCase() : 'info';
+            let action = args[0] ? args[0].toLowerCase() : 'menu';
 
             switch (action) {
+                case 'menu':
+                case '':
+                    return await sendInfoList();
+
                 case 'help': {
-                    let txtHelp = `╭━━━• 🏛️ *GOVERNMENT HELP INTERFACE* 🏛️ •━━━╮\n`
-                        + `┃\n`
-                        + `┃ Berikut panduan regulasi kode administrasi negara\n`
-                        + `┃ Gunakan prefix: *${usedPrefix}negara <sub-command>*\n`
-                        + `┃\n`
-                        + `┣━━━ • 👤 *REGULASI WARGA SIPIL* • ━━━┫\n`
-                        + `┃\n`
-                        + `┃ ◦ *info* ➔ Info status & kondisi finansial negara\n`
-                        + `┃ ◦ *infobumn* ➔ Pantau kinerja & aset kas BUMN\n`
-                        + `┃ ◦ *bansos* ➔ Klaim jaminan bantuan sosial harian\n`
-                        + `┃ ◦ *daftarcalon* ➔ Registrasi capres (Biaya: 10M)\n`
-                        + `┃ ◦ *vote @tag* ➔ Coblos hak suara kandidat di TPS\n`
-                        + `┃ ◦ *pinjam <jml>* ➔ Ajukan utang kredit ke Kas Negara\n`
-                        + `┃ ◦ *bayarbank <jml>* ➔ Setor angsuran pelunasan utang\n`
-                        + `┃ ◦ *b2b* ➔ Buka menu Sistem Transaksi Rekber Negara\n`
-                        + `┃\n`
-                        + `┣━━━ • 💼 *BURSA MODAL & KORPORASI* • ━━━┫\n`
-                        + `┃\n`
-                        + `┃ ◦ *investasi <pln/pdam> <nom>* ➔ Suntik dana saham\n`
-                        + `┃ ◦ *investasiku* ➔ Cek portofolio & estimasi dividen\n`
-                        + `┃ ◦ *leaderboard* ➔ Papan peringkat valuasi korporasi\n`
-                        + `┃\n`
-                        + `┣━━━ • 👑 *HAK EKSKLUSIF PRESIDEN* • ━━━┫\n`
-                        + `┃\n`
-                        + `┃ ◦ *pemilu* ➔ Aktivasi / tutup gerbang pendaftaran\n`
-                        + `┃ ◦ *sahkan* ➔ Resmikan pelantikan pemenang capres\n`
-                        + `┃ ◦ *bangunbank* ➔ Dirikan prasarana Bank Central (50M)\n`
-                        + `┃ ◦ *upgradegudang <jml_lv>* ➔ Ekspansi Gudang Negara\n`
-                        + `┃ ◦ *suntikbansos <jml>* ➔ Tambah anggaran kas Bansos\n`
-                        + `┃ ◦ *bangunpln* / *bangunpdam* ➔ Konstruksi BUMN (865M)\n`
-                        + `┃ ◦ *rekrut <pln/pdam> <jml>* ➔ Tambah tenaga kerja\n`
-                        + `┃ ◦ *tagihpln* / *tagihpdam* ➔ Tarik dividen ke Kas Utama\n`
-                        + `┃ ◦ *setinvestbank* / *setinvestpt* ➔ Switch regulasi gerbang\n`
-                        + `┃ ◦ *razia* ➔ Sidak penertiban pajak & sita PT nunggak\n`
-                        + `┃\n`
-                        + `┣━━━ • ⚙️ *SISTEM KRIMINALITAS* • ━━━┫\n`
-                        + `┃\n`
-                        + `┃ ◦ *${usedPrefix}korupsi* ➔ Operasi gelap pencurian anggaran\n`
-                        + `┃\n`
-                        + `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
+                    let txtHelp = 
+`╭─〔 🍃 〕 *List Help Negara*
+│ ⌁
+│ 👤 *REGULASI WARGA SIPIL*
+│ ⌁
+│ ◦ *info* ➔ Info status negara
+│ ◦ *infobumn* ➔ Kinerja & aset BUMN
+│ ◦ *bansos* ➔ Klaim bantuan sosial harian
+│ ◦ *daftarcalon* ➔ Registrasi capres (10M)
+│ ◦ *vote @tag* ➔ Coblos kandidat di TPS
+│ ◦ *pinjam <jml>* ➔ Ajukan utang ke Kas Negara
+│ ◦ *bayarbank <jml>* ➔ Setor pelunasan utang
+│ ◦ *b2b* ➔ Menu Rekber Negara
+│ ⌁
+│ 💼 *BURSA MODAL & KORPORASI*
+│ ⌁
+│ ◦ *investasi <pln/pdam> <nom>* ➔ Suntik saham
+│ ◦ *investasiku* ➔ Portofolio & estimasi dividen
+│ ◦ *leaderboard* ➔ Papan peringkat korporasi
+│ ⌁
+│ 👑 *HAK EKSKLUSIF PRESIDEN*
+│ ⌁
+│ ◦ *pemilu* ➔ Aktivasi / tutup pendaftaran
+│ ◦ *sahkan* ➔ Resmikan pelantikan pemenang
+│ ◦ *bangunbank* ➔ Dirikan Bank Central (50M)
+│ ◦ *upgradegudang <jml_lv>* ➔ Ekspansi Gudang
+│ ◦ *suntikbansos <jml>* ➔ Tambah kas Bansos
+│ ◦ *bangunpln / bangunpdam* ➔ Konstruksi BUMN
+│ ◦ *rekrut <pln/pdam> <jml>* ➔ Tambah karyawan
+│ ◦ *tagihpln / tagihpdam* ➔ Tarik dividen ke Kas
+│ ◦ *setinvestbank / setinvestpt* ➔ Switch gerbang
+│ ◦ *razia* ➔ Sidak pajak & sita PT nunggak
+│ ⌁
+│ ⚙️ *SISTEM KRIMINALITAS*
+│ ⌁
+│ ◦ *${usedPrefix}korupsi* ➔ Operasi gelap pencurian
+│ ⌁
+╰──────────〔 🍃 〕`;
                     return m.reply(txtHelp);
                 }
 
                 case 'info': {
                     let namaPresiden = negara.presiden ? (global.db.data.users[negara.presiden]?.name || negara.presiden.split('@')[0]) : 'Kosong (Anarki)';
-                    let statusJabatan = negara.presiden ? `\n┃ ⏳ *Sisa Jabatan:* ${msToTime((7 * 24 * 60 * 60 * 1000) - (now - negara.waktuLantik))}` : '';
-                    let statusBank = negara.bank ? `🟢 Aktif | [Invest/Pinjam: ${negara.investBankOpen ? 'OPEN' : 'CLOSED'}]` : '🔴 Belum Dibangun';
+                    let statusJabatan = negara.presiden ? `\n│ ⏳ *Sisa Jabatan:* ${msToTime((7 * 24 * 60 * 60 * 1000) - (now - negara.waktuLantik))}` : '';
+                    let statusBank = negara.bank ? `🟢 Aktif | [Invest: ${negara.investBankOpen ? 'OPEN' : 'CLOSED'}]` : '🔴 Belum Dibangun';
                     let statusPemilu = negara.isPemilu ? '🟢 Berlangsung' : '🔴 Ditutup';
                     if (negara.isPemilu && negara.waktuMulaiPemilu) {
                         statusPemilu += ` (${msToTime((60 * 60 * 1000) - (now - negara.waktuMulaiPemilu))})`;
                     }
-
                     let statusPLN = negara.pln ? `🟢 Aktif | ${negara.pln.pelanggan.toLocaleString('id-ID')} User` : '🔴 Belum Dibangun';
                     let statusPDAM = negara.pdam ? `🟢 Aktif | ${negara.pdam.pelanggan.toLocaleString('id-ID')} User` : '🔴 Belum Dibangun';
-                    
                     let capNegara = (negara.gudangLevel || 1) * 180;
                     let usedNegara = Object.values(negara.gudang || {}).reduce((a, b) => a + b, 0);
 
-                    let txt = `╭━━━• 🏛️ *MAJLIS ISTANA KENEGARAAN* 🏛️ •━━━╮\n`
-                        + `┃\n`
-                        + `┃ 👑 *Presiden RI:* @${namaPresiden.split('@')[0]}${statusJabatan}\n`
-                        + `┃ 💰 *Kas Utama Negara:* ${formatRp(negara.kas)}\n`
-                        + `┃ 🎁 *Kas Dana Bansos:* ${formatRp(negara.danaBansos)}\n`
-                        + `┃ 🏦 *Bank Central:* ${statusBank}\n`
-                        + `┃ 📦 *Gudang Negara:* Lv ${negara.gudangLevel} (${usedNegara.toLocaleString('id-ID')} / ${capNegara.toLocaleString('id-ID')} Slot)\n`
-                        + `┃ ⚡ *Sektor BUMN PLN:* ${statusPLN}\n`
-                        + `┃ 💧 *Sektor BUMN PDAM:* ${statusPDAM}\n`
-                        + `┃ 🗳️ *Gerbang Pemilu:* ${statusPemilu}\n`
-                        + `┃ 💼 *Holding Aset Sitaan:* ${negara.bumn.length} Perusahaan Swasta\n`
-                        + `┃\n`
-                        + `┣━━━ • 📢 *INFO SISTEM* • ━━━┫\n`
-                        + `┃\n`
-                        + `┃ Ketik *${usedPrefix+command} help* untuk panduan lengkap\n`
-                        + `┃\n`
-                        + `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
-                    return conn.reply(m.chat, txt, m, { mentions: [negara.presiden].filter(Boolean) });
+                    let txt =
+`╭─〔 🍃 〕 *Info Negara*
+│ ⌁
+│ 👑 *Presiden RI:* ${namaPresiden}${statusJabatan}
+│ 💰 *Kas Utama:* ${formatRp(negara.kas)}
+│ 🎁 *Kas Bansos:* ${formatRp(negara.danaBansos)}
+│ 🏦 *Bank Central:* ${statusBank}
+│ 📦 *Gudang Negara:* Lv ${negara.gudangLevel} (${usedNegara.toLocaleString('id-ID')} / ${capNegara.toLocaleString('id-ID')} Slot)
+│ ⚡ *BUMN PLN:* ${statusPLN}
+│ 💧 *BUMN PDAM:* ${statusPDAM}
+│ 🗳️ *Pemilu:* ${statusPemilu}
+│ 💼 *Aset Sitaan:* ${negara.bumn.length} Perusahaan
+│ ⌁
+╰──────────〔 🍃 〕`;
+                    return await sendInfoMsg(txt);
                 }
 
                 // ==========================================
@@ -627,22 +680,21 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 // ==========================================
                 case 'infobumn':
                 case 'info-bumn': {
-                    let txt = `╭━━━• 🏢 *FINANCIAL REPORT BUMN* 🏢 •━━━╮\n┃\n`;
+                    let txt = `╭─〔 🍃 〕 *Info BUMN*\n│ ⌁\n`;
                     
                     if (negara.pln) {
                         let p = negara.pln;
                         let pelangganPLN = p.pelanggan || 0;
                         let persenPLN = ((pelangganPLN / 5000000) * 100).toFixed(2);
                         let pendapatanPLN = pelangganPLN * 6500;
-                        
-                        txt += `┣ ⚡ *Perusahaan Listrik Negara (PLN)*\n`
-                            + `┃   ◦ Saldo Kas PT: *${formatRp(p.saldo)}*\n`
-                            + `┃   ◦ Tenaga Kerja: ${p.karyawan ? p.karyawan.toLocaleString('id-ID') : 0} / 1jt Orang\n`
-                            + `┃   ◦ Total Pelanggan: ${pelangganPLN.toLocaleString('id-ID')} (${persenPLN}%)\n`
-                            + `┃   ◦ Pendapatan: *${formatRp(pendapatanPLN)} / 15 Menit* _(Pelanggan × Rp 6.500)_\n`
-                            + `┃   ◦ Total Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n┃\n`;
+                        txt += `│ ⚡ *PLN (Persero)*\n`
+                            + `│ ◦ Kas PT: *${formatRp(p.saldo)}*\n`
+                            + `│ ◦ Karyawan: ${(p.karyawan || 0).toLocaleString('id-ID')} / 1jt\n`
+                            + `│ ◦ Pelanggan: ${pelangganPLN.toLocaleString('id-ID')} (${persenPLN}%)\n`
+                            + `│ ◦ Pendapatan: *${formatRp(pendapatanPLN)} / 15 Mnt*\n`
+                            + `│ ◦ Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n│ ⌁\n`;
                     } else {
-                        txt += `┣ ⚡ *PLN Negara:* 🔴 Belum Ada Infrastruktur\n┃\n`;
+                        txt += `│ ⚡ *PLN:* 🔴 Belum Dibangun\n│ ⌁\n`;
                     }
 
                     if (negara.pdam) {
@@ -650,26 +702,24 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let pelangganPDAM = p.pelanggan || 0;
                         let persenPDAM = ((pelangganPDAM / 5000000) * 100).toFixed(2);
                         let pendapatanPDAM = pelangganPDAM * 16000;
-                        
-                        txt += `┣ 💧 *Perusahaan Daerah Air Minum (PDAM)*\n`
-                            + `┃   ◦ Saldo Kas PT: *${formatRp(p.saldo)}*\n`
-                            + `┃   ◦ Tenaga Kerja: ${p.karyawan ? p.karyawan.toLocaleString('id-ID') : 0} / 1jt Orang\n`
-                            + `┃   ◦ Total Pelanggan: ${pelangganPDAM.toLocaleString('id-ID')} (${persenPDAM}%)\n`
-                            + `┃   ◦ Pendapatan: *${formatRp(pendapatanPDAM)} / 15 Menit* _(Pelanggan × Rp 16.000)_\n`
-                            + `┃   ◦ Total Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n┃\n`;
+                        txt += `│ 💧 *PDAM (Persero)*\n`
+                            + `│ ◦ Kas PT: *${formatRp(p.saldo)}*\n`
+                            + `│ ◦ Karyawan: ${(p.karyawan || 0).toLocaleString('id-ID')} / 1jt\n`
+                            + `│ ◦ Pelanggan: ${pelangganPDAM.toLocaleString('id-ID')} (${persenPDAM}%)\n`
+                            + `│ ◦ Pendapatan: *${formatRp(pendapatanPDAM)} / 15 Mnt*\n`
+                            + `│ ◦ Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n│ ⌁\n`;
                     } else {
-                        txt += `┣ 💧 *PDAM Negara:* 🔴 Belum Beroperasi\n┃\n`;
+                        txt += `│ 💧 *PDAM:* 🔴 Belum Beroperasi\n│ ⌁\n`;
                     }
 
                     let totalSitaan = negara.bumn ? negara.bumn.reduce((sum, pt) => sum + (pt.saldo || 0), 0) : 0;
                     let jumlahSitaan = negara.bumn ? negara.bumn.length : 0;
-                    
-                    txt += `┣ 💼 *Holding Portofolio Sitaan Pajak*\n`
-                        + `┃   ◦ Total Entitas Disita: ${jumlahSitaan} PT\n`
-                        + `┃   ◦ Akumulasi Likuiditas Sitaan: *${formatRp(totalSitaan)}*\n`
-                        + `┃\n╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
+                    txt += `│ 💼 *Holding Sitaan Pajak*\n`
+                        + `│ ◦ Total PT Disita: ${jumlahSitaan}\n`
+                        + `│ ◦ Likuiditas: *${formatRp(totalSitaan)}*\n│ ⌁\n`
+                        + `╰──────────〔 🍃 〕`;
 
-                    return m.reply(txt);
+                    return await sendInfoMsg(txt);
                 }
 
                 case 'setinvestbank': {
@@ -885,7 +935,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 }
                 case 'investasiku': {
                     let hasInvestasi = false;
-                    let txt = `╭━━━• 📈 *PORTOFOLIO EMISI SAHAM* 📈 •━━━╮\n┃\n`;
+                    let txt = `╭─〔 🍃 〕 *Portofolio Saham*\n│ ⌁\n`;
                     for (let jenis of ['pln', 'pdam']) {
                         let p = negara[jenis];
                         if (!p || !p.investasi || !p.investasi[sender]) continue;
@@ -893,11 +943,49 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let nominal = p.investasi[sender], totalInv = p.totalInvestasi || 1;
                         let porsi = ((nominal / totalInv) * 100).toFixed(2);
                         let estimasiBagiHasil = Math.floor(p.saldo * 0.05 * (nominal / totalInv));
-                        txt += `┣ 🏢 *${jenis.toUpperCase()} Holdings*\n┃   ◦ Nilai Saham: ${formatRp(nominal)}\n┃   ◦ Kepemilikan: *${porsi}% Share*\n┃   ◦ Est. Dividen Berjalan: ~${formatRp(estimasiBagiHasil)}\n┃\n`;
+                        txt += `│ 🏢 *${jenis.toUpperCase()} Holdings*\n│ ◦ Nilai Saham: ${formatRp(nominal)}\n│ ◦ Kepemilikan: *${porsi}% Share*\n│ ◦ Est. Dividen: ~${formatRp(estimasiBagiHasil)}\n│ ⌁\n`;
                     }
                     if (!hasInvestasi) return m.reply('📊 Rekening bursa Anda kosong. Anda belum menanam saham di BUMN manapun.');
-                    txt += `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
-                    m.reply(txt);
+                    txt += `╰──────────〔 🍃 〕`;
+                    return await sendInfoMsg(txt);
+                }
+                case 'lb':
+                case 'leaderboard': {
+                    let entries = [];
+                    for (let uid in users) {
+                        let u = users[uid]; if (!Array.isArray(u.perusahaan)) continue;
+                        u.perusahaan.forEach(pt => { if (pt) entries.push({ nama: pt.name, pemilik: u.name || uid.split('@')[0], kategori: 'Private', valuasi: hitungAset(pt), saldo: pt.saldo || 0 }); });
+                    }
+                    if (negara.pln) entries.push({ nama: 'PLN (Persero)', pemilik: 'Negara', kategori: 'BUMN', valuasi: ((negara.pln.saldo || 0) + (negara.pln.pelanggan || 0) * 6500 + (negara.pln.karyawan || 0) * 5000000000), saldo: negara.pln.saldo || 0 });
+                    if (negara.pdam) entries.push({ nama: 'PDAM (Persero)', pemilik: 'Negara', kategori: 'BUMN', valuasi: ((negara.pdam.saldo || 0) + (negara.pdam.pelanggan || 0) * 16000 + (negara.pdam.karyawan || 0) * 5000000000), saldo: negara.pdam.saldo || 0 });
+                    
+                    if (!entries.length) return m.reply('📊 Belum ada korporasi yang terdaftar di kementerian bursa.');
+                    entries.sort((a, b) => b.valuasi - a.valuasi);
+                    
+                    let board = entries.slice(0, 10).map((e, i) => {
+                        let badge = e.kategori === 'BUMN' ? '🏛️' : '💼';
+                        return `│ ${i+1}. *${e.nama}* [${badge}]\n│    👤 ${e.pemilik}\n│    💹 ~${formatSingkat(e.valuasi)} | Kas: ${formatRp(e.saldo)}`;
+                    }).join('\n│ ⌁\n');
+                    
+                    let txtLb = `╭─〔 🍃 〕 *Leaderboard Korporasi*\n│ ⌁\n${board}\n│ ⌁\n╰──────────〔 🍃 〕`;
+                    return await sendInfoMsg(txtLb);
+                } {
+                    if (!isPresiden) return m.reply('❌ Khusus Presiden!');
+                    if (!negara.pln) return m.reply('❌ PLN belum dibangun!');
+                    if (negara.pln.saldo <= 0) return m.reply('⚠️ Kas internal PLN kosong.');
+                    
+                    let saldoTotal = negara.pln.saldo, totalInv = negara.pln.totalInvestasi || 0;
+                    let poolBagiHasil = totalInv > 0 ? Math.floor(saldoTotal * 0.05) : 0; 
+                    let masukKas = saldoTotal - poolBagiHasil;
+                    
+                    if (poolBagiHasil > 0 && negara.pln.investasi) {
+                        for (let jid in negara.pln.investasi) {
+                            let porsi = negara.pln.investasi[jid] / totalInv, hasilnya = Math.floor(poolBagiHasil * porsi);
+                            if (hasilnya > 0 && users[jid]) { users[jid].money = (users[jid].money || 0) + hasilnya; }
+                        }
+                    }
+                    negara.kas += masukKas; negara.pln.saldo = 0;
+                    m.reply(`⚡ *CAIR:* Hasil usaha PLN masuk ke Kas Negara sebesar *${formatRp(masukKas)}*.\n🎁 Dividen Investor dibagikan: ${formatRp(poolBagiHasil)}`);
                     break;
                 }
                 case 'tagihpln': {
@@ -939,29 +1027,8 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     break;
                 }
 
-                case 'lb':
-                case 'leaderboard': {
-                    let entries = [];
-                    for (let uid in users) {
-                        let u = users[uid]; if (!Array.isArray(u.perusahaan)) continue;
-                        u.perusahaan.forEach(pt => { if (pt) entries.push({ nama: pt.name, pemilik: u.name || uid.split('@')[0], kategori: 'Private', valuasi: hitungAset(pt), saldo: pt.saldo || 0 }); });
-                    }
-                    if (negara.pln) entries.push({ nama: 'PLN (Persero)', pemilik: 'Negara', kategori: 'BUMN', valuasi: ((negara.pln.saldo || 0) + (negara.pln.pelanggan || 0) * 6500 + (negara.pln.karyawan || 0) * 5000000000), saldo: negara.pln.saldo || 0 });
-                    if (negara.pdam) entries.push({ nama: 'PDAM (Persero)', pemilik: 'Negara', kategori: 'BUMN', valuasi: ((negara.pdam.saldo || 0) + (negara.pdam.pelanggan || 0) * 16000 + (negara.pdam.karyawan || 0) * 5000000000), saldo: negara.pdam.saldo || 0 });
-                    
-                    if (!entries.length) return m.reply('📊 Belum ada korporasi yang terdaftar di kementerian bursa.');
-                    entries.sort((a, b) => b.valuasi - a.valuasi);
-                    
-                    let board = entries.slice(0, 10).map((e, i) => {
-                        let badge = e.kategori === 'BUMN' ? '🏛️' : '💼';
-                        return `${i+1}. *${e.nama}* [${e.kategori} ${badge}]\n   👤 Founder: ${e.pemilik}\n   💹 Valuasi: ~${formatSingkat(e.valuasi)} | Kas PT: ${formatRp(e.saldo)}`;
-                    }).join('\n\n');
-                    
-                    m.reply(`╭━━━• 📊 *LEADERBOARD KORPORASI NASIONAL* •━━━╮\n\n${board}\n\n╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`);
-                    break;
-                }
 
-                default: m.reply(`❌ Sub-perintah salah. Ketik *${usedPrefix+command} help* untuk melihat daftar kode kendali.`);
+                default: m.reply(`❌ Sub-perintah salah. Ketik *${usedPrefix+command} help* untuk panduan lengkap.`);
             }
         }
 
