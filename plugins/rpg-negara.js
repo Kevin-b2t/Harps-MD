@@ -98,7 +98,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             let media = await prepareWAMessageMedia({
                 document: docBuffer,
                 mimetype: 'image/jpeg',
-                fileName: 'Vinz MD.jpg',
+                fileName: 'Vinz MD',
                 jpegThumbnail: thumbBuffer
             }, { upload: conn.waUploadToServer });
 
