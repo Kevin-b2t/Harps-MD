@@ -1,62 +1,55 @@
 const fetch = require("node-fetch");
 
 let handler = async (m, { conn, args, usedPrefix, command }) => {
-  if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT\n${usedPrefix + command} separuh aku`;
+  if (!args[0]) throw `*🚩 Masukkan URL atau judul lagu!*\n\nExample:\n${usedPrefix + command} https://open.spotify.com/track/1xxx\n${usedPrefix + command} payung teduh`;
   
-  m.reply(typeof wait !== 'undefined' ? wait : 'Tunggu sedang di proses...');
+  m.reply(wait);
   
-  let targetUrl = '';
+  let targetUrl = "";
 
-  // 1. Cek apakah input berupa link Spotify
-  if (args[0].match(/https:\/\/(open\.spotify\.com)/i)) {
-    targetUrl = args[0];
-  } else {
-    // 2. Jika berupa pencarian, cari lagu dulu
+  // 1. Cek apakah yang dikirim itu link Spotify atau bukan
+  if (/https:\/\/(open\.spotify\.com)/i.test(args[0])) {
+    targetUrl = args[0]; // Jika link, langsung jadikan target
+  } else { 
+    // 2. Jika bukan link, berarti dia nyari judul lagu
     const text = args.join(" ");
     try {
-      // Pencarian tetap butuh encodeURIComponent untuk menangani spasi
+      // Wajib di-encodeURIComponent agar spasi (contoh: "pun tak boleh") tidak error di API
       const searchApi = await fetch(`https://api.botcahx.eu.org/api/search/spotify?query=${encodeURIComponent(text)}&apikey=${btc}`);
       let searchJson = await searchApi.json();
       
-      if (!searchJson.status || !searchJson.result || !searchJson.result.data || searchJson.result.data.length === 0) {
-          throw new Error('Lagu tidak ditemukan di pencarian!');
-      }
-      targetUrl = searchJson.result.data[0].url; 
+      if (!searchJson.status || searchJson.result.data.length === 0) throw 'Lagu tidak ditemukan!';
       
+      // Ambil hasil pencarian paling atas (nomor 1)
+      targetUrl = searchJson.result.data[0].url; 
     } catch (e) {
-      console.error('[Spotify Search Error]', e);
-      throw `🚩 Pencarian gagal: ${e.message || 'API error'}`;
+      throw `🚩 Pencarian gagal. Lagu tidak ditemukan atau API error.`;
     }
   }
 
-  // 3. Proses Download
+  // 3. Proses Download Lagu (dari link langsung ATAU hasil pencarian)
   try {
-    // HAPUS encodeURIComponent di sini. API Botcahx butuh format link mentah (https://...)
+    // Di sini JANGAN di-encodeURIComponent karena API downloadnya bisa error (kasus invalid json sebelumnya)
     const res = await fetch(`https://api.botcahx.eu.org/api/download/spotify?url=${targetUrl}&apikey=${btc}`);
-    
-    // Pengecekan Anti-Crash: Jika server API merespon dengan HTML (Error <!DOCTYPE>)
-    const contentType = res.headers.get("content-type");
-    if (contentType && contentType.indexOf("application/json") === -1) {
-         throw new Error("Server API Botcahx sedang gangguan/down. Coba lagi nanti ya!");
-    }
-
     let jsons = await res.json();
     
-    if (!jsons.status || !jsons.result || !jsons.result.data) {
-        throw new Error('Gagal mengambil data lagu dari server download!');
-    }
-    
-    const { thumbnail, title, artist, duration, url } = jsons.result.data;
+    const {
+      thumbnail,
+      title,
+      artist,
+      duration,
+      url
+    } = jsons.result.data;
     
     let captionvid = `*Spotify Downloader*\n\n∘ *Title:* ${title}\n∘ *Artist:* ${artist}\n∘ *Duration:* ${duration}\n∘ *Source:* ${targetUrl}`;
     
+    // Kirim Thumbnail & Info
     await conn.sendFile(m.chat, thumbnail, "thumb.png", captionvid, m);
+    // Kirim Audio/Lagu
     await conn.sendMessage(m.chat, { audio: { url: url }, mimetype: 'audio/mpeg' }, { quoted: m });
     
   } catch (e) {
-    console.error('[Spotify Download Error]', e);
-    // Pesan error sekarang akan lebih rapi (misal: "Server API Botcahx sedang gangguan")
-    throw `🚩 ${e.message || 'Gagal memproses lagu.'}`;
+    throw `🚩 ${eror} (Gagal mengunduh atau server sedang down)`;
   }
 };
 
