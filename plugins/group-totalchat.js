@@ -11,7 +11,7 @@ let handler = async (m, { conn }) => {
     const entries = Object.entries(chatData);
     if (entries.length === 0) return m.reply('📭 Belum ada data chat untuk grup ini.');
 
-    m.reply('⏳ Sedang membuat leaderboard...');
+    m.reply('⏳ Mengunci koordinat presisi dan melukis leaderboard...');
 
     try {
         let groupMeta = await conn.groupMetadata(m.chat);
@@ -20,218 +20,152 @@ let handler = async (m, { conn }) => {
         let inactiveMembers = Math.max(0, totalMembers - activeMembers);
         
         let totalMessages = 0;
-        for (let [jid, count] of entries) totalMessages += count;
+        for (let [jid, count] of entries) {
+            totalMessages += count;
+        }
 
         let users = entries.sort((a, b) => b[1] - a[1]).slice(0, 10);
-        let maxMessages = users[0][1];
+        let maxMessages = users[0][1]; 
 
-        // Load background template
         const templateImg = path.join(__dirname, '../media/template_leaderboard.png');
         if (!fs.existsSync(templateImg)) throw 'Gambar template_leaderboard.png tidak ditemukan!';
         
         const background = await loadImage(templateImg);
         const canvas = createCanvas(background.width, background.height);
         const ctx = canvas.getContext('2d');
+
         ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
         // ==========================================
-        // 1. MEMBERS SCANNED (kanan atas)
+        // 1. STATISTIK KANAN ATAS (CUMA ANGKA)
         // ==========================================
         ctx.fillStyle = '#3498DB';
-        ctx.font = 'bold 18px "Courier New", monospace';
-        ctx.textAlign = 'right';
-        ctx.fillText(`[ ${totalMembers} MEMBERS SCANNED ]`, canvas.width - 50, 75);
+        ctx.font = 'bold 20px "Courier New", monospace'; 
+        ctx.textAlign = 'center'; 
+        // Hanya cetak angka, ditimpa pas di atas '---'
+        ctx.fillText(`${totalMembers}`, canvas.width - 250, 72); 
 
         // ==========================================
-        // 2. EMPAT KOTAK STATISTIK
+        // 2. EMPAT KOTAK STATISTIK (KOORDINAT MANUAL KUNCI)
         // ==========================================
-        let activePct   = totalMembers > 0 ? Math.round((activeMembers   / totalMembers) * 100) : 0;
+        let activePct = totalMembers > 0 ? Math.round((activeMembers / totalMembers) * 100) : 0;
         let inactivePct = totalMembers > 0 ? Math.round((inactiveMembers / totalMembers) * 100) : 0;
 
-        const stats = [
-            { val: totalMembers.toString(),              pct: 100,        color: '#3498DB' }, // TOTAL MEMBER  (Biru)
-            { val: activeMembers.toString(),             pct: activePct,  color: '#2ECC71' }, // PERKAN CHAT   (Hijau)
-            { val: inactiveMembers.toString(),           pct: inactivePct,color: '#F1948A' }, // BELUR CNAT    (Pink)
-            { val: totalMessages.toLocaleString('en-US'),pct: 100,        color: '#F4D03F' }, // TOTAL PESAB   (Kuning)
+        // Kita tentukan titik TENGAH (Center X) dari masing-masing kotak putih secara manual
+        const boxes = [
+            { centerX: 155, val: totalMembers.toString(), pct: 100, color: '#3498DB' },         // M
+            { centerX: 385, val: activeMembers.toString(), pct: activePct, color: '#2ECC71' },  // C
+            { centerX: 620, val: inactiveMembers.toString(), pct: inactivePct, color: '#F1948A'}, // X
+            { centerX: 855, val: totalMessages.toLocaleString('en-US'), pct: 100, color: '#F4D03F' } // P
         ];
 
-        // --- KOORDINAT KOTAK ATAS ---
-        // Setiap kotak punya area ~246px lebar, mulai dari X=55
-        // Di dalam kotak: angka besar di kiri, lingkaran persen di sebelah kanan angka
-        const boxStartX  = 55;    // Ujung kiri kotak pertama
-        const boxGap     = 246;   // Lebar per kotak
-        const boxY       = 195;   // Baseline teks angka besar
+        const boxY = 175;           // Tinggi rata-rata untuk teks angka (diturunin biar gak nabrak atas)
+        const circleRadius = 18;    // Lingkaran dikecilin dikit biar gak nabrak garis kotak
+        const barWidth = 160;       // Panjang garis bawah dikecilin biar pas di dalam kotak
 
-        const circleR    = 22;    // Radius lingkaran
-        const circleGapFromText = 10; // Gap antara angka dan lingkaran
+        for (let i = 0; i < boxes.length; i++) {
+            let box = boxes[i];
 
-        const barY       = boxY + 38; // Posisi Y garis bawah
-        const barH       = 6;
-        const barWidth   = 165;
+            // A. Angka Utama (Rata Tengah)
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 34px Arial'; 
+            ctx.fillText(box.val, box.centerX - 10, boxY); // Digeser 10px ke kiri dikit
 
-        for (let i = 0; i < 4; i++) {
-            const stat     = stats[i];
-            const boxLeft  = boxStartX + (i * boxGap);
+            // Titik tengah untuk lingkaran
+            let cX = box.centerX + 65; // Lingkaran ada di sebelah kanan angka
+            let cY = boxY - 10;        // Lingkaran naik dikit dari garis bawah angka
 
-            // --- Ukur lebar teks angka agar lingkaran ikut rapat ---
-            ctx.font       = 'bold 36px Arial';
-            ctx.textAlign  = 'left';
-            ctx.textBaseline = 'alphabetic';
-            const textW    = ctx.measureText(stat.val).width;
-
-            // A. Teks angka besar
-            ctx.fillStyle  = '#000000';
-            ctx.fillText(stat.val, boxLeft, boxY);
-
-            // B. Pusat lingkaran (di sebelah kanan angka, tengah-tengah tinggi angka ~36px)
-            const cX = boxLeft + textW + circleGapFromText + circleR;
-            const cY = boxY - 14; // ~setengah tinggi font 36px ke atas
-
-            // Lingkaran abu-abu (background)
+            // B. Lingkaran Dasar (Abu-abu)
             ctx.beginPath();
-            ctx.arc(cX, cY, circleR, 0, 2 * Math.PI);
-            ctx.strokeStyle = '#DCDCDC';
-            ctx.lineWidth   = 4;
+            ctx.arc(cX, cY, circleRadius, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#EAEAEA';
+            ctx.lineWidth = 4;
             ctx.stroke();
 
-            // Lingkaran progress (warna)
+            // C. Lingkaran Progress (Warna)
             ctx.beginPath();
-            const startAngle = -Math.PI / 2; // Jam 12
-            const endAngle   = startAngle + (stat.pct / 100) * (2 * Math.PI);
-            ctx.arc(cX, cY, circleR, startAngle, endAngle);
-            ctx.strokeStyle = stat.color;
-            ctx.lineWidth   = 4;
+            let startAngle = Math.PI * 1.5; 
+            let endAngle = startAngle + (box.pct / 100) * (2 * Math.PI);
+            ctx.arc(cX, cY, circleRadius, startAngle, endAngle);
+            ctx.strokeStyle = box.color;
             ctx.stroke();
 
-            // Teks persen di tengah lingkaran
-            ctx.font         = 'bold 11px Arial';
-            ctx.textAlign    = 'center';
+            // D. Teks Persen di Tengah Lingkaran
+            ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle    = '#222222';
-            ctx.fillText(`${stat.pct}%`, cX, cY);
-
-            // Reset baseline
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 10px Arial';
+            ctx.fillText(`${box.pct}%`, cX, cY);
             ctx.textBaseline = 'alphabetic';
 
-            // C. Garis bawah (abu-abu)
-            ctx.fillStyle = '#E0E0E0';
-            ctx.fillRect(boxLeft, barY, barWidth, barH);
-
-            // Garis bawah progress (warna)
-            ctx.fillStyle = stat.color;
-            ctx.fillRect(boxLeft, barY, barWidth * (stat.pct / 100), barH);
+            // E. Garis Progress Bawah
+            let bX = box.centerX - 85; // Tarik ujungnya ke kiri
+            let bY = boxY + 40;        // Turunin ke bagian bawah kotak putih
+            
+            ctx.fillStyle = '#EAEAEA'; // Background abu
+            ctx.fillRect(bX, bY, barWidth, 6);
+            ctx.fillStyle = box.color; // Progress warna
+            ctx.fillRect(bX, bY, barWidth * (box.pct / 100), 6);
         }
 
         // ==========================================
-        // 3. LEADERBOARD BAWAH
+        // 3. DAFTAR LEADERBOARD BAWAH
         // ==========================================
-        const rankBadgeX = 48;      // Tengah badge rank (#01 dst)
-        const rankBadgeW = 30;      // Lebar badge
-        const rankBadgeH = 18;      // Tinggi badge
+        const startY = 405;       // DITURUNIN JAUH biar sejajar sama karakter Avatar
+        const gapY = 66;          // Jarak turun per baris
+        const nameX = 110;        // Teks Nomor
+        const barStartX = 405;    // DIMUNDURIN KE KANAN biar sejajar sama kotak abu-abu template
+        const countX = canvas.width - 50; 
+        const maxBarWidth = 400;  // Dipendekin biar gak nembus ke kanan
 
-        const nameX      = 100;     // Mulai teks nama/nomor WA
-        const subNameX   = nameX;   // Sub-teks @nomor
-        const barStartX  = 320;     // Mulai balok warna
-        const maxBarW    = canvas.width - barStartX - 90; // Batas kanan balok
-        const countX     = canvas.width - 50; // Posisi angka count (rata kanan)
-
-        const startY     = 370;     // Y baris pertama (tengah-tengah teks nama)
-        const gapY       = 66.5;    // Jarak antar baris
-
-        // Warna balok sesuai referensi gambar
-        const barColors  = ['#F4D03F', '#5DADE2', '#F1948A', '#48C9B0', '#AF7AC5', '#EB984E', '#5DADE2', '#F4D03F', '#F1948A', '#48C9B0'];
-
-        // Warna badge rank
-        const badgeColors = [
-            '#E74C3C', // 01 – merah
-            '#E67E22', // 02 – oranye
-            '#E74C3C', // 03 – merah muda
-            '#2ECC71', // 04 – hijau
-            '#3498DB', // 05 – biru
-            '#8E44AD', // 06 – ungu
-            '#2980B9', // 07 – biru tua
-            '#F39C12', // 08 – kuning
-            '#C0392B', // 09 – merah tua
-            '#7F8C8D', // 10 – abu
-        ];
+        const barColors = ['#F4D03F', '#5DADE2', '#F1948A', '#48C9B0', '#AF7AC5', '#EB984E', '#5DADE2', '#F4D03F', '#F1948A', '#48C9B0'];
 
         for (let i = 0; i < users.length; i++) {
             const [jid, count] = users[i];
-            const y = startY + (i * gapY);
+            const currentY = startY + (i * gapY);
+            let noWa = jid.split('@')[0];
+            
+            // Teks Nomor WA 
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 22px Arial'; 
+            let displayWa = noWa.length > 15 ? noWa.substring(0, 15) + '...' : noWa;
+            ctx.fillText(displayWa, nameX, currentY);
 
-            const noWa      = jid.split('@')[0];
-            const displayWa = noWa.length > 16 ? noWa.substring(0, 16) + '...' : noWa;
-            const barW      = (count / maxMessages) * maxBarW;
-            const rankNum   = String(i + 1).padStart(2, '0');
+            // Sub-teks @nomor
+            ctx.fillStyle = '#7F8C8D';
+            ctx.font = '12px Arial';
+            ctx.fillText(`@${displayWa}`, nameX, currentY + 16);
 
-            // --- Badge rank (#01 dst) ---
-            const badgeX = rankBadgeX - rankBadgeW / 2;
-            const badgeY = y - rankBadgeH + 2;
-            ctx.fillStyle    = badgeColors[i] || '#7F8C8D';
-            roundRect(ctx, badgeX, badgeY, rankBadgeW, rankBadgeH, 4);
+            // Balok Warna
+            let barWidth = (count / maxMessages) * maxBarWidth; 
+            ctx.fillStyle = barColors[i] || '#BDC3C7';
+            // Tinggi dibikin 12px aja dan posisinya diturunin (currentY - 12) biar numpuk pas di kotak abu template
+            ctx.fillRect(barStartX, currentY - 12, barWidth, 12); 
 
-            ctx.font         = 'bold 11px Arial';
-            ctx.textAlign    = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle    = '#FFFFFF';
-            ctx.fillText(rankNum, rankBadgeX, badgeY + rankBadgeH / 2);
-            ctx.textBaseline = 'alphabetic';
-
-            // --- Teks nomor WA (besar) ---
-            ctx.textAlign    = 'left';
-            ctx.fillStyle    = '#000000';
-            ctx.font         = 'bold 22px Arial';
-            ctx.fillText(displayWa, nameX, y);
-
-            // --- Sub-teks @nomor ---
-            ctx.fillStyle    = '#7F8C8D';
-            ctx.font         = '12px Arial';
-            ctx.fillText(`@${displayWa}`, subNameX, y + 17);
-
-            // --- Balok progress ---
-            ctx.fillStyle    = barColors[i] || '#BDC3C7';
-            ctx.fillRect(barStartX, y - 12, barW, 14);
-
-            // --- Angka jumlah pesan ---
-            ctx.textAlign    = 'right';
-            ctx.fillStyle    = '#000000';
-            ctx.font         = 'bold 24px Arial';
-            ctx.fillText(count.toLocaleString('en-US'), countX, y);
-        }
-
-        // ==========================================
-        // HELPER: roundRect (rounded rectangle fill)
-        // ==========================================
-        function roundRect(ctx, x, y, w, h, r) {
-            ctx.beginPath();
-            ctx.moveTo(x + r, y);
-            ctx.lineTo(x + w - r, y);
-            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-            ctx.lineTo(x + w, y + h - r);
-            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-            ctx.lineTo(x + r, y + h);
-            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-            ctx.lineTo(x, y + r);
-            ctx.quadraticCurveTo(x, y, x + r, y);
-            ctx.closePath();
-            ctx.fill();
+            // Angka Jumlah Pesan
+            ctx.textAlign = 'right'; 
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(count.toLocaleString('en-US'), countX, currentY);
         }
 
         const imageBuffer = canvas.toBuffer('image/png');
-        await conn.sendMessage(m.chat, {
-            image: imageBuffer,
-            caption: '🏆 *LEADERBOARD TOTAL CHAT GRUP* 🏆'
+        await conn.sendMessage(m.chat, { 
+            image: imageBuffer, 
+            caption: '🏆 *LEADERBOARD TOTAL CHAT GRUP* 🏆\n\nDesain sudah dirapikan dengan koordinat manual!' 
         }, { quoted: m });
 
     } catch (e) {
         console.error(e);
-        m.reply(`❌ Gagal membuat gambar:\n\n${e.message || e}`);
+        m.reply(`❌ Gagal membuat gambar:\n\n${e.message}`);
     }
 };
 
-handler.help    = ['topgambar'];
-handler.tags    = ['group'];
+handler.help = ['topgambar'];
+handler.tags = ['group'];
 handler.command = /^(topgambar)$/i;
-handler.group   = true;
+handler.group = true;
 
 module.exports = handler;
