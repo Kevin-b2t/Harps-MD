@@ -6,13 +6,9 @@ let handler = async (m, { conn, participants }) => {
   m.reply('⏳ Memproses leaderboard...');
 
   try {
-    // ========================
-    // UBAH JADI true KALAU SUDAH ADA DATA REAL
-    const hasRealData = false;
-    // ========================
+    const hasRealData = false; // ubah jadi true kalau sudah ada data real
 
     if (hasRealData) {
-      // Generate otomatis (nanti diisi data real)
       const data = {
         totalMembers: participants.length,
         pernahChat: 0,
@@ -29,10 +25,9 @@ let handler = async (m, { conn, participants }) => {
       const buffer = await generateLeaderboardImage(data);
       await conn.sendMessage(m.chat, { image: buffer, caption: '📊 Top Chat Leaderboard' }, { quoted: m });
     } else {
-      // Kirim gambar dari media
       await conn.sendMessage(m.chat, {
         image: { url: './media/totalchat.png' },
-        caption: '📊 *TOP CHAT LEADERBOARD*\n\n_Saat ini masih menggunakan gambar statis._'
+        caption: '📊 *TOP CHAT LEADERBOARD*'
       }, { quoted: m });
     }
   } catch (e) {
@@ -41,9 +36,9 @@ let handler = async (m, { conn, participants }) => {
   }
 };
 
-handler.help = ['totalchat'];
+handler.help = ['totalchatimg'];
 handler.tags = ['group'];
-handler.command = /^(totalchat|leaderboard|topchat)$/i;
+handler.command = /^(totalchatimg|leaderboardimg)$/i;   // ← Command baru
 handler.group = true;
 
 module.exports = handler;
