@@ -1,44 +1,30 @@
-const { generateLeaderboardImage } = require('../lib/group-totalchat');
+const { generateLeaderboard } = require('../group-totalchat');
 
-let handler = async (m, { conn, participants }) => {
-  if (!m.isGroup) return m.reply('Fitur ini hanya bisa digunakan di dalam grup!');
-
-  m.reply('⏳ Memproses leaderboard...');
-
-  try {
-    const hasRealData = false; // ubah jadi true kalau sudah ada data real
-
-    if (hasRealData) {
-      const data = {
-        totalMembers: participants.length,
-        pernahChat: 0,
-        belumChat: participants.length,
-        totalPesan: 0,
-        membersScanned: participants.length,
-        topMembers: Array.from({ length: 10 }, (_, i) => ({
-          rank: i + 1,
-          phone: '-',
-          username: '-',
-          messageCount: 0
-        }))
-      };
-      const buffer = await generateLeaderboardImage(data);
-      await conn.sendMessage(m.chat, { image: buffer, caption: '📊 Top Chat Leaderboard' }, { quoted: m });
-    } else {
-      await conn.sendMessage(m.chat, {
-        image: { url: './media/totalchat.png' },
-        caption: '📊 *TOP CHAT LEADERBOARD*'
-      }, { quoted: m });
+let handler = async (m, { conn }) => {
+    if (!m.isGroup) throw 'Perintah ini hanya bisa digunakan di dalam grup!';
+    
+    m.reply('⏳ Sedang menggambar leaderboard, mohon tunggu sebentar...');
+    
+    try {
+        // Proses generate gambar dari Canvas
+        const imageBuffer = await generateLeaderboard(m.chat);
+        
+        // Mengirimkan hasil gambar ke WhatsApp (Format Baileys MD)
+        await conn.sendMessage(m.chat, { 
+            image: imageBuffer, 
+            caption: '🏆 *LEADERBOARD TOTAL CHAT GRUP* 🏆\n\nSiapa yang paling aktif di grup ini?' 
+        }, { quoted: m });
+        
+    } catch (error) {
+        console.error(error);
+        m.reply(`❌ Gagal menampilkan gambar leaderboard:\n\n${error.message}`);
     }
-  } catch (e) {
-    console.error(e);
-    m.reply('❌ Gagal memproses leaderboard.');
-  }
-};
+}
 
-handler.help = ['totalchatimg'];
+handler.help = ['topgambar'];
 handler.tags = ['group'];
-handler.command = /^(totalchatimg|leaderboardimg)$/i;   // ← Command baru
+// COMMAND KITA UBAH JADI topgambar AGAR TIDAK BENTROK
+handler.command = /^(topgambar|leaderboardgambar)$/i; 
 handler.group = true;
 
 module.exports = handler;
