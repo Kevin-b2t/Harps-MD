@@ -1,6 +1,7 @@
-const { generateWAMessageFromContent } = require('lily-baileys');
+const { generateWAMessageFromContent, prepareWAMessageMedia } = require('lily-baileys');
 const fs = require('fs');
 const path = require('path');
+const fetch = require('node-fetch');
 
 // ==========================================
 // FITUR NEGARA, BANK, BUMN, GUDANG NEGARA & KORUPSI RPG
@@ -82,64 +83,79 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         let cmd = command.toLowerCase();
 
         // ==========================================
-        // KONFIGURASI GAMBAR DOKUMEN VINZ MD
+        // KONFIGURASI BUFFER GAMBAR DOKUMEN (AMAN DARI ERROR)
         // ==========================================
-        let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
-        let docBuffer;
-        let thumbBuffer;
+        let docBuffer, thumbBuffer;
         try {
+            let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
             docBuffer = fs.readFileSync(imgPath);
             thumbBuffer = fs.readFileSync(imgPath);
         } catch (e) {
-            // Fallback jika foto lokal terhapus/hilang
-            docBuffer = { url: 'https://telegra.ph/file/0b32e0a0bb025d5173167.jpg' };
-            thumbBuffer = null;
+            // Jika foto lokal di media/foto.jpg tidak ditemukan, otomatis unduh gambar dummy agar bot tidak crash
+            let res = await fetch('https://telegra.ph/file/0b32e0a0bb025d5173167.jpg');
+            docBuffer = await res.buffer();
+            thumbBuffer = docBuffer;
         }
 
         // ==========================================
-        // FUNGSI MENU UTAMA & INFO (DENGAN TAMPILAN DOKUMEN + LIST V2)
+        // FUNGSI MENU UTAMA (INTERACTIVE LIST V2 + DOCUMENT)
         // ==========================================
         async function sendInfoMenu() {
             let txtMenu = `╭─〔 🏛️ 〕 *PEMERINTAHAN*\n│ ⌁\n│ Silakan tekan tombol *Pilih Menu*\n│ di bawah untuk melihat daftar\n│ lengkap informasi negara.\n╰──────────〔 🍃 〕`;
 
-            // Membuat tombol tipe List / Native Flow Message untuk Baileys v2
-            let buttons = [
-                {
-                    name: "single_select",
-                    buttonParamsJson: JSON.stringify({
-                        title: "📋 Pilih Menu",
-                        sections: [
-                            {
-                                title: "📊 Informasi & Bantuan",
-                                highlight_label: "Terkini",
-                                rows: [
-                                    { header: "", title: "🏛️ Info Negara", description: "Status kas, presiden, & kabinet", id: `${usedPrefix}negara info` },
-                                    { header: "", title: "🏢 Info BUMN", description: "Kinerja operasional PLN & PDAM", id: `${usedPrefix}negara infobumn` },
-                                    { header: "", title: "📈 Investasiku", description: "Portofolio saham & estimasi dividen", id: `${usedPrefix}negara investasiku` },
-                                    { header: "", title: "📊 Leaderboard", description: "Papan peringkat valuasi korporasi", id: `${usedPrefix}negara leaderboard` },
-                                    { header: "", title: "🏦 Layanan Bank", description: "Informasi profil & tarif bank", id: `${usedPrefix}bank` },
-                                    { header: "", title: "🎁 Klaim Bansos", description: "Ambil bantuan subsidi harian", id: `${usedPrefix}negara bansos` },
-                                    { header: "", title: "📋 Panduan Negara", description: "Semua perintah kenegaraan", id: `${usedPrefix}negara help` }
+            // Membuat media dokumen ke server WA
+            let media = await prepareWAMessageMedia({ 
+                document: docBuffer, 
+                mimetype: 'image/jpeg', 
+                fileName: 'Vinz MD', 
+                jpegThumbnail: thumbBuffer 
+            }, { upload: conn.waUploadToServer });
+
+            // Merakit Pesan Interaktif V2 (Native Flow List)
+            let msg = generateWAMessageFromContent(m.chat, {
+                viewOnceMessage: {
+                    message: {
+                        messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                        interactiveMessage: {
+                            body: { text: txtMenu },
+                            footer: { text: "Sistem Pemerintahan RPG" },
+                            header: {
+                                hasMediaAttachment: true,
+                                documentMessage: media.documentMessage
+                            },
+                            nativeFlowMessage: {
+                                buttons: [
+                                    {
+                                        name: "single_select",
+                                        buttonParamsJson: JSON.stringify({
+                                            title: "📋 Pilih Menu Info",
+                                            sections: [
+                                                {
+                                                    title: "📊 Informasi & Layanan Negara",
+                                                    rows: [
+                                                        { header: "", title: "🏛️ Info Negara", description: "Status kas, presiden, & kabinet", id: `${usedPrefix}negara info` },
+                                                        { header: "", title: "🏢 Info BUMN", description: "Kinerja operasional PLN & PDAM", id: `${usedPrefix}negara infobumn` },
+                                                        { header: "", title: "📈 Investasiku", description: "Portofolio saham & estimasi dividen", id: `${usedPrefix}negara investasiku` },
+                                                        { header: "", title: "📊 Leaderboard", description: "Papan peringkat valuasi korporasi", id: `${usedPrefix}negara leaderboard` },
+                                                        { header: "", title: "🏦 Layanan Bank", description: "Informasi profil & tarif bank", id: `${usedPrefix}bank` },
+                                                        { header: "", title: "🎁 Klaim Bansos", description: "Ambil bantuan subsidi harian", id: `${usedPrefix}negara bansos` },
+                                                        { header: "", title: "📋 Panduan Lengkap", description: "Semua perintah kenegaraan", id: `${usedPrefix}negara help` }
+                                                    ]
+                                                }
+                                            ]
+                                        })
+                                    }
                                 ]
                             }
-                        ]
-                    })
+                        }
+                    }
                 }
-            ];
-
-            await conn.sendMessage(m.chat, {
-                document: docBuffer,
-                jpegThumbnail: thumbBuffer,
-                mimetype: 'image/jpeg',
-                fileName: 'Vinz MD',
-                caption: txtMenu,
-                footer: 'Sistem Pemerintahan RPG',
-                buttons: buttons,
-                headerType: 3
             }, { quoted: m });
+
+            await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
         }
 
-        // Fungsi ketika list diklik dan mengeluarkan output informasi
+        // Fungsi pesan sub-menu dengan tombol "Kembali ke Menu"
         async function sendInfoMsg(text) {
              let buttons = [
                  { buttonId: `${usedPrefix}negara menu`, buttonText: { displayText: '🔙 Kembali ke Menu' }, type: 1 }
@@ -284,7 +300,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     + `┃\n`
                     + `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
                 
-                // Bank Profile juga menggunakan mode Dokumen "Vinz MD"
                 return await conn.sendMessage(m.chat, {
                     document: docBuffer,
                     jpegThumbnail: thumbBuffer,
