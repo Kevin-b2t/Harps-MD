@@ -140,7 +140,7 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
             document: docBuffer,
             jpegThumbnail: fs.existsSync(imgPath) ? fs.readFileSync(imgPath) : null,
             mimetype: 'image/jpeg',
-            fileName: 'Vinz MD.jpg', // Ekstensi .jpg dipaksa agar nama override tembus
+            fileName: 'Vinz MD', // Ekstensi .jpg dipaksa agar nama override tembus
             caption: capt.trim(),
             footer: 'Status Profile & Inventory',
             buttons: buttons,
@@ -168,7 +168,7 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
             document: docBuffer,
             jpegThumbnail: fs.existsSync(imgPath) ? fs.readFileSync(imgPath) : null,
             mimetype: 'image/jpeg',
-            fileName: 'Vinz MD.jpg',
+            fileName: 'Vinz MD',
             caption: txt.trim(),
             headerType: 3
         }, { quoted: m });
@@ -214,7 +214,7 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
             document: docBuffer,
             jpegThumbnail: fs.existsSync(imgPath) ? fs.readFileSync(imgPath) : null,
             mimetype: 'image/jpeg',
-            fileName: 'Vinz MD.jpg',
+            fileName: 'Vinz MD',
             caption: txt,
             footer: 'Status Peliharaan',
             buttons: buttons,
@@ -271,7 +271,7 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
             document: docBuffer,
             jpegThumbnail: fs.existsSync(imgPath) ? fs.readFileSync(imgPath) : null,
             mimetype: 'image/jpeg',
-            fileName: 'Vinz MD.jpg',
+            fileName: 'Vinz MD',
             caption: txt.trim(),
             headerType: 3
         }, { quoted: m });

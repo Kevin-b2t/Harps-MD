@@ -1,4 +1,6 @@
 const { generateWAMessageFromContent } = require('lily-baileys');
+const fs = require('fs');
+const path = require('path');
 
 // ==========================================
 // FITUR NEGARA, BANK, BUMN, GUDANG NEGARA & KORUPSI RPG
@@ -80,57 +82,78 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         let cmd = command.toLowerCase();
 
         // ==========================================
-        // FUNGSI LIST BUTTON INFO
+        // KONFIGURASI GAMBAR DOKUMEN VINZ MD
         // ==========================================
-        async function sendInfoList() {
-            let headerText = `╭─〔 🍃 〕 *Info Negara*
+        let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
+        let docBuffer;
+        let thumbBuffer;
+        try {
+            docBuffer = fs.readFileSync(imgPath);
+            thumbBuffer = fs.readFileSync(imgPath);
+        } catch (e) {
+            // Fallback jika foto lokal terhapus/hilang
+            docBuffer = { url: 'https://telegra.ph/file/0b32e0a0bb025d5173167.jpg' };
+            thumbBuffer = null;
+        }
+
+        // ==========================================
+        // FUNGSI MENU UTAMA & INFO (DENGAN TAMPILAN DOKUMEN)
+        // ==========================================
+        async function sendInfoMenu() {
+            let txtMenu = `╭─〔 🏛️ 〕 *PEMERINTAHAN*
 │ ⌁
-│ Pilih menu info di bawah ini:
+│ Silakan pilih menu informasi 
+│ negara yang Anda butuhkan:
+│
+│ ◦ *${usedPrefix}negara info*
+│    _(Status Kas & Kabinet)_
+│ ◦ *${usedPrefix}negara infobumn*
+│    _(Kinerja BUMN)_
+│ ◦ *${usedPrefix}negara investasiku*
+│    _(Portofolio Dividen)_
+│ ◦ *${usedPrefix}negara leaderboard*
+│    _(Papan Korporasi)_
+│ ◦ *${usedPrefix}bank*
+│    _(Layanan Perbankan)_
+│ ◦ *${usedPrefix}negara bansos*
+│    _(Klaim Subsidi)_
+│ ◦ *${usedPrefix}negara help*
+│    _(Panduan Lengkap)_
+│ ⌁
 ╰──────────〔 🍃 〕`;
-            let sections = [{
-                title: "📊 Menu Informasi",
-                rows: [
-                    { title: "🏛️ Info Negara",        description: "Status kas, presiden, pemilu, BUMN",   rowId: `${usedPrefix}negara info` },
-                    { title: "🏢 Info BUMN",           description: "Kinerja & aset PLN / PDAM",           rowId: `${usedPrefix}negara infobumn` },
-                    { title: "📈 Investasiku",         description: "Portofolio & estimasi dividen",        rowId: `${usedPrefix}negara investasiku` },
-                    { title: "📊 Leaderboard",         description: "Papan peringkat valuasi korporasi",   rowId: `${usedPrefix}negara leaderboard` },
-                    { title: "🏦 Info Bank",           description: "Saldo, tarif & akses perbankan",      rowId: `${usedPrefix}bank` },
-                    { title: "🎁 Klaim Bansos",        description: "Ambil jaminan bantuan sosial harian", rowId: `${usedPrefix}negara bansos` },
-                    { title: "📋 Semua Perintah",      description: "Lihat panduan lengkap negara",        rowId: `${usedPrefix}negara help` },
-                ]
-            }];
-            await conn.sendList(
-                m.chat,
-                "🏛️ PEMERINTAHAN",
-                headerText,
-                "📋 Pilih Menu",
-                sections,
-                m
-            );
+
+            let buttons = [
+                { buttonId: `${usedPrefix}negara info`, buttonText: { displayText: '🏛️ Info Negara' }, type: 1 },
+                { buttonId: `${usedPrefix}negara bansos`, buttonText: { displayText: '🎁 Bansos' }, type: 1 },
+                { buttonId: `${usedPrefix}negara help`, buttonText: { displayText: '📋 Bantuan' }, type: 1 }
+            ];
+
+            await conn.sendMessage(m.chat, {
+                document: docBuffer,
+                jpegThumbnail: thumbBuffer,
+                mimetype: 'image/jpeg',
+                fileName: 'Vinz MD',
+                caption: txtMenu,
+                footer: 'Sistem Pemerintahan RPG',
+                buttons: buttons,
+                headerType: 3
+            }, { quoted: m });
         }
 
         async function sendInfoMsg(text) {
-            let msg = generateWAMessageFromContent(m.chat, {
-                viewOnceMessage: {
-                    message: {
-                        messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                        interactiveMessage: {
-                            body: { text },
-                            footer: { text: "🏛️ Sistem Pemerintahan RPG" },
-                            header: { hasMediaAttachment: false },
-                            nativeFlowMessage: {
-                                buttons: [
-                                    {
-                                        name: "quick_reply",
-                                        buttonParamsJson: JSON.stringify({ display_text: "🔙 Kembali ke Menu", id: `${usedPrefix}negara` })
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                }
-            }, { quoted: m });
-            await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+             let buttons = [
+                 { buttonId: `${usedPrefix}negara menu`, buttonText: { displayText: '🔙 Kembali ke Menu' }, type: 1 }
+             ];
+             await conn.sendMessage(m.chat, {
+                 document: docBuffer,
+                 jpegThumbnail: thumbBuffer,
+                 mimetype: 'image/jpeg',
+                 fileName: 'Vinz MD',
+                 caption: text,
+                 footer: '🏛️ Sistem Pemerintahan RPG',
+                 buttons: buttons,
+                 headerType: 3
+             }, { quoted: m });
         }
 
         // ==========================================
@@ -260,7 +283,16 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     + `┃ ◦ *${usedPrefix}tf money <jml> <@tag>* (Transfer)\n`
                     + `┃\n`
                     + `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
-                return m.reply(capt);
+                
+                // Bank Profile juga menggunakan mode Dokumen "Vinz MD"
+                return await conn.sendMessage(m.chat, {
+                    document: docBuffer,
+                    jpegThumbnail: thumbBuffer,
+                    mimetype: 'image/jpeg',
+                    fileName: 'Vinz MD',
+                    caption: capt,
+                    headerType: 3
+                }, { quoted: m });
             }
 
             if (cmd === 'tf' || cmd === 'transfer') {
@@ -320,7 +352,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         + `┃ 📉 *Pajak Admin (0.5%):* -${formatRp(pajak)}\n`
                         + `┃ 💰 *Kas Negara:* +${formatRp(pajak)}\n`
                         + `┃ 💳 *Netto Masuk ATM:* ${formatRp(bersihMasuk)}\n`
-                        + `┃ 🏦 *Total Saldo Saat Ini:* ${formatRp(user.bank)}\n`
+                        + `┃ 🏦 *Total Saldo Saat Saat Ini:* ${formatRp(user.bank)}\n`
                         + `┃\n`
                         + `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
                     m.reply(txt);
@@ -404,7 +436,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             switch (action) {
                 case 'menu':
                 case '':
-                    return await sendInfoList();
+                    return await sendInfoMenu();
 
                 case 'help': {
                     let txtHelp = 
@@ -445,7 +477,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 │ ◦ *${usedPrefix}korupsi* ➔ Operasi gelap pencurian
 │ ⌁
 ╰──────────〔 🍃 〕`;
-                    return m.reply(txtHelp);
+                    return await sendInfoMsg(txtHelp);
                 }
 
                 case 'info': {
@@ -490,7 +522,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     if (currentLevel >= 9000) return m.reply('❌ Gudang Negara sudah mencapai level maksimal (Lv 9000).');
                     
                     let allowedLevel = Math.min(jmlLevel, 9000 - currentLevel);
-                    let biaya = allowedLevel * 10000000; // 10 Juta per level dari Kas Negara
+                    let biaya = allowedLevel * 10000000; 
                     
                     if (negara.kas < biaya) return m.reply(`❌ Kas Negara tidak cukup! Butuh ${formatRp(biaya)} untuk upgrade ${allowedLevel} level.`);
                     
@@ -503,18 +535,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 case 'b2b': {
                     let subAction = args[1] ? args[1].toLowerCase() : 'list';
                     
-                    // ---------------------------------------------------------
-                    // LOGIKA AUTO-REFUND PHP (10 MENIT) SAAT DIAKSES
-                    // ---------------------------------------------------------
                     for (let id in negara.b2b) {
                         let k = negara.b2b[id];
-                        if (now - k.timestamp > 600000) { // 600.000ms = 10 menit
+                        if (now - k.timestamp > 600000) { 
                             let sellerUser = users[k.seller];
                             if (sellerUser) {
                                 sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
                                 conn.sendMessage(k.seller, { text: `🚫 *KONTRAK B2B (ID: ${id}) DIBATALKAN OTOMATIS*\n\nPembeli PHP (melewati batas 10 menit). Barang sejumlah ${k.qty.toLocaleString('id-ID')} ${k.item} telah ditarik dari Gudang Negara dan dikembalikan utuh ke tas Anda.` }).catch(() => {});
                             }
-                            // Tarik dari gudang negara
                             negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
                             delete negara.b2b[id];
                         }
@@ -549,7 +577,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let item = args[3] ? args[3].toLowerCase() : '';
                         let qty = parseInt(args[4]);
                         let price = parseInt(args[5]);
-                        let ptSumber = parseInt(args[6]); // Opsional, dikosongkan jika dari tas pribadi
+                        let ptSumber = parseInt(args[6]); 
                         
                         if (!targetMention || !item || isNaN(qty) || isNaN(price)) {
                             return m.reply(`⚠️ *Format Salah!*\n\n*${usedPrefix}negara b2b buat <@tag_pembeli> <item> <jumlah> <harga_total> [id_pt_sumber]*\n\n_Catatan: Jika item diambil dari tas pribadi (Petani), kosongkan id_pt_sumber._`);
@@ -560,7 +588,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         if (!users[buyer]) return m.reply(`❌ Pembeli tidak terdaftar di sistem.`);
                         if (qty < 1 || price < 1) return m.reply(`❌ Jumlah dan Harga minimal adalah 1.`);
                         
-                        // Validasi Kapasitas Gudang Negara
                         let capNegara = negara.gudangLevel * 180;
                         let usedNegara = Object.values(negara.gudang).reduce((a, b) => a + b, 0);
                         if (usedNegara + qty > capNegara) return m.reply(`❌ *Gudang Negara Penuh!*\nKapasitas tersisa: ${(capNegara - usedNegara).toLocaleString('id-ID')} Slot.\n_Minta Presiden untuk upgrade Gudang Negara agar bisa bertransaksi B2B._`);
@@ -579,7 +606,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                             user[item] -= qty;
                         }
                         
-                        // Deposit ke Negara
                         negara.gudang[item] = (negara.gudang[item] || 0) + qty;
                         
                         let contractId = negara.b2bCounter++;
@@ -605,7 +631,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     
                     if (subAction === 'bayar') {
                         let contractId = parseInt(args[2]);
-                        let ptTujuan = parseInt(args[3]); // Opsional, dikosongkan jika masuk tas
+                        let ptTujuan = parseInt(args[3]); 
                         
                         if (isNaN(contractId)) return m.reply(`⚠️ Gunakan format: *${usedPrefix}negara b2b bayar <id_kontrak> [id_pt_tujuan]*`);
                         let k = negara.b2b[contractId];
@@ -630,15 +656,12 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                             user[k.item] = (user[k.item] || 0) + k.qty;
                         }
                         
-                        // Proses Pemotongan Uang & Distribusi
                         user.money -= k.price;
                         let sellerUser = users[k.seller];
                         
-                        // Tarik barang dari Negara
                         negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
                         delete negara.b2b[contractId];
                         
-                        // Pajak Transaksi Rekber Negara (Negara mengambil 1% dari uang pembayaran)
                         let taxB2B = Math.floor(k.price * 0.01);
                         let bersihMasuk = k.price - taxB2B;
                         
@@ -664,7 +687,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let sellerUser = users[k.seller];
                         if (!sellerUser) return m.reply(`❌ Data penjual hilang dari database, pembatalan diblokir.`);
                         
-                        // Mengembalikan barang ke tas pribadi
                         sellerUser[k.item] = (sellerUser[k.item] || 0) + k.qty;
                         negara.gudang[k.item] = Math.max(0, (negara.gudang[k.item] || 0) - k.qty);
                         delete negara.b2b[contractId];
@@ -969,25 +991,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     
                     let txtLb = `╭─〔 🍃 〕 *Leaderboard Korporasi*\n│ ⌁\n${board}\n│ ⌁\n╰──────────〔 🍃 〕`;
                     return await sendInfoMsg(txtLb);
-                } {
-                    if (!isPresiden) return m.reply('❌ Khusus Presiden!');
-                    if (!negara.pln) return m.reply('❌ PLN belum dibangun!');
-                    if (negara.pln.saldo <= 0) return m.reply('⚠️ Kas internal PLN kosong.');
-                    
-                    let saldoTotal = negara.pln.saldo, totalInv = negara.pln.totalInvestasi || 0;
-                    let poolBagiHasil = totalInv > 0 ? Math.floor(saldoTotal * 0.05) : 0; 
-                    let masukKas = saldoTotal - poolBagiHasil;
-                    
-                    if (poolBagiHasil > 0 && negara.pln.investasi) {
-                        for (let jid in negara.pln.investasi) {
-                            let porsi = negara.pln.investasi[jid] / totalInv, hasilnya = Math.floor(poolBagiHasil * porsi);
-                            if (hasilnya > 0 && users[jid]) { users[jid].money = (users[jid].money || 0) + hasilnya; }
-                        }
-                    }
-                    negara.kas += masukKas; negara.pln.saldo = 0;
-                    m.reply(`⚡ *CAIR:* Hasil usaha PLN masuk ke Kas Negara sebesar *${formatRp(masukKas)}*.\n🎁 Dividen Investor dibagikan: ${formatRp(poolBagiHasil)}`);
-                    break;
-                }
+                } 
                 case 'tagihpln': {
                     if (!isPresiden) return m.reply('❌ Khusus Presiden!');
                     if (!negara.pln) return m.reply('❌ PLN belum dibangun!');
@@ -1026,7 +1030,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     m.reply(`💧 *CAIR:* Dividen usaha PDAM masuk ke Kas Negara sebesar *${formatRp(masukKas)}*.\n🎁 Dividen Investor dibagikan: ${formatRp(poolBagiHasil)}`);
                     break;
                 }
-
 
                 default: m.reply(`❌ Sub-perintah salah. Ketik *${usedPrefix+command} help* untuk panduan lengkap.`);
             }
