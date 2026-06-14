@@ -7,29 +7,31 @@ let handler = async (m, { conn, participants }) => {
 
   try {
     // ========================
-    // UBAH INI JADI true KALAU SUDAH ADA DATA REAL
+    // UBAH JADI true KALAU SUDAH ADA DATA REAL
     const hasRealData = false;
     // ========================
 
     if (hasRealData) {
-      // Generate gambar baru otomatis
+      // Generate otomatis (nanti diisi data real)
       const data = {
         totalMembers: participants.length,
-        pernahChat: 180,
-        belumChat: participants.length - 180,
-        totalPesan: 12480,
+        pernahChat: 0,
+        belumChat: participants.length,
+        totalPesan: 0,
         membersScanned: participants.length,
-        topMembers: [
-          { rank: 1, phone: '6281234567890', username: '@user1', messageCount: 2450 },
-          // ... isi sampai rank 10
-        ]
+        topMembers: Array.from({ length: 10 }, (_, i) => ({
+          rank: i + 1,
+          phone: '-',
+          username: '-',
+          messageCount: 0
+        }))
       };
       const buffer = await generateLeaderboardImage(data);
-      await conn.sendMessage(m.chat, { image: buffer, caption: '📊 Top Chat Leaderboard (Update)' }, { quoted: m });
+      await conn.sendMessage(m.chat, { image: buffer, caption: '📊 Top Chat Leaderboard' }, { quoted: m });
     } else {
-      // Kirim gambar dari folder media
+      // Kirim gambar dari media
       await conn.sendMessage(m.chat, {
-        image: { url: './media/totalchat.png' },   // ← GANTI NAMA FILE SESUAI YANG KAMU TARUH
+        image: { url: './media/totalchat.png' },
         caption: '📊 *TOP CHAT LEADERBOARD*\n\n_Saat ini masih menggunakan gambar statis._'
       }, { quoted: m });
     }
