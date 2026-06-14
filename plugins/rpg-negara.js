@@ -1,7 +1,5 @@
-const { generateWAMessageFromContent, prepareWAMessageMedia } = require('lily-baileys');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch');
 
 // ==========================================
 // FITUR NEGARA, BANK, BUMN, GUDANG NEGARA & KORUPSI RPG
@@ -83,79 +81,59 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         let cmd = command.toLowerCase();
 
         // ==========================================
-        // KONFIGURASI BUFFER GAMBAR DOKUMEN (AMAN DARI ERROR)
+        // KONFIGURASI GAMBAR DOKUMEN VINZ MD
         // ==========================================
-        let docBuffer, thumbBuffer;
+        let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
+        let docBuffer;
+        let thumbBuffer;
         try {
-            let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
             docBuffer = fs.readFileSync(imgPath);
             thumbBuffer = fs.readFileSync(imgPath);
         } catch (e) {
-            // Jika foto lokal di media/foto.jpg tidak ditemukan, otomatis unduh gambar dummy agar bot tidak crash
-            let res = await fetch('https://telegra.ph/file/0b32e0a0bb025d5173167.jpg');
-            docBuffer = await res.buffer();
-            thumbBuffer = docBuffer;
+            docBuffer = { url: 'https://telegra.ph/file/0b32e0a0bb025d5173167.jpg' };
+            thumbBuffer = null;
         }
 
         // ==========================================
-        // FUNGSI MENU UTAMA (INTERACTIVE LIST V2 + DOCUMENT)
+        // FUNGSI MENU UTAMA (POSISI PETIR DIPERBAIKI)
         // ==========================================
         async function sendInfoMenu() {
-            let txtMenu = `╭─〔 🏛️ 〕 *PEMERINTAHAN*\n│ ⌁\n│ Silakan tekan tombol *Pilih Menu*\n│ di bawah untuk melihat daftar\n│ lengkap informasi negara.\n╰──────────〔 🍃 〕`;
+            let txtMenu = `╭─〔 🏛️ 〕 *PEMERINTAHAN*
+│
+│ ⌁ *${usedPrefix}negara info*
+│    _(Status Kas & Kabinet)_
+│ ⌁ *${usedPrefix}negara infobumn*
+│    _(Kinerja BUMN)_
+│ ⌁ *${usedPrefix}negara investasiku*
+│    _(Portofolio Dividen)_
+│ ⌁ *${usedPrefix}negara leaderboard*
+│    _(Papan Korporasi)_
+│ ⌁ *${usedPrefix}bank*
+│    _(Layanan Perbankan)_
+│ ⌁ *${usedPrefix}negara bansos*
+│    _(Klaim Subsidi)_
+│ ⌁ *${usedPrefix}negara help*
+│    _(Panduan Lengkap)_
+╰──────────〔 🍃 〕`;
 
-            // Membuat media dokumen ke server WA
-            let media = await prepareWAMessageMedia({ 
-                document: docBuffer, 
-                mimetype: 'image/jpeg', 
-                fileName: 'Vinz MD', 
-                jpegThumbnail: thumbBuffer 
-            }, { upload: conn.waUploadToServer });
+            let buttons = [
+                { buttonId: `${usedPrefix}negara info`, buttonText: { displayText: '🏛️ Info Negara' }, type: 1 },
+                { buttonId: `${usedPrefix}negara bansos`, buttonText: { displayText: '🎁 Bansos' }, type: 1 },
+                { buttonId: `${usedPrefix}negara help`, buttonText: { displayText: '📋 Bantuan' }, type: 1 }
+            ];
 
-            // Merakit Pesan Interaktif V2 (Native Flow List)
-            let msg = generateWAMessageFromContent(m.chat, {
-                viewOnceMessage: {
-                    message: {
-                        messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                        interactiveMessage: {
-                            body: { text: txtMenu },
-                            footer: { text: "Sistem Pemerintahan RPG" },
-                            header: {
-                                hasMediaAttachment: true,
-                                documentMessage: media.documentMessage
-                            },
-                            nativeFlowMessage: {
-                                buttons: [
-                                    {
-                                        name: "single_select",
-                                        buttonParamsJson: JSON.stringify({
-                                            title: "📋 Pilih Menu Info",
-                                            sections: [
-                                                {
-                                                    title: "📊 Informasi & Layanan Negara",
-                                                    rows: [
-                                                        { header: "", title: "🏛️ Info Negara", description: "Status kas, presiden, & kabinet", id: `${usedPrefix}negara info` },
-                                                        { header: "", title: "🏢 Info BUMN", description: "Kinerja operasional PLN & PDAM", id: `${usedPrefix}negara infobumn` },
-                                                        { header: "", title: "📈 Investasiku", description: "Portofolio saham & estimasi dividen", id: `${usedPrefix}negara investasiku` },
-                                                        { header: "", title: "📊 Leaderboard", description: "Papan peringkat valuasi korporasi", id: `${usedPrefix}negara leaderboard` },
-                                                        { header: "", title: "🏦 Layanan Bank", description: "Informasi profil & tarif bank", id: `${usedPrefix}bank` },
-                                                        { header: "", title: "🎁 Klaim Bansos", description: "Ambil bantuan subsidi harian", id: `${usedPrefix}negara bansos` },
-                                                        { header: "", title: "📋 Panduan Lengkap", description: "Semua perintah kenegaraan", id: `${usedPrefix}negara help` }
-                                                    ]
-                                                }
-                                            ]
-                                        })
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                }
+            await conn.sendMessage(m.chat, {
+                document: docBuffer,
+                jpegThumbnail: thumbBuffer,
+                mimetype: 'image/jpeg',
+                fileName: 'Vinz MD.jpg',
+                caption: txtMenu,
+                footer: 'Sistem Pemerintahan RPG',
+                buttons: buttons,
+                headerType: 3
             }, { quoted: m });
-
-            await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
         }
 
-        // Fungsi pesan sub-menu dengan tombol "Kembali ke Menu"
         async function sendInfoMsg(text) {
              let buttons = [
                  { buttonId: `${usedPrefix}negara menu`, buttonText: { displayText: '🔙 Kembali ke Menu' }, type: 1 }
@@ -164,7 +142,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                  document: docBuffer,
                  jpegThumbnail: thumbBuffer,
                  mimetype: 'image/jpeg',
-                 fileName: 'Vinz MD',
+                 fileName: 'Vinz MD.jpg',
                  caption: text,
                  footer: '🏛️ Sistem Pemerintahan RPG',
                  buttons: buttons,
@@ -279,32 +257,33 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             if (cmd === 'bank') {
                 let u = users[target || sender];
                 let statusBank = negara.bank ? '🟢 OPERASIONAL' : '🔴 LOCK (Belum Dibangun)';
-                let capt = `╭━━━ • 🏦 *BANK CENTRAL PROFILE* 🏦 • ━━━╮\n`
-                    + `┃\n`
-                    + `┃ 👤 *Nasabah:* ${u.name || 'Warga Sipil'}\n`
-                    + `┃ 💵 *Dompet:* ${formatRp(u.money)}\n`
-                    + `┃ 🏧 *Saldo Bank:* ${formatRp(u.bank)}\n`
-                    + `┃ 📉 *Tanggungan Utang:* ${formatRp(u.hutangNegara)}\n`
-                    + `┃ 🏛️ *Status Layanan:* ${statusBank}\n`
-                    + `┃\n`
-                    + `┣━━━ • 📊 *INFORMASI TARIF* • ━━━┫\n`
-                    + `┃\n`
-                    + `┃ ◦ Pajak Setor: *0.5%*\n`
-                    + `┃ ◦ Pajak Simpanan: *0.2% / Hari*\n`
-                    + `┃\n`
-                    + `┣━━━ • 🕹️ *AKSES QUICK-CMD* • ━━━┫\n`
-                    + `┃\n`
-                    + `┃ ◦ *${usedPrefix}atm <jumlah>* (Simpan)\n`
-                    + `┃ ◦ *${usedPrefix}pull <jumlah>* (Tarik)\n`
-                    + `┃ ◦ *${usedPrefix}tf money <jml> <@tag>* (Transfer)\n`
-                    + `┃\n`
-                    + `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
+                let capt = `╭─〔 🏦 〕 *BANK CENTRAL PROFILE*
+│
+│ ⌁ 👤 *Nasabah:* ${u.name || 'Warga Sipil'}
+│ ⌁ 💵 *Dompet:* ${formatRp(u.money)}
+│ ⌁ 🏧 *Saldo Bank:* ${formatRp(u.bank)}
+│ ⌁ 📉 *Tanggungan Utang:* ${formatRp(u.hutangNegara)}
+│ ⌁ 🏛️ *Status Layanan:* ${statusBank}
+╰──────────〔 🏦 〕
+
+╭─〔 📊 〕 *INFORMASI TARIF*
+│
+│ ⌁ Pajak Setor: *0.5%*
+│ ⌁ Pajak Simpanan: *0.2% / Hari*
+╰──────────〔 🏦 〕
+
+╭─〔 🕹️ 〕 *AKSES QUICK-CMD*
+│
+│ ⌁ *${usedPrefix}atm <jumlah>* (Simpan)
+│ ⌁ *${usedPrefix}pull <jumlah>* (Tarik)
+│ ⌁ *${usedPrefix}tf money <jml> <@tag>* (Transfer)
+╰──────────〔 🏦 〕`;
                 
                 return await conn.sendMessage(m.chat, {
                     document: docBuffer,
                     jpegThumbnail: thumbBuffer,
                     mimetype: 'image/jpeg',
-                    fileName: 'Vinz MD',
+                    fileName: 'Vinz MD.jpg',
                     caption: capt,
                     headerType: 3
                 }, { quoted: m });
@@ -456,48 +435,43 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 case 'help': {
                     let txtHelp = 
 `╭─〔 🍃 〕 *List Help Negara*
-│ ⌁
-│ 👤 *REGULASI WARGA SIPIL*
-│ ⌁
-│ ◦ *info* ➔ Info status negara
-│ ◦ *infobumn* ➔ Kinerja & aset BUMN
-│ ◦ *bansos* ➔ Klaim bantuan sosial harian
-│ ◦ *daftarcalon* ➔ Registrasi capres (10M)
-│ ◦ *vote @tag* ➔ Coblos kandidat di TPS
-│ ◦ *pinjam <jml>* ➔ Ajukan utang ke Kas Negara
-│ ◦ *bayarbank <jml>* ➔ Setor pelunasan utang
-│ ◦ *b2b* ➔ Menu Rekber Negara
-│ ⌁
-│ 💼 *BURSA MODAL & KORPORASI*
-│ ⌁
-│ ◦ *investasi <pln/pdam> <nom>* ➔ Suntik saham
-│ ◦ *investasiku* ➔ Portofolio & estimasi dividen
-│ ◦ *leaderboard* ➔ Papan peringkat korporasi
-│ ⌁
-│ 👑 *HAK EKSKLUSIF PRESIDEN*
-│ ⌁
-│ ◦ *pemilu* ➔ Aktivasi / tutup pendaftaran
-│ ◦ *sahkan* ➔ Resmikan pelantikan pemenang
-│ ◦ *bangunbank* ➔ Dirikan Bank Central (50M)
-│ ◦ *upgradegudang <jml_lv>* ➔ Ekspansi Gudang
-│ ◦ *suntikbansos <jml>* ➔ Tambah kas Bansos
-│ ◦ *bangunpln / bangunpdam* ➔ Konstruksi BUMN
-│ ◦ *rekrut <pln/pdam> <jml>* ➔ Tambah karyawan
-│ ◦ *tagihpln / tagihpdam* ➔ Tarik dividen ke Kas
-│ ◦ *setinvestbank / setinvestpt* ➔ Switch gerbang
-│ ◦ *razia* ➔ Sidak pajak & sita PT nunggak
-│ ⌁
-│ ⚙️ *SISTEM KRIMINALITAS*
-│ ⌁
-│ ◦ *${usedPrefix}korupsi* ➔ Operasi gelap pencurian
-│ ⌁
+│
+│ ⌁ 👤 *REGULASI WARGA SIPIL*
+│ ⌁ *info* ➔ Info status negara
+│ ⌁ *infobumn* ➔ Kinerja & aset BUMN
+│ ⌁ *bansos* ➔ Klaim bantuan sosial harian
+│ ⌁ *daftarcalon* ➔ Registrasi capres (10M)
+│ ⌁ *vote @tag* ➔ Coblos kandidat di TPS
+│ ⌁ *pinjam <jml>* ➔ Ajukan utang ke Kas Negara
+│ ⌁ *bayarbank <jml>* ➔ Setor pelunasan utang
+│ ⌁ *b2b* ➔ Menu Rekber Negara
+│
+│ ⌁ 💼 *BURSA MODAL & KORPORASI*
+│ ⌁ *investasi <pln/pdam> <nom>* ➔ Suntik saham
+│ ⌁ *investasiku* ➔ Portofolio & estimasi dividen
+│ ⌁ *leaderboard* ➔ Papan peringkat korporasi
+│
+│ ⌁ 👑 *HAK EKSKLUSIF PRESIDEN*
+│ ⌁ *pemilu* ➔ Aktivasi / tutup pendaftaran
+│ ⌁ *sahkan* ➔ Resmikan pelantikan pemenang
+│ ⌁ *bangunbank* ➔ Dirikan Bank Central (50M)
+│ ⌁ *upgradegudang <lv>* ➔ Ekspansi Gudang
+│ ⌁ *suntikbansos <jml>* ➔ Tambah kas Bansos
+│ ⌁ *bangunpln / bangunpdam* ➔ Konstruksi BUMN
+│ ⌁ *rekrut <pln/pdam> <jml>* ➔ Tambah karyawan
+│ ⌁ *tagihpln / tagihpdam* ➔ Tarik dividen ke Kas
+│ ⌁ *setinvestbank / setinvestpt* ➔ Switch gerbang
+│ ⌁ *razia* ➔ Sidak pajak & sita PT nunggak
+│
+│ ⌁ ⚙️ *SISTEM KRIMINALITAS*
+│ ⌁ *${usedPrefix}korupsi* ➔ Operasi gelap pencurian
 ╰──────────〔 🍃 〕`;
                     return await sendInfoMsg(txtHelp);
                 }
 
                 case 'info': {
                     let namaPresiden = negara.presiden ? (global.db.data.users[negara.presiden]?.name || negara.presiden.split('@')[0]) : 'Kosong (Anarki)';
-                    let statusJabatan = negara.presiden ? `\n│ ⏳ *Sisa Jabatan:* ${msToTime((7 * 24 * 60 * 60 * 1000) - (now - negara.waktuLantik))}` : '';
+                    let statusJabatan = negara.presiden ? `\n│ ⌁ ⏳ *Sisa Jabatan:* ${msToTime((7 * 24 * 60 * 60 * 1000) - (now - negara.waktuLantik))}` : '';
                     let statusBank = negara.bank ? `🟢 Aktif | [Invest: ${negara.investBankOpen ? 'OPEN' : 'CLOSED'}]` : '🔴 Belum Dibangun';
                     let statusPemilu = negara.isPemilu ? '🟢 Berlangsung' : '🔴 Ditutup';
                     if (negara.isPemilu && negara.waktuMulaiPemilu) {
@@ -510,17 +484,16 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
                     let txt =
 `╭─〔 🍃 〕 *Info Negara*
-│ ⌁
-│ 👑 *Presiden RI:* ${namaPresiden}${statusJabatan}
-│ 💰 *Kas Utama:* ${formatRp(negara.kas)}
-│ 🎁 *Kas Bansos:* ${formatRp(negara.danaBansos)}
-│ 🏦 *Bank Central:* ${statusBank}
-│ 📦 *Gudang Negara:* Lv ${negara.gudangLevel} (${usedNegara.toLocaleString('id-ID')} / ${capNegara.toLocaleString('id-ID')} Slot)
-│ ⚡ *BUMN PLN:* ${statusPLN}
-│ 💧 *BUMN PDAM:* ${statusPDAM}
-│ 🗳️ *Pemilu:* ${statusPemilu}
-│ 💼 *Aset Sitaan:* ${negara.bumn.length} Perusahaan
-│ ⌁
+│
+│ ⌁ 👑 *Presiden RI:* ${namaPresiden}${statusJabatan}
+│ ⌁ 💰 *Kas Utama:* ${formatRp(negara.kas)}
+│ ⌁ 🎁 *Kas Bansos:* ${formatRp(negara.danaBansos)}
+│ ⌁ 🏦 *Bank Central:* ${statusBank}
+│ ⌁ 📦 *Gudang Negara:* Lv ${negara.gudangLevel} (${usedNegara.toLocaleString('id-ID')} / ${capNegara.toLocaleString('id-ID')} Slot)
+│ ⌁ ⚡ *BUMN PLN:* ${statusPLN}
+│ ⌁ 💧 *BUMN PDAM:* ${statusPDAM}
+│ ⌁ 🗳️ *Pemilu:* ${statusPemilu}
+│ ⌁ 💼 *Aset Sitaan:* ${negara.bumn.length} Perusahaan
 ╰──────────〔 🍃 〕`;
                     return await sendInfoMsg(txt);
                 }
@@ -717,21 +690,21 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 // ==========================================
                 case 'infobumn':
                 case 'info-bumn': {
-                    let txt = `╭─〔 🍃 〕 *Info BUMN*\n│ ⌁\n`;
+                    let txt = `╭─〔 🍃 〕 *Info BUMN*\n│\n`;
                     
                     if (negara.pln) {
                         let p = negara.pln;
                         let pelangganPLN = p.pelanggan || 0;
                         let persenPLN = ((pelangganPLN / 5000000) * 100).toFixed(2);
                         let pendapatanPLN = pelangganPLN * 6500;
-                        txt += `│ ⚡ *PLN (Persero)*\n`
-                            + `│ ◦ Kas PT: *${formatRp(p.saldo)}*\n`
-                            + `│ ◦ Karyawan: ${(p.karyawan || 0).toLocaleString('id-ID')} / 1jt\n`
-                            + `│ ◦ Pelanggan: ${pelangganPLN.toLocaleString('id-ID')} (${persenPLN}%)\n`
-                            + `│ ◦ Pendapatan: *${formatRp(pendapatanPLN)} / 15 Mnt*\n`
-                            + `│ ◦ Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n│ ⌁\n`;
+                        txt += `│ ⌁ ⚡ *PLN (Persero)*\n`
+                            + `│ ⌁ Kas PT: *${formatRp(p.saldo)}*\n`
+                            + `│ ⌁ Karyawan: ${(p.karyawan || 0).toLocaleString('id-ID')} / 1jt\n`
+                            + `│ ⌁ Pelanggan: ${pelangganPLN.toLocaleString('id-ID')} (${persenPLN}%)\n`
+                            + `│ ⌁ Pendapatan: *${formatRp(pendapatanPLN)} / 15 Mnt*\n`
+                            + `│ ⌁ Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n│\n`;
                     } else {
-                        txt += `│ ⚡ *PLN:* 🔴 Belum Dibangun\n│ ⌁\n`;
+                        txt += `│ ⌁ ⚡ *PLN:* 🔴 Belum Dibangun\n│\n`;
                     }
 
                     if (negara.pdam) {
@@ -739,21 +712,21 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let pelangganPDAM = p.pelanggan || 0;
                         let persenPDAM = ((pelangganPDAM / 5000000) * 100).toFixed(2);
                         let pendapatanPDAM = pelangganPDAM * 16000;
-                        txt += `│ 💧 *PDAM (Persero)*\n`
-                            + `│ ◦ Kas PT: *${formatRp(p.saldo)}*\n`
-                            + `│ ◦ Karyawan: ${(p.karyawan || 0).toLocaleString('id-ID')} / 1jt\n`
-                            + `│ ◦ Pelanggan: ${pelangganPDAM.toLocaleString('id-ID')} (${persenPDAM}%)\n`
-                            + `│ ◦ Pendapatan: *${formatRp(pendapatanPDAM)} / 15 Mnt*\n`
-                            + `│ ◦ Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n│ ⌁\n`;
+                        txt += `│ ⌁ 💧 *PDAM (Persero)*\n`
+                            + `│ ⌁ Kas PT: *${formatRp(p.saldo)}*\n`
+                            + `│ ⌁ Karyawan: ${(p.karyawan || 0).toLocaleString('id-ID')} / 1jt\n`
+                            + `│ ⌁ Pelanggan: ${pelangganPDAM.toLocaleString('id-ID')} (${persenPDAM}%)\n`
+                            + `│ ⌁ Pendapatan: *${formatRp(pendapatanPDAM)} / 15 Mnt*\n`
+                            + `│ ⌁ Kapital Investor: ${formatRp(p.totalInvestasi || 0)}\n│\n`;
                     } else {
-                        txt += `│ 💧 *PDAM:* 🔴 Belum Beroperasi\n│ ⌁\n`;
+                        txt += `│ ⌁ 💧 *PDAM:* 🔴 Belum Beroperasi\n│\n`;
                     }
 
                     let totalSitaan = negara.bumn ? negara.bumn.reduce((sum, pt) => sum + (pt.saldo || 0), 0) : 0;
                     let jumlahSitaan = negara.bumn ? negara.bumn.length : 0;
-                    txt += `│ 💼 *Holding Sitaan Pajak*\n`
-                        + `│ ◦ Total PT Disita: ${jumlahSitaan}\n`
-                        + `│ ◦ Likuiditas: *${formatRp(totalSitaan)}*\n│ ⌁\n`
+                    txt += `│ ⌁ 💼 *Holding Sitaan Pajak*\n`
+                        + `│ ⌁ Total PT Disita: ${jumlahSitaan}\n`
+                        + `│ ⌁ Likuiditas: *${formatRp(totalSitaan)}*\n`
                         + `╰──────────〔 🍃 〕`;
 
                     return await sendInfoMsg(txt);
@@ -972,7 +945,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 }
                 case 'investasiku': {
                     let hasInvestasi = false;
-                    let txt = `╭─〔 🍃 〕 *Portofolio Saham*\n│ ⌁\n`;
+                    let txt = `╭─〔 🍃 〕 *Portofolio Saham*\n│\n`;
                     for (let jenis of ['pln', 'pdam']) {
                         let p = negara[jenis];
                         if (!p || !p.investasi || !p.investasi[sender]) continue;
@@ -980,7 +953,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                         let nominal = p.investasi[sender], totalInv = p.totalInvestasi || 1;
                         let porsi = ((nominal / totalInv) * 100).toFixed(2);
                         let estimasiBagiHasil = Math.floor(p.saldo * 0.05 * (nominal / totalInv));
-                        txt += `│ 🏢 *${jenis.toUpperCase()} Holdings*\n│ ◦ Nilai Saham: ${formatRp(nominal)}\n│ ◦ Kepemilikan: *${porsi}% Share*\n│ ◦ Est. Dividen: ~${formatRp(estimasiBagiHasil)}\n│ ⌁\n`;
+                        txt += `│ ⌁ 🏢 *${jenis.toUpperCase()} Holdings*\n│ ⌁ Nilai Saham: ${formatRp(nominal)}\n│ ⌁ Kepemilikan: *${porsi}% Share*\n│ ⌁ Est. Dividen: ~${formatRp(estimasiBagiHasil)}\n│\n`;
                     }
                     if (!hasInvestasi) return m.reply('📊 Rekening bursa Anda kosong. Anda belum menanam saham di BUMN manapun.');
                     txt += `╰──────────〔 🍃 〕`;
@@ -1001,10 +974,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     
                     let board = entries.slice(0, 10).map((e, i) => {
                         let badge = e.kategori === 'BUMN' ? '🏛️' : '💼';
-                        return `│ ${i+1}. *${e.nama}* [${badge}]\n│    👤 ${e.pemilik}\n│    💹 ~${formatSingkat(e.valuasi)} | Kas: ${formatRp(e.saldo)}`;
-                    }).join('\n│ ⌁\n');
+                        return `│ ⌁ ${i+1}. *${e.nama}* [${badge}]\n│ ⌁    👤 ${e.pemilik}\n│ ⌁    💹 ~${formatSingkat(e.valuasi)} | Kas: ${formatRp(e.saldo)}`;
+                    }).join('\n│\n');
                     
-                    let txtLb = `╭─〔 🍃 〕 *Leaderboard Korporasi*\n│ ⌁\n${board}\n│ ⌁\n╰──────────〔 🍃 〕`;
+                    let txtLb = `╭─〔 🍃 〕 *Leaderboard Korporasi*\n│\n${board}\n╰──────────〔 🍃 〕`;
                     return await sendInfoMsg(txtLb);
                 } 
                 case 'tagihpln': {
