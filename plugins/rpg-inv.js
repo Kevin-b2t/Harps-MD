@@ -55,6 +55,9 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         }
     }
 
+    // Path folder media untuk gambar header
+    let thumbMenu = { url: './media/foto.jpg' };
+
     // ==========================================
     // 1. FITUR : .INVENTORY
     // ==========================================
@@ -105,17 +108,17 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
 │ ⌁ 📦 *Total Box* : ${(user.common||0) + (user.uncommon||0) + (user.rare||0) + (user.epic||0) + (user.mythic||0) + (user.legendary||0) + (user.secret||0) + (user.dark||0) + (user.cheat||0)}
 ╰──────────〔 🫧 〕`
 
-        // Tombol yang memicu BackPack dan Info Pet (Bukan Toko Pet lagi)
         let buttons = [
             { buttonId: `${usedPrefix}backpack`, buttonText: { displayText: '🎒 BackPack' }, type: 1 },
             { buttonId: `${usedPrefix}infopet`, buttonText: { displayText: '🐱 INFO PET' }, type: 1 }
         ];
 
         return await conn.sendMessage(m.chat, {
-            text: capt.trim(),
+            image: thumbMenu,
+            caption: capt.trim(),
             footer: 'Status Profile & Inventory',
             buttons: buttons,
-            headerType: 1
+            headerType: 4 // Header 4 adalah Image
         }, { quoted: m });
     }
 
@@ -136,11 +139,14 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         
         txt += `╰──────────〔 🫧 〕\n_Hanya menampilkan barang yang kamu miliki._`
 
-        return m.reply(txt.trim());
+        return await conn.sendMessage(m.chat, {
+            image: thumbMenu,
+            caption: txt.trim()
+        }, { quoted: m });
     }
 
     // ==========================================
-    // 3. FITUR : .INFOPET / .MYPET (FITUR BARU)
+    // 3. FITUR : .INFOPET / .MYPET
     // ==========================================
     if (cmd === 'infopet' || cmd === 'mypet') {
         let txt = `╭─〔 🫧 〕 *INFO PET*\n`;
@@ -148,7 +154,6 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         txt += `│ ⌁ 🎫 *Pet Token:* ${user.pet || 0}\n`;
         txt += `│ ⌁ 🍖 *Makanan Pet:* ${user.makananpet || 0}\n│\n`;
 
-        // Daftar pet yang ada di database rpg
         const petsList = [
             { name: 'Kucing 🐈', id: 'kucing' },
             { name: 'Anjing 🐕', id: 'anjing' },
@@ -169,7 +174,6 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
 
         let hasPet = false;
         
-        // Pengecekan: Jika player memiliki pet (Level > 0), masukkan ke dalam list
         petsList.forEach(p => {
             if (user[p.id] > 0) {
                 hasPet = true;
@@ -184,16 +188,16 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         
         txt += `╰──────────〔 🫧 〕`;
         
-        // Tombol opsi menuju ke Toko Pet untuk membeli
         let buttons = [
             { buttonId: `${usedPrefix}petshop`, buttonText: { displayText: '🏪 Pet Store' }, type: 1 }
         ];
 
         return await conn.sendMessage(m.chat, {
-            text: txt,
+            image: thumbMenu,
+            caption: txt,
             footer: 'Status Peliharaan',
             buttons: buttons,
-            headerType: 1
+            headerType: 4 // Header 4 adalah Image
         }, { quoted: m });
     }
 
@@ -246,14 +250,15 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         else if (nettWorth > 1000000000) txt += `_👔 Status: Miliarder (Konglomerat)_`;
         else txt += `_🚶‍♂️ Status: Menengah Ke Bawah_`;
 
-        return m.reply(txt.trim());
+        return await conn.sendMessage(m.chat, {
+            image: thumbMenu,
+            caption: txt.trim()
+        }, { quoted: m });
     }
 }
 
-// Menambahkan pendaftaran bantuan dan command regex baru
 handler.help = ['inventory *@user*', 'backpack *@user*', 'infopet *@user*', 'totalassets *@user*']
 handler.tags = ['rpg']
-// Modifikasi command regex agar menangkap "infopet" dan "mypet"
 handler.command = /^(inv|inventory|backpack|totalassets|assets|infopet|mypet)$/i
 handler.rpg = true
 
