@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 const sellPrices = {
     // 🔫 Senjata
     tombak: 2500000, busur: 500000, anakpanah: 400000, ammo: 1750000,
@@ -48,11 +51,30 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
     if (user.bank === undefined) user.bank = 0
     if (user.hutangNegara === undefined) user.hutangNegara = 0
 
+    // Filter Items Lebih Ketat (Membersihkan data kotor seperti Pekerjaansatu dll)
     let backpackItems = [];
     for (let key in user) {
-        if (typeof user[key] === 'number' && user[key] > 0 && !nonItemKeys.includes(key) && !key.includes('durability') && !key.includes('last')) {
+        if (typeof user[key] === 'number' && 
+            user[key] > 0 && 
+            !nonItemKeys.includes(key) && 
+            !key.includes('durability') && 
+            !key.includes('last') && 
+            !key.includes('kerja') && 
+            !key.toLowerCase().includes('time')
+        ) {
             backpackItems.push(key);
         }
+    }
+
+    // MEMAKSA MEMBACA FOTO DARI DIREKTORI UTAMA BOT
+    let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
+    let docBuffer;
+    try {
+        docBuffer = fs.readFileSync(imgPath);
+    } catch (e) {
+        // Jika file lokal gagal terbaca, bot akan memberikan peringatan dan menggunakan URL dummy agar sistem tidak error
+        console.log("⚠️ PERINGATAN: File 'media/foto.jpg' tidak ditemukan! Pastikan nama dan folder sudah benar.");
+        docBuffer = { url: 'https://telegra.ph/file/0b32e0a0bb025d5173167.jpg' };
     }
 
     // ==========================================
@@ -114,15 +136,15 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
             { buttonId: `${usedPrefix}infopet`, buttonText: { displayText: '🐱 INFO PET' }, type: 1 }
         ];
 
-        // Format Document a-la Vinz MD
         return await conn.sendMessage(m.chat, {
-            document: { url: './media/foto.jpg' },
+            document: docBuffer,
+            jpegThumbnail: fs.existsSync(imgPath) ? fs.readFileSync(imgPath) : null,
             mimetype: 'image/jpeg',
-            fileName: 'Harps Bot MD', // Judul file yang akan muncul di samping gambar
+            fileName: 'Vinz MD.jpg', // Ekstensi .jpg dipaksa agar nama override tembus
             caption: capt.trim(),
             footer: 'Status Profile & Inventory',
             buttons: buttons,
-            headerType: 3 // Mode Document
+            headerType: 3
         }, { quoted: m });
     }
 
@@ -140,13 +162,13 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
                 txt += `│ ⌁ *${index + 1}.* ${capitalize(item)} : ${user[item].toLocaleString('id-ID')}\n`;
             });
         }
-        
         txt += `╰──────────〔 🫧 〕\n_Hanya menampilkan barang yang kamu miliki._`
 
         return await conn.sendMessage(m.chat, {
-            document: { url: './media/foto.jpg' },
+            document: docBuffer,
+            jpegThumbnail: fs.existsSync(imgPath) ? fs.readFileSync(imgPath) : null,
             mimetype: 'image/jpeg',
-            fileName: 'Harps Bot MD',
+            fileName: 'Vinz MD.jpg',
             caption: txt.trim(),
             headerType: 3
         }, { quoted: m });
@@ -162,25 +184,17 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         txt += `│ ⌁ 🍖 *Makanan Pet:* ${user.makananpet || 0}\n│\n`;
 
         const petsList = [
-            { name: 'Kucing 🐈', id: 'kucing' },
-            { name: 'Anjing 🐕', id: 'anjing' },
-            { name: 'Rubah 🦊', id: 'rubah' },
-            { name: 'Serigala 🐺', id: 'serigala' },
-            { name: 'Ular 🐍', id: 'ular' },
-            { name: 'Horse 🐎', id: 'horse' },
-            { name: 'Centaur 🐴', id: 'centaur' },
-            { name: 'Rhinoceros 🦏', id: 'rhinoceros' },
-            { name: 'Lion 🦁', id: 'lion' },
-            { name: 'Beruang 🐻', id: 'beruang' },
-            { name: 'Griffin 🦅', id: 'griffin' },
-            { name: 'Phonix 🐦‍🔥', id: 'phonix' },
-            { name: 'Kyubi 🦊🔥', id: 'kyubi' },
-            { name: 'Naga 🐉', id: 'naga' },
+            { name: 'Kucing 🐈', id: 'kucing' }, { name: 'Anjing 🐕', id: 'anjing' },
+            { name: 'Rubah 🦊', id: 'rubah' }, { name: 'Serigala 🐺', id: 'serigala' },
+            { name: 'Ular 🐍', id: 'ular' }, { name: 'Horse 🐎', id: 'horse' },
+            { name: 'Centaur 🐴', id: 'centaur' }, { name: 'Rhinoceros 🦏', id: 'rhinoceros' },
+            { name: 'Lion 🦁', id: 'lion' }, { name: 'Beruang 🐻', id: 'beruang' },
+            { name: 'Griffin 🦅', id: 'griffin' }, { name: 'Phonix 🐦‍🔥', id: 'phonix' },
+            { name: 'Kyubi 🦊🔥', id: 'kyubi' }, { name: 'Naga 🐉', id: 'naga' },
             { name: 'Godzilla 🦖', id: 'godzilla' }
         ];
 
         let hasPet = false;
-        
         petsList.forEach(p => {
             if (user[p.id] > 0) {
                 hasPet = true;
@@ -192,17 +206,15 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
             txt += `│ ⌁ _(Kamu belum memiliki peliharaan)_\n`;
             txt += `│ ⌁ _Beli hewan pertamamu di toko pet!_\n`;
         }
-        
         txt += `╰──────────〔 🫧 〕`;
         
-        let buttons = [
-            { buttonId: `${usedPrefix}petshop`, buttonText: { displayText: '🏪 Pet Store' }, type: 1 }
-        ];
+        let buttons = [ { buttonId: `${usedPrefix}petshop`, buttonText: { displayText: '🏪 Pet Store' }, type: 1 } ];
 
         return await conn.sendMessage(m.chat, {
-            document: { url: './media/foto.jpg' },
+            document: docBuffer,
+            jpegThumbnail: fs.existsSync(imgPath) ? fs.readFileSync(imgPath) : null,
             mimetype: 'image/jpeg',
-            fileName: 'Harps Bot MD',
+            fileName: 'Vinz MD.jpg',
             caption: txt,
             footer: 'Status Peliharaan',
             buttons: buttons,
@@ -220,18 +232,14 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         
         let ptCash = 0;
         if (Array.isArray(user.perusahaan)) {
-            user.perusahaan.forEach(pt => {
-                if (pt && pt.saldo > 0) ptCash += pt.saldo;
-            });
+            user.perusahaan.forEach(pt => { if (pt && pt.saldo > 0) ptCash += pt.saldo; });
         }
 
         let itemsValue = 0;
         let totalItems = 0;
         backpackItems.forEach(item => {
             let qty = user[item] || 0;
-            if (qty > 0 && sellPrices[item]) {
-                itemsValue += qty * sellPrices[item];
-            }
+            if (qty > 0 && sellPrices[item]) itemsValue += qty * sellPrices[item];
             totalItems += qty;
         });
 
@@ -260,9 +268,10 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
         else txt += `_🚶‍♂️ Status: Menengah Ke Bawah_`;
 
         return await conn.sendMessage(m.chat, {
-            document: { url: './media/foto.jpg' },
+            document: docBuffer,
+            jpegThumbnail: fs.existsSync(imgPath) ? fs.readFileSync(imgPath) : null,
             mimetype: 'image/jpeg',
-            fileName: 'Harps Bot MD',
+            fileName: 'Vinz MD.jpg',
             caption: txt.trim(),
             headerType: 3
         }, { quoted: m });
