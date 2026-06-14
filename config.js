@@ -23,7 +23,7 @@ global.spam = false; // Set true/false untuk anti spam (default: false)
 global.gcspam = false; // Set true/false untuk menutup grup ketika spam (default: false)
 
 // APIKEY INI WAJIB UNTUK DI ISI! //
-global.btc = "aToRguL2";
+global.btc = "Vinzkey";
 // global.btc = process.env.API_KEY_BTC;
 // aktifkan akses .env di atas jika kamu ingin menaruh key api di .env
 // Daftar terlebih dahulu https://api.botcahx.eu.org
