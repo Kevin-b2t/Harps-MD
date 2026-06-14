@@ -1,35 +1,33 @@
-let handler = m => m
-handler.before = m => {
-  let user = global.db.data.users[m.sender]
-  if (user.afk > -1) {
-    m.reply(`
-Kamu berhenti AFK${user.afkReason ? ' setelah ' + user.afkReason : ''}
-Selama ${clockString(new Date - user.afk)}
-`.trim())
-    user.afk = -1
-    user.afkReason = ''
-  }
-  let jids = [...new Set([...(m.mentionedJid || []), ...(m.quoted ? [m.quoted.sender] : [])])]
-  for (let jid of jids) {
-    let user = global.db.data.users[jid]
-    if (!user) continue
-    let afkTime = user.afk
-    if (!afkTime || afkTime < 0) continue
-    let reason = user.afkReason || ''
-    m.reply(`
-Jangan tag dia!
-Dia sedang AFK ${reason ? 'dengan alasan ' + reason : 'tanpa alasan'}
-Selama ${clockString(new Date - afkTime)}
-`.trim())
-  }
-  return true
+const fs = require('fs')
+
+let handler = async (m, { text, conn }) => {
+    let user = global.db.data.users[m.sender]
+    user.afk = + new Date
+    user.afkReason = text
+    
+    let alasan = text ? text : 'Tanpa Alasan'
+    let caption = `╭─〔 🍃 〕 *Afk Mode Active*
+│ ⌁ Alasan : ${alasan}
+│ ⌁ Status : 🔴 Lagi ngilang
+╰──────────〔 🍃 〕
+
+* ੈ✩‧₊˚mini nOtes ᗢ 💌 3
+⑅ yang mention bakal dikasih tau kok
+⑅ sabar ya, nanti juga balik~`
+
+    let mediaGambar = fs.readFileSync('./media/afk.jpg')
+
+    await conn.sendMessage(m.chat, { 
+        document: mediaGambar,
+        fileName: 'Vinz MD', // NAMA FILE SUDAH DIUBAH DI SINI
+        mimetype: 'image/jpeg', 
+        jpegThumbnail: mediaGambar, 
+        caption: caption 
+    }, { quoted: m })
 }
+
+handler.help = ['afk [alasan]']
+handler.tags = ['main']
+handler.command = /^afk$/i
 
 module.exports = handler
-
-function clockString(ms) {
-  let h = isNaN(ms) ? '--' : Math.floor(ms / 3600000)
-  let m = isNaN(ms) ? '--' : Math.floor(ms / 60000) % 60
-  let s = isNaN(ms) ? '--' : Math.floor(ms / 1000) % 60
-  return [h, m, s].map(v => v.toString().padStart(2, 0) ).join(':')
-}
