@@ -4,7 +4,7 @@ let path = require('path')
 let fetch = require('node-fetch')
 let moment = require('moment-timezone')
 let levelling = require('../lib/levelling')
-const { generateWAMessageFromContent } = require('lily-baileys') // Tambahan untuk Native Flow
+const { generateWAMessageFromContent, prepareWAMessageMedia } = require('lily-baileys') 
 
 let arrayMenu = [
   'all', 'ai', 'main', 'downloader', 'database', 'rpg',
@@ -112,33 +112,73 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
         })
 
         // ==========================================
+        // KONFIGURASI GAMBAR DOKUMEN VINZ MD
+        // ==========================================
+        let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
+        let docBuffer, thumbBuffer;
+        try {
+            docBuffer = fs.readFileSync(imgPath);
+            thumbBuffer = fs.readFileSync(imgPath);
+        } catch (e) {
+            let res = await fetch('https://telegra.ph/file/0b32e0a0bb025d5173167.jpg');
+            docBuffer = await res.buffer();
+            thumbBuffer = docBuffer;
+        }
+
+        let media = await prepareWAMessageMedia({
+            document: docBuffer,
+            mimetype: 'image/jpeg',
+            fileName: 'Vinz MD.jpg',
+            jpegThumbnail: thumbBuffer
+        }, { upload: conn.waUploadToServer });
+
+
+        // ==========================================
         // JIKA KETIK ".menu" (LIST UTAMA - NATIVE FLOW LIST)
         // ==========================================
         if (!teks) {
             let replace = { '%': '%', p: _p, uptime, name, date, time, version }
             let textData = defaultMenu.before.replace(new RegExp(`%(${Object.keys(replace).sort((a, b) => b.length - a.length).join`|`})`, 'g'), (_, name) => '' + replace[name])
 
-            let listRows = [];
+            // Mengelompokkan menu jadi 3 Section agar Label Ijo bisa muncul
+            let listSections = [
+                {
+                    title: "⚔️ ROLEPLAYING GAMES",
+                    highlight_label: "Paling Dicari",
+                    rows: []
+                },
+                {
+                    title: "📥 DOWNLOADER & MEDIA",
+                    highlight_label: "Sering Dicari",
+                    rows: []
+                },
+                {
+                    title: "✨ REKOMENDASI MENU LAIN",
+                    highlight_label: "Recommend",
+                    rows: []
+                }
+            ];
 
-            // Membangun daftar menu dengan Badge/Label sesuai permintaan
             for (let tag of arrayMenu) {
                 if (tag && tag !== '' && allTags[tag]) {
-                    // Logic pembuatan badge (Label Hijau)
-                    let badge = 'Recommend'; // Default untuk semua menu
-                    if (tag === 'rpg') badge = 'Paling Dicari';
-                    else if (tag === 'downloader') badge = 'Sering Dicari';
-
-                    listRows.push({
+                    let rowItem = {
                         header: "",
                         title: `💠 ${allTags[tag]}`,
                         description: `Buka daftar perintah ${allTags[tag]}`,
-                        id: `${_p}menu ${tag}`,
-                        highlight_label: badge // Ini kode ajaib untuk memunculkan Label Hijau
-                    });
+                        id: `${_p}menu ${tag}`
+                    };
+
+                    // Memisahkan penempatan menu sesuai label yang diinginkan
+                    if (tag === 'rpg' || tag === 'rpgG') {
+                        listSections[0].rows.push(rowItem);
+                    } else if (tag === 'downloader') {
+                        listSections[1].rows.push(rowItem);
+                    } else {
+                        listSections[2].rows.push(rowItem);
+                    }
                 }
             }
 
-            // Merakit Pesan Interaktif V2
             let msg = generateWAMessageFromContent(m.chat, {
                 viewOnceMessage: {
                     message: {
@@ -146,17 +186,17 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
                         interactiveMessage: {
                             body: { text: textData },
                             footer: { text: "© HARPS BOT MD" },
-                            header: { hasMediaAttachment: false },
+                            header: { 
+                                hasMediaAttachment: true,
+                                documentMessage: media.documentMessage 
+                            },
                             nativeFlowMessage: {
                                 buttons: [
                                     {
                                         name: "single_select",
                                         buttonParamsJson: JSON.stringify({
                                             title: "📋 PILIH MENU DISINI",
-                                            sections: [{
-                                                title: "Daftar Kategori Menu",
-                                                rows: listRows
-                                            }]
+                                            sections: listSections
                                         })
                                     },
                                     {
@@ -221,9 +261,6 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
         let replace = { '%': '%', p: _p, uptime, name, date, time, version }
         let textCategory = menuCategory.replace(new RegExp(`%(${Object.keys(replace).sort((a, b) => b.length - a.length).join`|`})`, 'g'), (_, name) => '' + replace[name])
 
-        // ==========================================
-        // STRUKTUR BUTTONS BER-LINK (NATIVE FLOW CTA_URL)
-        // ==========================================
         let msg = generateWAMessageFromContent(m.chat, {
             viewOnceMessage: {
                 message: {
@@ -234,7 +271,10 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
                     interactiveMessage: {
                         body: { text: textCategory },
                         footer: { text: "© HARPS BOT MD" },
-                        header: { hasMediaAttachment: false },
+                        header: { 
+                            hasMediaAttachment: true,
+                            documentMessage: media.documentMessage 
+                        },
                         nativeFlowMessage: {
                             buttons: [
                                 {
@@ -258,7 +298,6 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
             }
         }, { quoted: m })
 
-        // Mengirim pesan menggunakan relayMessage untuk Native Flow
         await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id })
 
     } catch (e) {
