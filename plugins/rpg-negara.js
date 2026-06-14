@@ -1,5 +1,7 @@
+const { generateWAMessageFromContent, prepareWAMessageMedia } = require('lily-baileys');
 const fs = require('fs');
 const path = require('path');
+const fetch = require('node-fetch');
 
 // ==========================================
 // FITUR NEGARA, BANK, BUMN, GUDANG NEGARA & KORUPSI RPG
@@ -52,13 +54,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         if (user.lastBankTax === undefined) user.lastBankTax = now; 
         if (!Array.isArray(user.perusahaan)) user.perusahaan = [];
 
-        // Inisialisasi Database Negara & Gudang B2B
-        if (!global.db.data.negara) {
-            global.db.data.negara = {};
-        }
+        // Inisialisasi Database Negara
+        if (!global.db.data.negara) global.db.data.negara = {};
         let negara = global.db.data.negara;
         
-        // Patching Struktur Data Negara
         if (!negara.bumn) negara.bumn = [];
         if (!negara.kandidat) negara.kandidat = {};
         if (negara.isPemilu === undefined) negara.isPemilu = false;
@@ -71,8 +70,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         if (!negara.voters) negara.voters = [];
         if (!negara.pln && negara.pln !== null) negara.pln = null;
         if (!negara.pdam && negara.pdam !== null) negara.pdam = null;
-
-        // Inisialisasi Sistem Gudang Negara & B2B Escrow (Rekber)
         if (!negara.gudangLevel) negara.gudangLevel = 1;
         if (!negara.gudang) negara.gudang = {};
         if (!negara.b2b) negara.b2b = {};
@@ -84,70 +81,87 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         // KONFIGURASI GAMBAR DOKUMEN VINZ MD
         // ==========================================
         let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
-        let docBuffer;
-        let thumbBuffer;
+        let docBuffer, thumbBuffer;
         try {
             docBuffer = fs.readFileSync(imgPath);
             thumbBuffer = fs.readFileSync(imgPath);
         } catch (e) {
-            docBuffer = { url: 'https://telegra.ph/file/0b32e0a0bb025d5173167.jpg' };
-            thumbBuffer = null;
+            let res = await fetch('https://telegra.ph/file/0b32e0a0bb025d5173167.jpg');
+            docBuffer = await res.buffer();
+            thumbBuffer = docBuffer;
         }
 
         // ==========================================
-        // FUNGSI MENU UTAMA (POSISI PETIR DIPERBAIKI)
+        // FUNGSI HELPER: KIRIM NATIVE FLOW V2 (ANTI-BUG WA)
         // ==========================================
-        async function sendInfoMenu() {
-            let txtMenu = `╭─〔 🏛️ 〕 *PEMERINTAHAN*
-│
-│ ⌁ *${usedPrefix}negara info*
-│    _(Status Kas & Kabinet)_
-│ ⌁ *${usedPrefix}negara infobumn*
-│    _(Kinerja BUMN)_
-│ ⌁ *${usedPrefix}negara investasiku*
-│    _(Portofolio Dividen)_
-│ ⌁ *${usedPrefix}negara leaderboard*
-│    _(Papan Korporasi)_
-│ ⌁ *${usedPrefix}bank*
-│    _(Layanan Perbankan)_
-│ ⌁ *${usedPrefix}negara bansos*
-│    _(Klaim Subsidi)_
-│ ⌁ *${usedPrefix}negara help*
-│    _(Panduan Lengkap)_
-╰──────────〔 🍃 〕`;
-
-            let buttons = [
-                { buttonId: `${usedPrefix}negara info`, buttonText: { displayText: '🏛️ Info Negara' }, type: 1 },
-                { buttonId: `${usedPrefix}negara bansos`, buttonText: { displayText: '🎁 Bansos' }, type: 1 },
-                { buttonId: `${usedPrefix}negara help`, buttonText: { displayText: '📋 Bantuan' }, type: 1 }
-            ];
-
-            await conn.sendMessage(m.chat, {
+        async function sendV2Message(teks, buttonArray) {
+            let media = await prepareWAMessageMedia({
                 document: docBuffer,
-                jpegThumbnail: thumbBuffer,
                 mimetype: 'image/jpeg',
                 fileName: 'Vinz MD.jpg',
-                caption: txtMenu,
-                footer: 'Sistem Pemerintahan RPG',
-                buttons: buttons,
-                headerType: 3
+                jpegThumbnail: thumbBuffer
+            }, { upload: conn.waUploadToServer });
+
+            let msg = generateWAMessageFromContent(m.chat, {
+                viewOnceMessage: {
+                    message: {
+                        messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                        interactiveMessage: {
+                            body: { text: teks },
+                            footer: { text: "🏛️ Sistem Pemerintahan RPG" },
+                            header: {
+                                hasMediaAttachment: true,
+                                documentMessage: media.documentMessage
+                            },
+                            nativeFlowMessage: {
+                                buttons: buttonArray
+                            }
+                        }
+                    }
+                }
             }, { quoted: m });
+            await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
         }
 
+        // ==========================================
+        // FUNGSI MENU UTAMA (LIST BUTTON V2)
+        // ==========================================
+        async function sendInfoMenu() {
+            let txtMenu = `╭─〔 🏛️ 〕 *PEMERINTAHAN*\n│\n│ ⌁ Silakan tekan tombol *Pilih*\n│ ⌁ *Menu* di bawah untuk melihat\n│ ⌁ daftar informasi negara.\n╰──────────〔 🍃 〕`;
+
+            // Judul-judul di bawah sengaja disingkat agar lolos dari limit 24 karakter WhatsApp
+            let listButton = [{
+                name: "single_select",
+                buttonParamsJson: JSON.stringify({
+                    title: "📋 Pilih Menu",
+                    sections: [{
+                        title: "Menu Pemerintahan", 
+                        highlight_label: "Lengkap",
+                        rows: [
+                            { title: "🏛️ Info Negara", description: "Status kas, presiden, & kabinet", id: `${usedPrefix}negara info` },
+                            { title: "🏢 Info BUMN", description: "Kinerja operasional PLN & PDAM", id: `${usedPrefix}negara infobumn` },
+                            { title: "📈 Investasiku", description: "Portofolio saham & estimasi dividen", id: `${usedPrefix}negara investasiku` },
+                            { title: "📊 Leaderboard", description: "Papan peringkat valuasi korporasi", id: `${usedPrefix}negara leaderboard` },
+                            { title: "🏦 Layanan Bank", description: "Informasi profil & tarif perbankan", id: `${usedPrefix}bank` },
+                            { title: "🎁 Klaim Bansos", description: "Ambil bantuan subsidi tunai harian", id: `${usedPrefix}negara bansos` },
+                            { title: "📋 Bantuan Lengkap", description: "Kumpulan semua perintah negara", id: `${usedPrefix}negara help` }
+                        ]
+                    }]
+                })
+            }];
+            await sendV2Message(txtMenu, listButton);
+        }
+
+        // FUNGSI: PENGIRIM INFO BIASA DENGAN TOMBOL QUICK REPLY "KEMBALI KE MENU"
         async function sendInfoMsg(text) {
-             let buttons = [
-                 { buttonId: `${usedPrefix}negara menu`, buttonText: { displayText: '🔙 Kembali ke Menu' }, type: 1 }
-             ];
-             await conn.sendMessage(m.chat, {
-                 document: docBuffer,
-                 jpegThumbnail: thumbBuffer,
-                 mimetype: 'image/jpeg',
-                 fileName: 'Vinz MD.jpg',
-                 caption: text,
-                 footer: '🏛️ Sistem Pemerintahan RPG',
-                 buttons: buttons,
-                 headerType: 3
-             }, { quoted: m });
+            let backButton = [{
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: "🔙 Kembali ke Menu",
+                    id: `${usedPrefix}negara menu`
+                })
+            }];
+            await sendV2Message(text, backButton);
         }
 
         // ==========================================
@@ -279,14 +293,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 │ ⌁ *${usedPrefix}tf money <jml> <@tag>* (Transfer)
 ╰──────────〔 🏦 〕`;
                 
-                return await conn.sendMessage(m.chat, {
-                    document: docBuffer,
-                    jpegThumbnail: thumbBuffer,
-                    mimetype: 'image/jpeg',
-                    fileName: 'Vinz MD.jpg',
-                    caption: capt,
-                    headerType: 3
-                }, { quoted: m });
+                return await sendInfoMsg(capt);
             }
 
             if (cmd === 'tf' || cmd === 'transfer') {
