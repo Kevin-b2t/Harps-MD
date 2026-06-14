@@ -4,8 +4,7 @@ let path = require('path')
 let fetch = require('node-fetch')
 let moment = require('moment-timezone')
 let levelling = require('../lib/levelling')
-const { generateWAMessageFromContent } = require('lily-baileys')
- // Tambahan untuk Native Flow
+const { generateWAMessageFromContent } = require('lily-baileys') // Tambahan untuk Native Flow
 
 let arrayMenu = [
   'all', 'ai', 'main', 'downloader', 'database', 'rpg',
@@ -72,7 +71,7 @@ const defaultMenu = {
     header: '┌  ◦ *%category*',
     body: '│  ◦ %cmd %islimit %isPremium',
     footer: '└  ',
-    after: `*Note:* Jika ingin kembali ke daftar utama silakan klik Kembali.`
+    after: `*Note:* Jika ingin kembali ke daftar utama silakan klik tombol Kembali.`
 }
 
 let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
@@ -119,31 +118,63 @@ let handler = async (m, { conn, usedPrefix: _p, args = [], command }) => {
             let replace = { '%': '%', p: _p, uptime, name, date, time, version }
             let textData = defaultMenu.before.replace(new RegExp(`%(${Object.keys(replace).sort((a, b) => b.length - a.length).join`|`})`, 'g'), (_, name) => '' + replace[name])
 
-            let sections = [{
-                title: "Daftar Kategori Menu",
-                rows: []
-            }];
+            let listRows = [];
 
+            // Membangun daftar menu dengan Badge/Label sesuai permintaan
             for (let tag of arrayMenu) {
-                if (tag && allTags[tag]) {
-                    sections[0].rows.push({
-                        title: allTags[tag],
-                        description: `Menampilkan daftar command ${allTags[tag]}`,
-                        rowId: `${_p}menu ${tag}` 
+                if (tag && tag !== '' && allTags[tag]) {
+                    // Logic pembuatan badge (Label Hijau)
+                    let badge = 'Recommend'; // Default untuk semua menu
+                    if (tag === 'rpg') badge = 'Paling Dicari';
+                    else if (tag === 'downloader') badge = 'Sering Dicari';
+
+                    listRows.push({
+                        header: "",
+                        title: `💠 ${allTags[tag]}`,
+                        description: `Buka daftar perintah ${allTags[tag]}`,
+                        id: `${_p}menu ${tag}`,
+                        highlight_label: badge // Ini kode ajaib untuk memunculkan Label Hijau
                     });
                 }
             }
 
-            await conn.sendList(
-                m.chat, 
-                "🤖 HARPS BOT MD", 
-                textData, 
-                "PILIH MENU DISINI ⎙", 
-                sections, 
-                m, 
-                { mentions: [m.sender] }
-            );
-            return
+            // Merakit Pesan Interaktif V2
+            let msg = generateWAMessageFromContent(m.chat, {
+                viewOnceMessage: {
+                    message: {
+                        messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                        interactiveMessage: {
+                            body: { text: textData },
+                            footer: { text: "© HARPS BOT MD" },
+                            header: { hasMediaAttachment: false },
+                            nativeFlowMessage: {
+                                buttons: [
+                                    {
+                                        name: "single_select",
+                                        buttonParamsJson: JSON.stringify({
+                                            title: "📋 PILIH MENU DISINI",
+                                            sections: [{
+                                                title: "Daftar Kategori Menu",
+                                                rows: listRows
+                                            }]
+                                        })
+                                    },
+                                    {
+                                        name: "cta_url",
+                                        buttonParamsJson: JSON.stringify({
+                                            display_text: "📄 Channel Kami",
+                                            url: "https://whatsapp.com/channel/0029Vaeovqk1noyyUalf9z16"
+                                        })
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }, { quoted: m });
+
+            await conn.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+            return;
         }
 
         // ==========================================
