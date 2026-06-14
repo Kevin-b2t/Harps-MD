@@ -97,35 +97,34 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         }
 
         // ==========================================
-        // FUNGSI MENU UTAMA & INFO (DENGAN TAMPILAN DOKUMEN)
+        // FUNGSI MENU UTAMA & INFO (DENGAN TAMPILAN DOKUMEN + LIST V2)
         // ==========================================
         async function sendInfoMenu() {
-            let txtMenu = `╭─〔 🏛️ 〕 *PEMERINTAHAN*
-│ ⌁
-│ Silakan pilih menu informasi 
-│ negara yang Anda butuhkan:
-│
-│ ◦ *${usedPrefix}negara info*
-│    _(Status Kas & Kabinet)_
-│ ◦ *${usedPrefix}negara infobumn*
-│    _(Kinerja BUMN)_
-│ ◦ *${usedPrefix}negara investasiku*
-│    _(Portofolio Dividen)_
-│ ◦ *${usedPrefix}negara leaderboard*
-│    _(Papan Korporasi)_
-│ ◦ *${usedPrefix}bank*
-│    _(Layanan Perbankan)_
-│ ◦ *${usedPrefix}negara bansos*
-│    _(Klaim Subsidi)_
-│ ◦ *${usedPrefix}negara help*
-│    _(Panduan Lengkap)_
-│ ⌁
-╰──────────〔 🍃 〕`;
+            let txtMenu = `╭─〔 🏛️ 〕 *PEMERINTAHAN*\n│ ⌁\n│ Silakan tekan tombol *Pilih Menu*\n│ di bawah untuk melihat daftar\n│ lengkap informasi negara.\n╰──────────〔 🍃 〕`;
 
+            // Membuat tombol tipe List / Native Flow Message untuk Baileys v2
             let buttons = [
-                { buttonId: `${usedPrefix}negara info`, buttonText: { displayText: '🏛️ Info Negara' }, type: 1 },
-                { buttonId: `${usedPrefix}negara bansos`, buttonText: { displayText: '🎁 Bansos' }, type: 1 },
-                { buttonId: `${usedPrefix}negara help`, buttonText: { displayText: '📋 Bantuan' }, type: 1 }
+                {
+                    name: "single_select",
+                    buttonParamsJson: JSON.stringify({
+                        title: "📋 Pilih Menu",
+                        sections: [
+                            {
+                                title: "📊 Informasi & Bantuan",
+                                highlight_label: "Terkini",
+                                rows: [
+                                    { header: "", title: "🏛️ Info Negara", description: "Status kas, presiden, & kabinet", id: `${usedPrefix}negara info` },
+                                    { header: "", title: "🏢 Info BUMN", description: "Kinerja operasional PLN & PDAM", id: `${usedPrefix}negara infobumn` },
+                                    { header: "", title: "📈 Investasiku", description: "Portofolio saham & estimasi dividen", id: `${usedPrefix}negara investasiku` },
+                                    { header: "", title: "📊 Leaderboard", description: "Papan peringkat valuasi korporasi", id: `${usedPrefix}negara leaderboard` },
+                                    { header: "", title: "🏦 Layanan Bank", description: "Informasi profil & tarif bank", id: `${usedPrefix}bank` },
+                                    { header: "", title: "🎁 Klaim Bansos", description: "Ambil bantuan subsidi harian", id: `${usedPrefix}negara bansos` },
+                                    { header: "", title: "📋 Panduan Negara", description: "Semua perintah kenegaraan", id: `${usedPrefix}negara help` }
+                                ]
+                            }
+                        ]
+                    })
+                }
             ];
 
             await conn.sendMessage(m.chat, {
@@ -140,6 +139,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             }, { quoted: m });
         }
 
+        // Fungsi ketika list diklik dan mengeluarkan output informasi
         async function sendInfoMsg(text) {
              let buttons = [
                  { buttonId: `${usedPrefix}negara menu`, buttonText: { displayText: '🔙 Kembali ke Menu' }, type: 1 }
