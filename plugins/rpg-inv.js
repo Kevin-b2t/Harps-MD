@@ -67,13 +67,13 @@ let handler = async (m, { conn, command, args, usedPrefix }) => {
     }
 
     // MEMAKSA MEMBACA FOTO DARI DIREKTORI UTAMA BOT
-    let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
+    let imgPath = path.join(process.cwd(), 'image', 'foto.jpg');
     let docBuffer;
     try {
         docBuffer = fs.readFileSync(imgPath);
     } catch (e) {
         // Jika file lokal gagal terbaca, bot akan memberikan peringatan dan menggunakan URL dummy agar sistem tidak error
-        console.log("⚠️ PERINGATAN: File 'media/foto.jpg' tidak ditemukan! Pastikan nama dan folder sudah benar.");
+        console.log("⚠️ PERINGATAN: File 'image/foto.jpg' tidak ditemukan! Pastikan nama dan folder sudah benar.");
         docBuffer = { url: 'https://telegra.ph/file/0b32e0a0bb025d5173167.jpg' };
     }
 

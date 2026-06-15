@@ -27,7 +27,7 @@ let handler = async (m, { conn }) => {
         let users = entries.sort((a, b) => b[1] - a[1]).slice(0, 10);
         let maxMessages = users[0] ? users[0][1] : 1; 
 
-        const templateImg = path.join(__dirname, '../media/template_leaderboard.png');
+        const templateImg = path.join(__dirname, '../image/template_leaderboard.png');
         if (!fs.existsSync(templateImg)) throw 'Template tidak ditemukan!';
 
         const background = await loadImage(templateImg);
@@ -45,52 +45,39 @@ let handler = async (m, { conn }) => {
             text: `[ ${totalMembers} MEMBERS SCANNED ]` 
         };
 
-        // ==================== 4 KOTAK STATISTIK (FULL INDIVIDU) ====================
-        // DI SINI TEMPAT LU NGATUR POSISI (X & Y) MASING-MASING ELEMEN DALAM KOTAK
+        // ==================== 4 KOTAK STATISTIK ====================
         const topStatsSlots = {
-            box1: { // ============ KOTAK 1: TOTAL MEMBER ============
-                // Posisi Angka
+            box1: { 
                 val:        { x: 90, y: 210, text: totalMembers.toString() },
-                showCircle: true, // Lingkaran dimatikan sesuai gambar lu
-                // Posisi Teks Persen & Lingkaran
+                showCircle: true, 
                 pct:        { x: 225, y: 235, text: `100%`, color: '#000000' },
                 circle:     { x: 225, y: 235, radius: 18, percentage: 100, color: '#3498DB' },
-                // Posisi BAR di dalam kotak 1
                 bar:        { x: 54,  y: 263, width: 186, height: 10, percentage: 100, color: '#3498DB' }
             },
-            box2: { // ============ KOTAK 2: ACTIVE MEMBER ============
-                // Posisi Angka
+            box2: { 
                 val:        { x: 315, y: 210, text: activeMembers.toString() },
                 showCircle: true,
-                // Posisi Teks Persen & Lingkaran
                 pct:        { x: 450, y: 235, text: `${Math.round((activeMembers / totalMembers) * 100)}%`, color: '#000000' },
                 circle:     { x: 450, y: 235, radius: 18, percentage: Math.round((activeMembers / totalMembers) * 100), color: '#2ECC71' },
-                // Posisi BAR di dalam kotak 2
                 bar:        { x: 280, y: 263, width: 186, height: 10, percentage: Math.round((activeMembers / totalMembers) * 100), color: '#2ECC71' }
             },
-            box3: { // ============ KOTAK 3: INACTIVE MEMBER ============
-                // Posisi Angka
+            box3: { 
                 val:        { x: 540, y: 210, text: inactiveMembers.toString() },
                 showCircle: true,
-                // Posisi Teks Persen & Lingkaran
                 pct:        { x: 675, y: 235, text: `${Math.round((inactiveMembers / totalMembers) * 100)}%`, color: '#000000' },
                 circle:     { x: 675, y: 235, radius: 18, percentage: Math.round((inactiveMembers / totalMembers) * 100), color: '#F1948A' },
-                // Posisi BAR di dalam kotak 3
                 bar:        { x: 505, y: 263, width: 186, height: 10, percentage: Math.round((inactiveMembers / totalMembers) * 100), color: '#F1948A' }
             },
-            box4: { // ============ KOTAK 4: TOTAL PESAN ============
-                // Posisi Angka
+            box4: { 
                 val:        { x: 775, y: 210, text: totalMessages.toLocaleString('en-US') },
                 showCircle: true,
-                // Posisi Teks Persen & Lingkaran
                 pct:        { x: 900, y: 235, text: `100%`, color: '#000000' },
                 circle:     { x: 900, y: 235, radius: 18, percentage: 100, color: '#F4D03F' },
-                // Posisi BAR di dalam kotak 4
                 bar:        { x: 732, y: 263, width: 186, height: 10, percentage: 100, color: '#F4D03F' }
             }
         };
 
-        // ==================== LEADERBOARD TOP 10 (SAMA SEKALI GAK DIUBAH) ====================
+        // ==================== LEADERBOARD TOP 10 ====================
         const countBaseX = canvas.width - 50;
         const maxBarWidth = 430;
 
@@ -115,13 +102,11 @@ let handler = async (m, { conn }) => {
 
         // ==================== RENDER 4 KOTAK STATISTIK ====================
         Object.values(topStatsSlots).forEach(box => {
-            // Render Angka Besar
             ctx.textAlign = 'left';
             ctx.fillStyle = '#000000';
             ctx.font = 'bold 36px Arial';
             ctx.fillText(box.val.text, box.val.x, box.val.y);
 
-            // Render Lingkaran & Persen (jika aktif)
             if (box.showCircle) {
                 ctx.beginPath();
                 ctx.arc(box.circle.x, box.circle.y, box.circle.radius, 0, 2 * Math.PI);
@@ -144,11 +129,9 @@ let handler = async (m, { conn }) => {
                 ctx.textBaseline = 'alphabetic'; 
             }
 
-            // Render Background Bar (Abu-abu)
             ctx.fillStyle = '#EAEAEA';
             ctx.fillRect(box.bar.x, box.bar.y, box.bar.width, box.bar.height);
             
-            // Render Bar Warna
             ctx.fillStyle = box.bar.color;
             ctx.fillRect(box.bar.x, box.bar.y, box.bar.width * (box.bar.percentage / 100), box.bar.height);
         });
@@ -157,7 +140,7 @@ let handler = async (m, { conn }) => {
         let captionText = '🏆 *LEADERBOARD TOTAL CHAT GRUP* 🏆\n\n';
         let mentionedJid = [];
 
-        // ==================== RENDER LEADERBOARD ====================
+        // ==================== RENDER LEADERBOARD & CAPTION ====================
         for (let i = 0; i < users.length; i++) {
             if (i >= leaderboardSlots.length) break; 
             
@@ -166,11 +149,14 @@ let handler = async (m, { conn }) => {
             const displayWa = noWa.length > 15 ? noWa.substring(0, 15) + '...' : noWa;
             const slot = leaderboardSlots[i]; 
 
-            // Masukin data buat nge-tag di caption
-            mentionedJid.push(jid);
-            let medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🔹';
-            captionText += `${medal} @${noWa} : ${count.toLocaleString('en-US')} pesan\n`;
+            // HANYA MENTION & MASUKIN KE CAPTION UNTUK TOP 5 SAJA
+            if (i < 5) {
+                mentionedJid.push(jid);
+                let medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🔹';
+                captionText += `${medal} @${noWa} : ${count.toLocaleString('en-US')} pesan\n`;
+            }
 
+            // Canvas Render (Tetap render top 10 di gambar)
             ctx.textAlign = 'left';
             ctx.fillStyle = '#000000';
             ctx.font = 'bold 24px Arial';

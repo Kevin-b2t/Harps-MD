@@ -80,7 +80,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         // ==========================================
         // KONFIGURASI GAMBAR DOKUMEN VINZ MD
         // ==========================================
-        let imgPath = path.join(process.cwd(), 'media', 'foto.jpg');
+        let imgPath = path.join(process.cwd(), 'image', 'foto.jpg');
         let docBuffer, thumbBuffer;
         try {
             docBuffer = fs.readFileSync(imgPath);
