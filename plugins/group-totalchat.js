@@ -11,7 +11,7 @@ let handler = async (m, { conn }) => {
     const entries = Object.entries(chatData);
     if (entries.length === 0) return m.reply('📭 Belum ada data chat untuk grup ini.');
 
-    m.reply('⏳ Finishing touch! Merapikan koordinat agar presisi 100%...');
+    m.reply('⏳ Sedang membuat leaderboard...');
 
     try {
         let groupMeta = await conn.groupMetadata(m.chat);
@@ -25,146 +25,190 @@ let handler = async (m, { conn }) => {
         }
 
         let users = entries.sort((a, b) => b[1] - a[1]).slice(0, 10);
-        let maxMessages = users[0][1]; 
+        let maxMessages = users[0] ? users[0][1] : 1; 
 
         const templateImg = path.join(__dirname, '../media/template_leaderboard.png');
-        if (!fs.existsSync(templateImg)) throw 'Gambar template_leaderboard.png tidak ditemukan!';
-        
+        if (!fs.existsSync(templateImg)) throw 'Template tidak ditemukan!';
+
         const background = await loadImage(templateImg);
         const canvas = createCanvas(background.width, background.height);
         const ctx = canvas.getContext('2d');
 
         ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-        // ==========================================
-        // 1. STATISTIK KANAN ATAS (MEMBERS SCANNED)
-        // ==========================================
-        ctx.fillStyle = '#3498DB';
-        ctx.font = 'bold 20px "Courier New", monospace'; 
-        ctx.textAlign = 'center'; 
-        // Digeser ke kanan biar pas di atas garis '---'
-        ctx.fillText(`${totalMembers}`, canvas.width - 225, 75); 
+        // ==================== HEADER MEMBER ====================
+        const HEADER = {
+            x: canvas.width - 180, 
+            y: 79,
+            font: 'bold 22px "Courier New", monospace', 
+            color: '#3498DB',
+            text: `[ ${totalMembers} MEMBERS SCANNED ]` 
+        };
 
-        // ==========================================
-        // 2. EMPAT KOTAK STATISTIK (DITURUNIN BIAR PAS DI TENGAH PUTIH)
-        // ==========================================
-        let activePct = totalMembers > 0 ? Math.round((activeMembers / totalMembers) * 100) : 0;
-        let inactivePct = totalMembers > 0 ? Math.round((inactiveMembers / totalMembers) * 100) : 0;
+        // ==================== 4 KOTAK STATISTIK (FULL INDIVIDU) ====================
+        // DI SINI TEMPAT LU NGATUR POSISI (X & Y) MASING-MASING ELEMEN DALAM KOTAK
+        const topStatsSlots = {
+            box1: { // ============ KOTAK 1: TOTAL MEMBER ============
+                // Posisi Angka
+                val:        { x: 90, y: 210, text: totalMembers.toString() },
+                showCircle: true, // Lingkaran dimatikan sesuai gambar lu
+                // Posisi Teks Persen & Lingkaran
+                pct:        { x: 225, y: 235, text: `100%`, color: '#000000' },
+                circle:     { x: 225, y: 235, radius: 18, percentage: 100, color: '#3498DB' },
+                // Posisi BAR di dalam kotak 1
+                bar:        { x: 54,  y: 263, width: 186, height: 10, percentage: 100, color: '#3498DB' }
+            },
+            box2: { // ============ KOTAK 2: ACTIVE MEMBER ============
+                // Posisi Angka
+                val:        { x: 315, y: 210, text: activeMembers.toString() },
+                showCircle: true,
+                // Posisi Teks Persen & Lingkaran
+                pct:        { x: 450, y: 235, text: `${Math.round((activeMembers / totalMembers) * 100)}%`, color: '#000000' },
+                circle:     { x: 450, y: 235, radius: 18, percentage: Math.round((activeMembers / totalMembers) * 100), color: '#2ECC71' },
+                // Posisi BAR di dalam kotak 2
+                bar:        { x: 280, y: 263, width: 186, height: 10, percentage: Math.round((activeMembers / totalMembers) * 100), color: '#2ECC71' }
+            },
+            box3: { // ============ KOTAK 3: INACTIVE MEMBER ============
+                // Posisi Angka
+                val:        { x: 540, y: 210, text: inactiveMembers.toString() },
+                showCircle: true,
+                // Posisi Teks Persen & Lingkaran
+                pct:        { x: 675, y: 235, text: `${Math.round((inactiveMembers / totalMembers) * 100)}%`, color: '#000000' },
+                circle:     { x: 675, y: 235, radius: 18, percentage: Math.round((inactiveMembers / totalMembers) * 100), color: '#F1948A' },
+                // Posisi BAR di dalam kotak 3
+                bar:        { x: 505, y: 263, width: 186, height: 10, percentage: Math.round((inactiveMembers / totalMembers) * 100), color: '#F1948A' }
+            },
+            box4: { // ============ KOTAK 4: TOTAL PESAN ============
+                // Posisi Angka
+                val:        { x: 775, y: 210, text: totalMessages.toLocaleString('en-US') },
+                showCircle: true,
+                // Posisi Teks Persen & Lingkaran
+                pct:        { x: 900, y: 235, text: `100%`, color: '#000000' },
+                circle:     { x: 900, y: 235, radius: 18, percentage: 100, color: '#F4D03F' },
+                // Posisi BAR di dalam kotak 4
+                bar:        { x: 732, y: 263, width: 186, height: 10, percentage: 100, color: '#F4D03F' }
+            }
+        };
 
-        const boxes = [
-            { centerX: 155, val: totalMembers.toString(), pct: 100, color: '#3498DB' },         // M
-            { centerX: 385, val: activeMembers.toString(), pct: activePct, color: '#2ECC71' },  // C
-            { centerX: 620, val: inactiveMembers.toString(), pct: inactivePct, color: '#F1948A'}, // X
-            { centerX: 855, val: totalMessages.toLocaleString('en-US'), pct: 100, color: '#F4D03F' } // P
+        // ==================== LEADERBOARD TOP 10 (SAMA SEKALI GAK DIUBAH) ====================
+        const countBaseX = canvas.width - 50;
+        const maxBarWidth = 430;
+
+        const leaderboardSlots = [
+            { name: { x: 80, y: 410 }, sub: { x: 80, y: 428 }, count: { x: countBaseX, y: 415 }, bar: { x: 393, y: 392, height: 14, color: '#F4D03F' } },
+            { name: { x: 80, y: 472.5 }, sub: { x: 80, y: 490.5 }, count: { x: countBaseX, y: 475.5 }, bar: { x: 393, y: 456.5, height: 14, color: '#5DADE2' } },
+            { name: { x: 80, y: 535 }, sub: { x: 80, y: 552 }, count: { x: countBaseX, y: 536 }, bar: { x: 393, y: 521, height: 14, color: '#F1948A' } },
+            { name: { x: 80, y: 594.5 }, sub: { x: 80, y: 614.5 }, count: { x: countBaseX, y: 596.5 }, bar: { x: 393, y: 585.5, height: 14, color: '#48C9B0' } },
+            { name: { x: 80, y: 662 }, sub: { x: 80, y: 680 }, count: { x: countBaseX, y: 657 }, bar: { x: 395, y: 651, height: 14, color: '#AF7AC5' } },
+            { name: { x: 80, y: 721.5 }, sub: { x: 80, y: 741.5 }, count: { x: countBaseX, y: 717.5 }, bar: { x: 393, y: 715.5, height: 14, color: '#EB984E' } },
+            { name: { x: 80, y: 789 }, sub: { x: 80, y: 809 }, count: { x: countBaseX, y: 778 }, bar: { x: 393, y: 780, height: 14, color: '#5DADE2' } },
+            { name: { x: 80, y: 852.5 }, sub: { x: 80, y: 869.5 }, count: { x: countBaseX, y: 838.5 }, bar: { x: 393, y: 844.5, height: 14, color: '#F4D03F' } },
+            { name: { x: 80, y: 914 }, sub: { x: 80, y: 931 }, count: { x: countBaseX, y: 899 }, bar: { x: 393, y: 909, height: 14, color: '#F1948A' } },
+            { name: { x: 80, y: 976.5 }, sub: { x: 80, y: 995.5 }, count: { x: countBaseX, y: 959.5 }, bar: { x: 393, y: 973.5, height: 14, color: '#48C9B0' } }
         ];
 
-        // 🟢 PERUBAHAN UTAMA: Y-axis diturunin jauh ke bawah biar gak nabrak header kotak
-        const boxY = 220;           // (Tadinya 175) Posisi teks angka diturunin 45px
-        const circleRadius = 18;    
-        const barWidth = 160;       
+        // ==================== RENDER HEADER ====================
+        ctx.fillStyle = HEADER.color;
+        ctx.font = HEADER.font;
+        ctx.textAlign = 'center';
+        ctx.fillText(HEADER.text, HEADER.x, HEADER.y);
 
-        for (let i = 0; i < boxes.length; i++) {
-            let box = boxes[i];
-
-            // A. Angka Utama
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#000000';
-            ctx.font = 'bold 36px Arial'; 
-            ctx.fillText(box.val, box.centerX - 15, boxY); // Digeser sikit ke kiri dari lingkaran
-
-            // B. Lingkaran Dasar & Warna
-            let cX = box.centerX + 65; 
-            let cY = boxY - 10; // Posisi lingkaran ikutan turun
-
-            ctx.beginPath();
-            ctx.arc(cX, cY, circleRadius, 0, 2 * Math.PI);
-            ctx.strokeStyle = '#EAEAEA';
-            ctx.lineWidth = 4;
-            ctx.stroke();
-
-            ctx.beginPath();
-            let startAngle = Math.PI * 1.5; 
-            let endAngle = startAngle + (box.pct / 100) * (2 * Math.PI);
-            ctx.arc(cX, cY, circleRadius, startAngle, endAngle);
-            ctx.strokeStyle = box.color;
-            ctx.stroke();
-
-            // C. Teks Persen dalam Lingkaran
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#000000';
-            ctx.font = 'bold 10px Arial';
-            ctx.fillText(`${box.pct}%`, cX, cY);
-            ctx.textBaseline = 'alphabetic';
-
-            // D. Garis Progress Bawah (Diturunin ke dasar kotak putih)
-            let bX = box.centerX - 85; 
-            let bY = boxY + 35; // Turun ke area bawah kotak
-            
-            ctx.fillStyle = '#EAEAEA'; 
-            ctx.fillRect(bX, bY, barWidth, 6);
-            ctx.fillStyle = box.color; 
-            ctx.fillRect(bX, bY, barWidth * (box.pct / 100), 6);
-        }
-
-        // ==========================================
-        // 3. DAFTAR LEADERBOARD BAWAH
-        // ==========================================
-        // 🟢 PERUBAHAN UTAMA: Posisi Teks & Balok diturunin dan digeser biar gak nabrak
-        const startY = 415;       // (Tadinya 405) Diturunin dikit biar persis sejajar avatar
-        const gapY = 66.5;        // Spasi turun
-        const nameX = 135;        // (Tadinya 110) Digeser ke kanan biar gak numbur kotak rank (01)
-        const barStartX = 405;    // Posisi mulai balok (sudah pas)
-        const countX = canvas.width - 50; 
-        const maxBarWidth = 430;  // (Tadinya 400) Dipanjangin mentok menutupi abu-abu
-
-        const barColors = ['#F4D03F', '#5DADE2', '#F1948A', '#48C9B0', '#AF7AC5', '#EB984E', '#5DADE2', '#F4D03F', '#F1948A', '#48C9B0'];
-
-        for (let i = 0; i < users.length; i++) {
-            const [jid, count] = users[i];
-            const currentY = startY + (i * gapY);
-            let noWa = jid.split('@')[0];
-            
-            // Teks Nomor WA 
+        // ==================== RENDER 4 KOTAK STATISTIK ====================
+        Object.values(topStatsSlots).forEach(box => {
+            // Render Angka Besar
             ctx.textAlign = 'left';
             ctx.fillStyle = '#000000';
-            ctx.font = 'bold 22px Arial'; 
-            let displayWa = noWa.length > 15 ? noWa.substring(0, 15) + '...' : noWa;
-            ctx.fillText(displayWa, nameX, currentY);
+            ctx.font = 'bold 36px Arial';
+            ctx.fillText(box.val.text, box.val.x, box.val.y);
 
-            // Sub-teks @nomor
-            ctx.fillStyle = '#7F8C8D';
-            ctx.font = '12px Arial';
-            ctx.fillText(`@${displayWa}`, nameX, currentY + 16);
+            // Render Lingkaran & Persen (jika aktif)
+            if (box.showCircle) {
+                ctx.beginPath();
+                ctx.arc(box.circle.x, box.circle.y, box.circle.radius, 0, 2 * Math.PI);
+                ctx.strokeStyle = '#EAEAEA';
+                ctx.lineWidth = 4;
+                ctx.stroke();
 
-            // Balok Warna
-            let barWidth = (count / maxMessages) * maxBarWidth; 
-            ctx.fillStyle = barColors[i] || '#BDC3C7';
-            // 🟢 PERUBAHAN UTAMA: Diturunin dari `currentY - 12` jadi `currentY - 6` biar nutupin bar abu-abu. Tingginya jadi 14.
-            ctx.fillRect(barStartX, currentY - 6, barWidth, 14); 
+                ctx.beginPath();
+                const startAngle = Math.PI * 1.5;
+                const endAngle = startAngle + (box.circle.percentage / 100) * (2 * Math.PI);
+                ctx.arc(box.circle.x, box.circle.y, box.circle.radius, startAngle, endAngle);
+                ctx.strokeStyle = box.circle.color;
+                ctx.stroke();
 
-            // Angka Jumlah Pesan
-            ctx.textAlign = 'right'; 
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = box.pct.color;
+                ctx.font = 'bold 10px Arial';
+                ctx.fillText(box.pct.text, box.pct.x, box.pct.y);
+                ctx.textBaseline = 'alphabetic'; 
+            }
+
+            // Render Background Bar (Abu-abu)
+            ctx.fillStyle = '#EAEAEA';
+            ctx.fillRect(box.bar.x, box.bar.y, box.bar.width, box.bar.height);
+            
+            // Render Bar Warna
+            ctx.fillStyle = box.bar.color;
+            ctx.fillRect(box.bar.x, box.bar.y, box.bar.width * (box.bar.percentage / 100), box.bar.height);
+        });
+
+        // ==================== PREPARE CAPTION MENTIONS ====================
+        let captionText = '🏆 *LEADERBOARD TOTAL CHAT GRUP* 🏆\n\n';
+        let mentionedJid = [];
+
+        // ==================== RENDER LEADERBOARD ====================
+        for (let i = 0; i < users.length; i++) {
+            if (i >= leaderboardSlots.length) break; 
+            
+            const [jid, count] = users[i];
+            let noWa = jid.split('@')[0];
+            const displayWa = noWa.length > 15 ? noWa.substring(0, 15) + '...' : noWa;
+            const slot = leaderboardSlots[i]; 
+
+            // Masukin data buat nge-tag di caption
+            mentionedJid.push(jid);
+            let medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🔹';
+            captionText += `${medal} @${noWa} : ${count.toLocaleString('en-US')} pesan\n`;
+
+            ctx.textAlign = 'left';
             ctx.fillStyle = '#000000';
             ctx.font = 'bold 24px Arial';
-            ctx.fillText(count.toLocaleString('en-US'), countX, currentY);
+            ctx.fillText(displayWa, slot.name.x, slot.name.y);
+
+            ctx.fillStyle = '#7F8C8D';
+            ctx.font = '12px Arial';
+            ctx.fillText(`@${displayWa}`, slot.sub.x, slot.sub.y);
+
+            ctx.fillStyle = '#EAEAEA';
+            ctx.fillRect(slot.bar.x, slot.bar.y, maxBarWidth, slot.bar.height);
+
+            const barWidth = (count / maxMessages) * maxBarWidth;
+            ctx.fillStyle = slot.bar.color;
+            ctx.fillRect(slot.bar.x, slot.bar.y, barWidth, slot.bar.height);
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(count.toLocaleString('en-US'), slot.count.x, slot.count.y);
         }
 
         const imageBuffer = canvas.toBuffer('image/png');
         await conn.sendMessage(m.chat, { 
             image: imageBuffer, 
-            caption: '🏆 *LEADERBOARD TOTAL CHAT GRUP* 🏆\n\nTaraaa! Udah presisi tanpa cacat bos!' 
+            caption: captionText.trim(),
+            mentions: mentionedJid
         }, { quoted: m });
 
     } catch (e) {
-        console.error(e);
-        m.reply(`❌ Gagal membuat gambar:\n\n${e.message}`);
+        console.error('[totalchat/top]', e);
+        m.reply(`❌ Error: ${e.message}`);
     }
 };
 
-handler.help = ['topgambar'];
+handler.help = ['totalchat', 'top'];
 handler.tags = ['group'];
-handler.command = /^(topgambar)$/i;
+handler.command = /^(totalchat|topchat)$/i;
 handler.group = true;
 
 module.exports = handler;
