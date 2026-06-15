@@ -15,7 +15,7 @@ let handler = async (m, { text, conn }) => {
 ⑅ yang mention bakal dikasih tau kok
 ⑅ sabar ya, nanti juga balik~`
 
-    let mediaGambar = fs.readFileSync('./media/afk.jpg')
+    let mediaGambar = fs.readFileSync('./image/afk.jpg')
 
     await conn.sendMessage(m.chat, { 
         document: mediaGambar,

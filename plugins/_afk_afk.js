@@ -24,9 +24,9 @@ handler.before = async function (m) {
     
     let mediaGambar
     try {
-      mediaGambar = fs.readFileSync('./media/afk.jpg')
+      mediaGambar = fs.readFileSync('./image/afk.jpg')
     } catch (e) {
-      console.error('[AFK] Gambar ./media/afk.jpg tidak ditemukan')
+      console.error('[AFK] Gambar ./image/afk.jpg tidak ditemukan')
       return true
     }
 
@@ -66,9 +66,9 @@ handler.before = async function (m) {
     
     let mediaGambar
     try {
-      mediaGambar = fs.readFileSync('./media/afk.jpg')
+      mediaGambar = fs.readFileSync('.image/afk.jpg')
     } catch (e) {
-      console.error('[AFK] Gambar ./media/afk.jpg tidak ditemukan')
+      console.error('[AFK] Gambar ./image/afk.jpg tidak ditemukan')
       continue
     }
 
